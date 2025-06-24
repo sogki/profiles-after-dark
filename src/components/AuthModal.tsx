@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Mail, Lock, User, Loader } from 'lucide-react';
+import { X, Mail, Lock, User, Loader, Info } from 'lucide-react';
 import { useAuth } from '../context/authContext';
 
 interface AuthModalProps {
@@ -74,6 +74,15 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           {error && (
             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
               {error}
+            </div>
+          )}
+
+          {isSignUp && (
+            <div className="flex items-start space-x-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm text-blue-300">
+              <Info className="h-5 w-5 mt-0.5" />
+              <p>
+                Please be patient — it may take up to <strong>5 minutes</strong> to receive your confirmation email.
+              </p>
             </div>
           )}
 

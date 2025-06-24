@@ -18,6 +18,7 @@ export default function Footer() {
               The ultimate destination for stunning profile pictures and banners. 
               Join many users who've discovered their perfect aesthetic.
             </p>
+            <p className='text-slate-300'>Please note - This website is in heavy development. Please be patient.</p>
             {/* <div className="flex space-x-4">
               <a href="#" className="text-slate-400 hover:text-purple-400 transition-colors">
                 <Github className="h-5 w-5" />

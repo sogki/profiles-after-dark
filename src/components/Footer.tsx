@@ -32,10 +32,11 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-4">Quick Links</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Browse Profiles</a></li>
+              {/* <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Browse Profiles</a></li>
               <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Upload</a></li>
               <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Popular</a></li>
-              <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Latest</a></li>
+              <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Latest</a></li> */}
+              <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Coming Soon</a></li> 
             </ul>
           </div>
 
@@ -43,10 +44,11 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-4">Support</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Help Center</a></li>
+              {/* <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Help Center</a></li>
               <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Guidelines</a></li>
               <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Contact Us</a></li>
-              <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Report Content</a></li>
+              <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Report Content</a></li> */}
+              <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Latest</a></li> 
             </ul>
           </div>
         </div>

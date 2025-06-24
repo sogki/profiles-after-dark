@@ -16,7 +16,7 @@ export default function Footer() {
             </div>
             <p className="text-slate-400 mb-6 max-w-md">
               The ultimate destination for stunning profile pictures and banners. 
-              Join thousands of users who've discovered their perfect aesthetic.
+              Join many users who've discovered their perfect aesthetic.
             </p>
             {/* <div className="flex space-x-4">
               <a href="#" className="text-slate-400 hover:text-purple-400 transition-colors">

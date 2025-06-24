@@ -6,6 +6,7 @@ import Gallery from './components/Gallery';
 import UploadModal from './components/UploadModal';
 import AuthModal from './components/AuthModal';
 import Footer from './components/Footer';
+import DiscordCTA from './components/DiscordCTA';
 import { useAuth } from './context/authContext'; // Updated path
 
 function App() {
@@ -64,6 +65,8 @@ function App() {
         selectedType={selectedType}
         viewMode={viewMode}
       />
+
+      <DiscordCTA/>
 
       <Footer />
 

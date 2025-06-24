@@ -23,7 +23,7 @@ export default function Hero() {
                   className="h-15"
                 />
               </div>
-              <Stars className="absolute -top-1 -left-7 h-20 w-20 text-yellow-500" />
+              
             </div>
           </div>
 

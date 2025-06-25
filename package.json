@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@headlessui/react": "^1.7.15",
     "@supabase/supabase-js": "^2.39.0",
     "framer-motion": "^12.19.1",
     "lucide-react": "^0.344.0",

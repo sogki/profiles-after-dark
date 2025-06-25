@@ -279,7 +279,7 @@ export default function Header({
             >
               Members
             </Link>
-            <Link
+            {/* <Link
               to="/"
               className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium ${
                 isActive("/members")
@@ -288,7 +288,7 @@ export default function Header({
               }`}
             >
               Profiles
-            </Link>
+            </Link> */}
             {/* Add more sub-nav links here */}
           </div>
         </div>

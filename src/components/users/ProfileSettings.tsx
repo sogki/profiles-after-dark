@@ -4,6 +4,8 @@ import { Loader, Save, Edit2, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 
+import Footer from "../Footer";
+
 type Profile = {
   username: string;
   display_name: string;
@@ -34,33 +36,38 @@ export default function ProfileSettings() {
     const fetchProfile = async () => {
       setLoading(true);
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      if (userError || !user) {
-        toast.error("Failed to fetch user");
+        if (userError || !user) {
+          toast.error("Failed to fetch user");
+          setLoading(false);
+          return;
+        }
+
+        setUser(user);
+        setEmail(user.email ?? "");
+
+        const { data, error } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+
+        if (data) {
+          setProfile(data);
+        } else if (error) {
+          toast.error("Failed to fetch profile");
+        }
+      } catch (error) {
+        console.error("Fetch profile error:", error);
+        toast.error("Unexpected error fetching profile");
+      } finally {
         setLoading(false);
-        return;
       }
-
-      setUser(user);
-      setEmail(user.email ?? "");
-
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-
-      if (data) {
-        setProfile(data);
-      } else if (error) {
-        toast.error("Failed to fetch profile");
-      }
-
-      setLoading(false);
     };
 
     fetchProfile();
@@ -71,53 +78,78 @@ export default function ProfileSettings() {
     field: "avatar_url" | "banner_url"
   ) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) {
+      toast.error("No file selected.");
+      return;
+    }
+    if (!user) {
+      toast.error("User not authenticated.");
+      return;
+    }
+
+    console.log("handleUpload triggered:", { file, field, user });
 
     setLoading(true);
 
-    // Choose correct bucket
     const bucket = field === "avatar_url" ? "avatars" : "banners";
-    const filePath = `${user.id}/${field}-${Date.now()}`;
+    const filePath = `${user.id}/${field}-${Date.now()}-${file.name}`;
 
     try {
-      // Upload to correct bucket
+      console.log(
+        `[Upload] User: ${user.id}, Bucket: ${bucket}, Path: ${filePath}, File: ${file.name}`
+      );
+
       const { error: uploadError } = await supabase.storage
         .from(bucket)
         .upload(filePath, file, { upsert: true });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("[Upload] uploadError:", uploadError);
+        throw uploadError;
+      }
 
-      // Get public URL from the same bucket
       const { data: urlData, error: urlError } = supabase.storage
         .from(bucket)
         .getPublicUrl(filePath);
 
-      if (urlError || !urlData?.publicUrl)
-        throw urlError || new Error("Failed to get public URL");
+      if (urlError) {
+        console.error("[Upload] urlError:", urlError);
+        throw urlError;
+      }
+      if (!urlData?.publicUrl) {
+        throw new Error("No public URL returned from storage.");
+      }
 
       const publicUrl = urlData.publicUrl;
+      console.log(`[Upload] Public URL: ${publicUrl}`);
 
-      // Update local state
       setProfile((prev) => ({ ...prev, [field]: publicUrl }));
 
-      // Persist to DB
       const { error: updateError } = await supabase
         .from("user_profiles")
         .update({ [field]: publicUrl })
         .eq("user_id", user.id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("[Upload] updateError:", updateError);
+        throw updateError;
+      }
 
       toast.success(
         `${field === "avatar_url" ? "Avatar" : "Banner"} uploaded successfully.`
       );
-    } catch (error) {
-      console.error(error);
-      toast.error(
-        `Failed to upload ${field === "avatar_url" ? "avatar" : "banner"}.`
-      );
+    } catch (error: any) {
+      console.error("[Upload] caught error:", error);
+      if (error?.message) {
+        toast.error(`Upload error: ${error.message}`);
+      } else if (typeof error === "string") {
+        toast.error(`Upload error: ${error}`);
+      } else {
+        toast.error("Failed to upload file due to unknown error.");
+      }
     } finally {
       setLoading(false);
+      e.target.value = "";
     }
   };
 
@@ -159,7 +191,8 @@ export default function ProfileSettings() {
         if (error) throw error;
         toast.success("Password updated successfully.");
       }
-    } catch {
+    } catch (error) {
+      console.error("Update email/password error:", error);
       toast.error("Failed to update email or password.");
     } finally {
       setLoading(false);

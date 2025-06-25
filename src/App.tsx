@@ -10,6 +10,8 @@ import AuthModal from "./components/AuthModal";
 import Footer from "./components/Footer";
 import DiscordCTA from "./components/DiscordCTA";
 import ProfileSettings from "./components/users/ProfileSettings";
+import UsersList from './components/users/UserList';
+import UserProfile from './components/users/UserProfile';
 
 import { useAuth } from "./context/authContext";
 import { Toaster } from "react-hot-toast";
@@ -88,6 +90,10 @@ function App() {
           />
 
           <Route path="/profile-settings" element={<ProfileSettings />} />
+
+          {/* New routes for users */}
+          <Route path="/users" element={<UsersList />} />
+          <Route path="/user/:username" element={<UserProfile />} />
         </Routes>
 
         <UploadModal

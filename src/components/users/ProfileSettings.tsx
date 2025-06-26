@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 import { Loader, Save, Edit2, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { User as SupabaseUser } from "@supabase/supabase-js";
+import { useNavigate } from 'react-router-dom';
 
 import Footer from "../Footer";
 
@@ -31,6 +32,10 @@ export default function ProfileSettings() {
 
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  // inside your ProfileSettings component
+const [isDeleting, setIsDeleting] = useState(false);
+const navigate = useNavigate(); // optional if you want to redirect
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -200,6 +205,45 @@ export default function ProfileSettings() {
       setConfirmPassword("");
     }
   };
+
+  const handleDeleteAccount = async () => {
+  if (!confirm('Are you absolutely sure you want to delete your account? This action cannot be undone.')) {
+    return;
+  }
+
+  setIsDeleting(true);
+
+  try {
+    const user = supabase.auth.user();
+    if (!user) {
+      alert('No user logged in.');
+      setIsDeleting(false);
+      return;
+    }
+
+    // Call your SQL function to delete user account
+    const { error } = await supabase.rpc('delete_user_account', { uid: user.id });
+
+    if (error) {
+      alert(`Failed to delete account: ${error.message}`);
+      setIsDeleting(false);
+      return;
+    }
+
+    alert('Your account has been deleted successfully.');
+
+    // Option 1: Sign out user
+    await supabase.auth.signOut();
+
+    // Option 2: Redirect user somewhere (uncomment if you want)
+    // navigate('/goodbye'); 
+
+  } catch (error) {
+    alert('An unexpected error occurred.');
+  } finally {
+    setIsDeleting(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-4 md:p-6 max-w-7xl mx-auto grid grid-cols-12 gap-6 md:gap-8">
@@ -418,6 +462,22 @@ export default function ProfileSettings() {
               <Save className="h-5 w-5" />
               <span>Update Email/Password</span>
             </button>
+
+             {/* ←–– ADD DANGER ZONE HERE ––→ */}
+            <hr className="my-8 border-slate-700" />
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-red-500">Danger Zone</h2>
+              <p className="text-slate-400">
+                Deleting your account is irreversible. All your profile data will be permanently removed.
+              </p>
+              <button
+                onClick={handleDeleteAccount}
+                className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded font-semibold transition-transform duration-200 hover:scale-105 text-white"
+                disabled={loading}
+              >
+                Delete Account
+              </button>
+            </div>
           </section>
         )}
       </main>

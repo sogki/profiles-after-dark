@@ -13,6 +13,11 @@ import ProfileSettings from "./components/users/ProfileSettings";
 import UsersList from './components/users/UserList';
 import UserProfile from './components/users/UserProfile';
 
+import PfpGallery from "./components/gallery/PfpGallery";
+import BannersGallery from "./components/gallery/BannersGallery";
+import EmotesGallery from "./components/gallery/EmotesGallery";
+import EmojiCombosGallery from "./components/gallery/EmojiCombosGallery";
+
 import { useAuth } from "./context/authContext";
 import { Toaster } from "react-hot-toast";
 
@@ -91,9 +96,15 @@ function App() {
 
           <Route path="/profile-settings" element={<ProfileSettings />} />
 
-          {/* New routes for users */}
+          {/* User routes */}
           <Route path="/users" element={<UsersList />} />
           <Route path="/user/:username" element={<UserProfile />} />
+
+          {/* Gallery routes */}
+          <Route path="/gallery/pfps" element={<PfpGallery />} />
+          <Route path="/gallery/banners" element={<BannersGallery />} />
+          <Route path="/gallery/emotes" element={<EmotesGallery />} />
+          <Route path="/gallery/emoji-combos" element={<EmojiCombosGallery />} />
         </Routes>
 
         <UploadModal

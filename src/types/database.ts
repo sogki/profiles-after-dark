@@ -47,6 +47,7 @@ export interface Database {
           updated_at?: string | null
         }
       }
+
       downloads: {
         Row: {
           id: string
@@ -67,6 +68,7 @@ export interface Database {
           downloaded_at?: string | null
         }
       }
+
       favorites: {
         Row: {
           id: string
@@ -87,6 +89,7 @@ export interface Database {
           created_at?: string | null
         }
       }
+
       user_profiles: {
         Row: {
           id: string
@@ -119,16 +122,47 @@ export interface Database {
           updated_at?: string | null
         }
       }
+
+      emoji_combos: {
+        Row: {
+          id: string
+          user_id: string
+          content: string
+          tags: string[] | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          content: string
+          tags?: string[] | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          content?: string
+          tags?: string[] | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+      }
     }
+
     Views: {
       [_ in never]: never
     }
+
     Functions: {
       [_ in never]: never
     }
+
     Enums: {
       [_ in never]: never
     }
+
     CompositeTypes: {
       [_ in never]: never
     }

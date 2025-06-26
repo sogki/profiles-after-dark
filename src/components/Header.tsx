@@ -38,13 +38,10 @@ export default function Header({
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       if (currentScrollY < 100) {
-        // Always show near top
         setShowSubNav(true);
       } else if (currentScrollY > lastScrollY.current) {
-        // Scrolling down - hide subnav
         setShowSubNav(false);
       } else {
-        // Scrolling up - show subnav
         setShowSubNav(true);
       }
       lastScrollY.current = currentScrollY;
@@ -61,7 +58,6 @@ export default function Header({
     setIsMobileMenuOpen(false);
   };
 
-  // Utility for active link styling
   const isActive = (path: string) => location.pathname === path;
 
   return (
@@ -145,16 +141,29 @@ export default function Header({
                         z-50
                       "
                     >
-                      {/* Username */}
                       <div className="px-4 py-2 border-b border-slate-700 text-sm text-slate-300 select-none">
                         Signed in as <br />
-                        <span className="font-semibold">{user.email || "User"}</span>
+                        <span className="font-semibold">
+                          {user.email || "User"}
+                        </span>
                       </div>
+
+                      {/* My Profile link inside dropdown */}
+                      {userProfile?.username && (
+                        <Link
+                          to={`/user/${userProfile.username}`}
+                          className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          <UserIcon className="w-4 h-4 mr-2" />
+                          View Profile
+                        </Link>
+                      )}
 
                       <Link
                         to="/profile-settings"
                         className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
-                        onClick={(e) => e.currentTarget.blur()}
+                        onClick={() => setIsMobileMenuOpen(false)}
                       >
                         <Settings className="w-4 h-4 mr-2" />
                         Profile Settings
@@ -225,6 +234,19 @@ export default function Header({
                       <Upload className="h-4 w-4" />
                       <span>Upload</span>
                     </button>
+
+                    {/* My Profile link inside mobile dropdown */}
+                    {userProfile?.username && (
+                      <Link
+                        to={`/user/${userProfile.username}`}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="flex items-center justify-center space-x-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
+                      >
+                        <UserIcon className="h-4 w-4" />
+                        <span>My Profile</span>
+                      </Link>
+                    )}
+
                     <Link
                       to="/profile-settings"
                       onClick={() => setIsMobileMenuOpen(false)}
@@ -262,10 +284,10 @@ export default function Header({
       {/* Sub-navigation */}
       <nav
         className={`
-          bg-slate-800/90 backdrop-blur-sm border-b border-slate-700/50 sticky top-16 z-40
-          transition-transform duration-300 ease-in-out
-          ${showSubNav ? "translate-y-0" : "-translate-y-full"}
-        `}
+    bg-slate-800/90 backdrop-blur-sm border-b border-slate-700/50 sticky top-16 z-40
+    transition-transform duration-300 ease-in-out
+    ${showSubNav ? "translate-y-0" : "-translate-y-full"}
+  `}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-6 overflow-x-auto no-scrollbar py-2">
@@ -279,17 +301,46 @@ export default function Header({
             >
               Members
             </Link>
-            {/* <Link
-              to="/"
+            <Link
+              to="/gallery/pfps"
               className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium ${
-                isActive("/members")
+                isActive("/gallery/pfps")
                   ? "bg-purple-600 text-white"
                   : "text-slate-300 hover:bg-slate-700 hover:text-white"
               }`}
             >
-              Profiles
-            </Link> */}
-            {/* Add more sub-nav links here */}
+              PFPs
+            </Link>
+            <Link
+              to="/gallery/banners"
+              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium ${
+                isActive("/gallery/banners")
+                  ? "bg-purple-600 text-white"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              }`}
+            >
+              Banners
+            </Link>
+            <Link
+              to="/gallery/emoji-combos"
+              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium ${
+                isActive("/gallery/emoji-combos")
+                  ? "bg-purple-600 text-white"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              }`}
+            >
+              Emoji Combos
+            </Link>
+            <Link
+              to="/gallery/emotes"
+              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium ${
+                isActive("/gallery/emotes")
+                  ? "bg-purple-600 text-white"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              }`}
+            >
+              Emotes
+            </Link>
           </div>
         </div>
       </nav>

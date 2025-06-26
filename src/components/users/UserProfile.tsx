@@ -71,18 +71,31 @@ export default function UserProfile() {
         setUploads(uploadsData || []);
       }
 
-      // Fetch favorites for this user (assuming you have a favorites table)
+      // Fetch favorites for this user with joined profiles uploads
+      // Make sure favorites.profile_id is FK to profiles.id in your DB
       const { data: favoritesData, error: favoritesError } = await supabase
         .from('favorites')
-        .select('profiles(id, title, image_url, tags, category, type, created_at)')
-        .eq('user_id', profileData.user_id);
+        .select(`
+          id,
+          upload:profiles (
+            id,
+            title,
+            image_url,
+            tags,
+            category,
+            type,
+            created_at
+          )
+        `)
+        .eq('user_id', profileData.user_id)
+        .order('created_at', { ascending: false });
 
       if (favoritesError) {
         console.error('Error fetching favorites:', favoritesError);
         setFavorites([]);
       } else {
-        // Flatten favorites data
-        const favs = favoritesData?.map((fav: any) => fav.profiles) || [];
+        // Map favorites to their upload objects (flatten)
+        const favs = favoritesData?.map((fav: any) => fav.upload) || [];
         setFavorites(favs);
       }
 

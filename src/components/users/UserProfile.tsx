@@ -6,13 +6,23 @@ import Footer from '../Footer';
 import { Dialog, Transition } from '@headlessui/react';
 import { X } from 'lucide-react';
 
+interface Badge {
+  name: string;
+  image_url: string;
+}
+
+interface UserBadge {
+  badges: Badge;
+}
+
 interface UserProfile {
-  id: string; // row ID
-  user_id: string; // Supabase Auth ID
+  id: string;
+  user_id: string;
   username: string;
   avatar_url: string | null;
   banner_url: string | null;
   bio: string | null;
+  user_badges?: UserBadge[];
 }
 
 interface UserUpload {
@@ -32,7 +42,6 @@ export default function UserProfile() {
   const [favorites, setFavorites] = useState<UserUpload[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal state
   const [previewItem, setPreviewItem] = useState<UserUpload | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -42,10 +51,22 @@ export default function UserProfile() {
     const fetchProfileAndUploads = async () => {
       setLoading(true);
 
-      // Fetch user profile by username
       const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
-        .select('id, user_id, username, avatar_url, banner_url, bio')
+        .select(`
+          id,
+          user_id,
+          username,
+          avatar_url,
+          banner_url,
+          bio,
+          user_badges (
+            badges (
+              name,
+              image_url
+            )
+          )
+        `)
         .eq('username', username)
         .single();
 
@@ -57,7 +78,6 @@ export default function UserProfile() {
 
       setProfile(profileData);
 
-      // Fetch uploads using user_id (auth ID)
       const { data: uploadsData, error: uploadsError } = await supabase
         .from('profiles')
         .select('id, title, image_url, tags, category, type, created_at')
@@ -71,8 +91,6 @@ export default function UserProfile() {
         setUploads(uploadsData || []);
       }
 
-      // Fetch favorites for this user with joined profiles uploads
-      // Make sure favorites.profile_id is FK to profiles.id in your DB
       const { data: favoritesData, error: favoritesError } = await supabase
         .from('favorites')
         .select(`
@@ -94,7 +112,6 @@ export default function UserProfile() {
         console.error('Error fetching favorites:', favoritesError);
         setFavorites([]);
       } else {
-        // Map favorites to their upload objects (flatten)
         const favs = favoritesData?.map((fav: any) => fav.upload) || [];
         setFavorites(favs);
       }
@@ -150,15 +167,25 @@ export default function UserProfile() {
           />
         </div>
 
-        {/* Username & Bio */}
+        {/* Username, Badges & Bio */}
         <div className="pt-20 mb-8">
-          <h1 className="text-3xl font-bold text-white">{profile.username}</h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-3xl font-bold text-white">{profile.username}</h1>
+            {profile.user_badges?.map(({ badges }) => (
+              <img
+                key={badges.name}
+                src={badges.image_url}
+                alt={badges.name}
+                title={badges.name}
+                className="w-8 h-8 object-contain rounded-md mt-3"
+              />
+            ))}
+          </div>
           <p className="mt-2 text-slate-300">{profile.bio || 'No bio provided.'}</p>
         </div>
 
-        {/* Uploads and Favorites side by side */}
+        {/* Uploads and Favorites */}
         <div className="flex gap-6">
-          {/* Uploads - more to the left */}
           <section className="flex-1 max-w-[48%]">
             <h2 className="text-2xl font-semibold mb-4 text-white">Uploads</h2>
             {uploads.length === 0 ? (
@@ -185,10 +212,8 @@ export default function UserProfile() {
             )}
           </section>
 
-          {/* Separator line */}
           <div className="w-px bg-slate-600 my-2 ml-6"></div>
 
-          {/* Favorites - pushed more to the right */}
           <section className="flex-1 max-w-[35%] ml-auto">
             <h2 className="text-2xl font-semibold mb-4 text-white">Favorites</h2>
             {favorites.length === 0 ? (
@@ -219,7 +244,6 @@ export default function UserProfile() {
 
       <Footer />
 
-      {/* Preview Modal */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog as="div" className="fixed inset-0 z-50 overflow-y-auto" onClose={closePreview}>
           <div className="min-h-screen px-4 text-center bg-black bg-opacity-70">
@@ -236,7 +260,6 @@ export default function UserProfile() {
                 <button
                   onClick={closePreview}
                   className="absolute top-4 right-4 text-white hover:text-purple-400"
-                  aria-label="Close preview modal"
                 >
                   <X className="h-6 w-6" />
                 </button>
@@ -270,11 +293,10 @@ export default function UserProfile() {
 
                     <button
                       onClick={() => {
-                        // Download logic
                         const link = document.createElement('a');
                         link.href = previewItem.image_url;
-                        const extension = previewItem.image_url.split('.').pop()?.split(/[#?]/)[0] || 'png';
-                        const filename = `${previewItem.title.replace(/\s+/g, '_').toLowerCase()}.${extension}`;
+                        const ext = previewItem.image_url.split('.').pop()?.split(/[#?]/)[0] || 'png';
+                        const filename = `${previewItem.title.replace(/\s+/g, '_').toLowerCase()}.${ext}`;
                         link.download = filename;
                         document.body.appendChild(link);
                         link.click();

@@ -214,14 +214,6 @@ export default function Header({
                   />
                 </div>
 
-                <Link
-                  to="/users"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="px-4 py-2 text-white rounded-lg hover:bg-slate-700 transition-colors text-center font-medium"
-                >
-                  Users
-                </Link>
-
                 {user ? (
                   <div className="flex flex-col space-y-2">
                     <button

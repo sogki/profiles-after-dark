@@ -9,6 +9,8 @@ import {
   User as UserIcon,
   LogOut,
   Settings,
+  ShieldCheck,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "../context/authContext";
 
@@ -30,7 +32,6 @@ export default function Header({
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Subnav visibility based on scroll
   const [showSubNav, setShowSubNav] = useState(true);
   const lastScrollY = useRef(0);
 
@@ -48,7 +49,6 @@ export default function Header({
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -60,13 +60,27 @@ export default function Header({
 
   const isActive = (path: string) => location.pathname === path;
 
+  const [notifications, setNotifications] = useState([
+    { id: 1, message: "Welcome to Profiles After Dark!", read: false },
+    { id: 2, message: "Your upload was approved.", read: false },
+    { id: 3, message: "New member joined the community.", read: true },
+  ]);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const markAsRead = (id: number) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+  };
+
   return (
     <>
-      {/* Main header */}
       <header className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
             <Link
               to="/"
               className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
@@ -87,9 +101,7 @@ export default function Header({
               </div>
             </Link>
 
-            {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-6">
-              {/* Search input */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input
@@ -111,12 +123,8 @@ export default function Header({
                     <span>Upload</span>
                   </button>
 
-                  {/* Profile dropdown container */}
                   <div className="relative group">
-                    <button
-                      className="w-8 h-8 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-purple-400"
-                      title=""
-                    >
+                    <button className="w-8 h-8 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-purple-400">
                       {userProfile?.avatar_url ? (
                         <img
                           src={userProfile.avatar_url}
@@ -130,7 +138,6 @@ export default function Header({
                       )}
                     </button>
 
-                    {/* Dropdown menu */}
                     <div
                       className="
                         absolute right-0 mt-2 w-56 bg-slate-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5
@@ -148,7 +155,17 @@ export default function Header({
                         </span>
                       </div>
 
-                      {/* My Profile link inside dropdown */}
+                      {userProfile?.role === "staff" && (
+                        <Link
+                          to="/moderation"
+                          className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          <ShieldCheck className="w-4 h-4 mr-2" />
+                          Moderation Panel
+                        </Link>
+                      )}
+
                       {userProfile?.username && (
                         <Link
                           to={`/user/${userProfile.username}`}
@@ -189,20 +206,21 @@ export default function Header({
               )}
             </div>
 
-            {/* Mobile menu button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="md:hidden text-white hover:text-purple-400 transition-colors"
             >
-              {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {isMobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
             </button>
           </div>
 
-          {/* Mobile Navigation */}
           {isMobileMenuOpen && (
             <div className="md:hidden py-4 border-t border-slate-700/50">
               <div className="flex flex-col space-y-4">
-                {/* Mobile Search */}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
@@ -227,7 +245,17 @@ export default function Header({
                       <span>Upload</span>
                     </button>
 
-                    {/* My Profile link inside mobile dropdown */}
+                    {userProfile?.role === "staff" && (
+                      <Link
+                        to="/moderation"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="flex items-center justify-center space-x-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
+                      >
+                        <ShieldCheck className="h-4 w-4" />
+                        <span>Moderation Panel</span>
+                      </Link>
+                    )}
+
                     {userProfile?.username && (
                       <Link
                         to={`/user/${userProfile.username}`}
@@ -273,13 +301,12 @@ export default function Header({
         </div>
       </header>
 
-      {/* Sub-navigation */}
       <nav
         className={`
-    bg-slate-800/90 backdrop-blur-sm border-b border-slate-700/50 sticky top-16 z-40
-    transition-transform duration-300 ease-in-out
-    ${showSubNav ? "translate-y-0" : "-translate-y-full"}
-  `}
+          bg-slate-800/90 backdrop-blur-sm border-b border-slate-700/50 sticky top-16 z-40
+          transition-transform duration-300 ease-in-out
+          ${showSubNav ? "translate-y-0" : "-translate-y-full"}
+        `}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-6 overflow-x-auto no-scrollbar py-2">

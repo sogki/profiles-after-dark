@@ -6,7 +6,8 @@ interface UserProfile {
   avatar_url: string | null;
   banner_url: string | null;
   display_name: string | null;
-  // Add more fields as needed
+  username: string | null;
+  role: string | null; // Added for access control (e.g. 'staff')
 }
 
 interface AuthContextProps {
@@ -37,7 +38,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchUserProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from("user_profiles")
-      .select("avatar_url, banner_url, display_name, username")
+      .select("avatar_url, banner_url, display_name, username, role")
       .eq("user_id", userId)
       .single();
 

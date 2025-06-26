@@ -18,6 +18,9 @@ import BannersGallery from "./components/gallery/BannersGallery";
 import EmotesGallery from "./components/gallery/EmotesGallery";
 import EmojiCombosGallery from "./components/gallery/EmojiCombosGallery";
 
+import ModerationPanel from "./components/users/moderation/ModerationPanel";
+import ModerationLogs from "./components/users/moderation/ModerationLogs"; 
+
 import { useAuth } from "./context/authContext";
 import { Toaster } from "react-hot-toast";
 
@@ -99,6 +102,10 @@ function App() {
           {/* User routes */}
           <Route path="/users" element={<UsersList />} />
           <Route path="/user/:username" element={<UserProfile />} />
+
+          {/* Moderation route */}
+          <Route path="/moderation" element={<ModerationPanel />} />
+          <Route path="/moderation/logs" element={<ModerationLogs />} />
 
           {/* Gallery routes */}
           <Route path="/gallery/pfps" element={<PfpGallery />} />

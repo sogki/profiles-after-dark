@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../types/database';
-export { useData as useProfiles };
+
+export { useProfiles };
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type EmojiCombo = Database['public']['Tables']['emoji_combos']['Row'];
 
-export function useData(typeFilter?: string, userFilter?: string) {
+function useProfiles(typeFilter?: string, userFilter?: string) {
   // Profiles state
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
@@ -17,11 +18,17 @@ export function useData(typeFilter?: string, userFilter?: string) {
   const [emojiLoading, setEmojiLoading] = useState(true);
   const [emojiError, setEmojiError] = useState<string | null>(null);
 
-  // Fetch profiles (optional filter by type)
-  const fetchProfiles = async () => {
-    try {
-      setProfilesLoading(true);
+  // Utility: deduplicate profiles by id
+  const deduplicateProfiles = (items: Profile[]) => {
+    const map = new Map<string, Profile>();
+    items.forEach(item => map.set(item.id, item));
+    return Array.from(map.values());
+  };
 
+  // Fetch profiles (memoized)
+  const fetchProfiles = useCallback(async () => {
+    setProfilesLoading(true);
+    try {
       let query = supabase
         .from('profiles')
         .select('*')
@@ -32,52 +39,72 @@ export function useData(typeFilter?: string, userFilter?: string) {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
-      setProfiles(data || []);
+
+      setProfiles(deduplicateProfiles(data || []));
       setProfilesError(null);
     } catch (err) {
       setProfilesError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setProfilesLoading(false);
     }
-  };
+  }, [typeFilter]);
 
-  // Upload profile
-  const uploadProfile = async (profileData: {
-    title: string;
-    category: Profile['category'];
-    type: Profile['type'];
-    image_url?: string | null;
-    tags: string[];
-    user_id: string;
-    text_data?: string | null;
-  }) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert([profileData])
-        .select()
-        .single();
+  // Upload profile + moderation log insertion
+  const uploadProfile = useCallback(
+    async (profileData: {
+      title: string;
+      category: Profile['category'];
+      type: Profile['type'];
+      image_url?: string | null;
+      tags: string[];
+      user_id: string;
+      text_data?: string | null;
+    }) => {
+      try {
+        // Insert profile first
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .insert([profileData])
+          .select()
+          .single();
 
-      if (error) throw error;
+        if (profileError) throw profileError;
 
-      if (!typeFilter || profileData.type === typeFilter) {
-        setProfiles(prev => [data, ...prev]);
+        // Insert moderation log entry
+        const { error: modError } = await supabase.from('moderation_logs').insert([
+          {
+            moderator_id: profileData.user_id,
+            action: `upload ${profileData.type}`,
+            target_user_id: profileData.user_id,
+            target_profile_id: profile.id,
+            description: `Uploaded ${profileData.type} titled "${profileData.title}"`,
+          },
+        ]);
+        if (modError) throw modError;
+
+        // Add new profile to state if it matches filter
+        if (!typeFilter || profileData.type === typeFilter) {
+          setProfiles(prev => {
+            // Avoid duplicate insertion
+            if (prev.some(p => p.id === profile.id)) return prev;
+            return [profile, ...prev];
+          });
+        }
+
+        return { data: profile, error: null };
+      } catch (err) {
+        const error = err instanceof Error ? err.message : 'Upload failed';
+        return { data: null, error };
       }
+    },
+    [typeFilter]
+  );
 
-      return { data, error: null };
-    } catch (err) {
-      const error = err instanceof Error ? err.message : 'Upload failed';
-      return { data: null, error };
-    }
-  };
-
-  // Fetch emoji combos (optional filter by user_id)
-  const fetchEmojiCombos = async () => {
+  // Fetch emoji combos (memoized)
+  const fetchEmojiCombos = useCallback(async () => {
+    setEmojiLoading(true);
     try {
-      setEmojiLoading(true);
-
       let query = supabase
         .from('emoji_combos')
         .select('*')
@@ -88,8 +115,8 @@ export function useData(typeFilter?: string, userFilter?: string) {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
+
       setEmojiCombos(data || []);
       setEmojiError(null);
     } catch (err) {
@@ -97,46 +124,51 @@ export function useData(typeFilter?: string, userFilter?: string) {
     } finally {
       setEmojiLoading(false);
     }
-  };
+  }, [userFilter]);
 
   // Upload emoji combo
-  const uploadEmojiCombo = async (comboData: {
-    name: string;
-    combo_text: string;
-    description?: string | null;
-    tags: string[];
-    user_id: string;
-  }) => {
-    try {
-      const { data, error } = await supabase
-        .from('emoji_combos')
-        .insert([comboData])
-        .select()
-        .single();
+  const uploadEmojiCombo = useCallback(
+    async (comboData: {
+      name: string;
+      combo_text: string;
+      description?: string | null;
+      tags: string[];
+      user_id: string;
+    }) => {
+      try {
+        const { data, error } = await supabase
+          .from('emoji_combos')
+          .insert([comboData])
+          .select()
+          .single();
 
-      if (error) throw error;
+        if (error) throw error;
 
-      if (!userFilter || comboData.user_id === userFilter) {
-        setEmojiCombos(prev => [data, ...prev]);
+        if (!userFilter || comboData.user_id === userFilter) {
+          setEmojiCombos(prev => {
+            if (prev.some(c => c.id === data.id)) return prev;
+            return [data, ...prev];
+          });
+        }
+
+        return { data, error: null };
+      } catch (err) {
+        const error = err instanceof Error ? err.message : 'Upload failed';
+        return { data: null, error };
       }
-
-      return { data, error: null };
-    } catch (err) {
-      const error = err instanceof Error ? err.message : 'Upload failed';
-      return { data: null, error };
-    }
-  };
+    },
+    [userFilter]
+  );
 
   // Download profile (increment count)
-  const downloadProfile = async (profileId: string, userId?: string) => {
+  const downloadProfile = useCallback(async (profileId: string, userId?: string) => {
     try {
-      const { error } = await supabase
-        .from('downloads')
-        .insert([{
+      const { error } = await supabase.from('downloads').insert([
+        {
           profile_id: profileId,
           user_id: userId || null,
-        }]);
-
+        },
+      ]);
       if (error) throw error;
 
       setProfiles(prev =>
@@ -149,10 +181,10 @@ export function useData(typeFilter?: string, userFilter?: string) {
     } catch (err) {
       console.error('Error recording download:', err);
     }
-  };
+  }, []);
 
   // Toggle favorite (add/remove)
-  const toggleFavorite = async (profileId: string, userId: string) => {
+  const toggleFavorite = useCallback(async (profileId: string, userId: string) => {
     try {
       const { data: existing } = await supabase
         .from('favorites')
@@ -167,14 +199,12 @@ export function useData(typeFilter?: string, userFilter?: string) {
           .delete()
           .eq('profile_id', profileId)
           .eq('user_id', userId);
-
         if (error) throw error;
         return false;
       } else {
         const { error } = await supabase
           .from('favorites')
           .insert([{ profile_id: profileId, user_id: userId }]);
-
         if (error) throw error;
         return true;
       }
@@ -182,42 +212,37 @@ export function useData(typeFilter?: string, userFilter?: string) {
       console.error('Error toggling favorite:', err);
       return null;
     }
-  };
+  }, []);
 
-  // FIXED uploadImage: handle upload + getPublicUrl correctly
-  const uploadImage = async (file: File, path: string) => {
+  // Upload image helper
+  const uploadImage = useCallback(async (file: File, path: string) => {
     try {
-      // Upload file
       const { data, error } = await supabase.storage
         .from('profile-images')
         .upload(path, file, { upsert: true });
-
       if (error) throw error;
 
-      // Get public URL (note getPublicUrl returns { data, error })
       const { data: urlData, error: urlError } = supabase.storage
         .from('profile-images')
         .getPublicUrl(path);
-
       if (urlError) throw urlError;
 
       return { url: urlData.publicUrl, error: null };
     } catch (err) {
       return { url: null, error: err instanceof Error ? err.message : 'Upload failed' };
     }
-  };
+  }, []);
 
-  // Fetch data when filters change
+  // Effects: fetch on filter changes
   useEffect(() => {
     fetchProfiles();
-  }, [typeFilter]);
+  }, [fetchProfiles]);
 
   useEffect(() => {
     fetchEmojiCombos();
-  }, [userFilter]);
+  }, [fetchEmojiCombos]);
 
   return {
-    // profiles
     profiles,
     profilesLoading,
     profilesError,
@@ -227,7 +252,6 @@ export function useData(typeFilter?: string, userFilter?: string) {
     toggleFavorite,
     uploadImage,
 
-    // emoji combos
     emojiCombos,
     emojiLoading,
     emojiError,
@@ -235,3 +259,4 @@ export function useData(typeFilter?: string, userFilter?: string) {
     uploadEmojiCombo,
   };
 }
+

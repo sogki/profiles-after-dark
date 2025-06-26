@@ -3,7 +3,7 @@ import { supabase } from "../../lib/supabase";
 import { Loader, Save, Edit2, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { User as SupabaseUser } from "@supabase/supabase-js";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
 
 import Footer from "../Footer";
 
@@ -13,6 +13,13 @@ type Profile = {
   bio: string;
   avatar_url: string;
   banner_url: string;
+};
+
+type Notification = {
+  id: string;
+  message: string;
+  created_at: string;
+  read: boolean;
 };
 
 export default function ProfileSettings() {
@@ -28,14 +35,17 @@ export default function ProfileSettings() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [activeTab, setActiveTab] = useState<"account" | "security">("account");
+  const [activeTab, setActiveTab] = useState<"account" | "security" | "notifications">("account");
 
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
-  // inside your ProfileSettings component
-const [isDeleting, setIsDeleting] = useState(false);
-const navigate = useNavigate(); // optional if you want to redirect
+  // Notifications state & loading
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
+  const [isDeleting, setIsDeleting] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -78,6 +88,34 @@ const navigate = useNavigate(); // optional if you want to redirect
     fetchProfile();
   }, []);
 
+  useEffect(() => {
+    if (activeTab === "notifications" && user) {
+      const fetchNotifications = async () => {
+        setLoadingNotifications(true);
+        try {
+          const { data, error } = await supabase
+            .from("notifications")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false });
+
+          if (error) {
+            toast.error("Failed to fetch notifications");
+          } else if (data) {
+            setNotifications(data);
+          }
+        } catch (error) {
+          console.error("Fetch notifications error:", error);
+          toast.error("Unexpected error fetching notifications");
+        } finally {
+          setLoadingNotifications(false);
+        }
+      };
+
+      fetchNotifications();
+    }
+  }, [activeTab, user]);
+
   const handleUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     field: "avatar_url" | "banner_url"
@@ -92,41 +130,26 @@ const navigate = useNavigate(); // optional if you want to redirect
       return;
     }
 
-    console.log("handleUpload triggered:", { file, field, user });
-
     setLoading(true);
 
     const bucket = field === "avatar_url" ? "avatars" : "banners";
     const filePath = `${user.id}/${field}-${Date.now()}-${file.name}`;
 
     try {
-      console.log(
-        `[Upload] User: ${user.id}, Bucket: ${bucket}, Path: ${filePath}, File: ${file.name}`
-      );
-
       const { error: uploadError } = await supabase.storage
         .from(bucket)
         .upload(filePath, file, { upsert: true });
 
-      if (uploadError) {
-        console.error("[Upload] uploadError:", uploadError);
-        throw uploadError;
-      }
+      if (uploadError) throw uploadError;
 
       const { data: urlData, error: urlError } = supabase.storage
         .from(bucket)
         .getPublicUrl(filePath);
 
-      if (urlError) {
-        console.error("[Upload] urlError:", urlError);
-        throw urlError;
-      }
-      if (!urlData?.publicUrl) {
-        throw new Error("No public URL returned from storage.");
-      }
+      if (urlError) throw urlError;
+      if (!urlData?.publicUrl) throw new Error("No public URL returned.");
 
       const publicUrl = urlData.publicUrl;
-      console.log(`[Upload] Public URL: ${publicUrl}`);
 
       setProfile((prev) => ({ ...prev, [field]: publicUrl }));
 
@@ -135,23 +158,12 @@ const navigate = useNavigate(); // optional if you want to redirect
         .update({ [field]: publicUrl })
         .eq("user_id", user.id);
 
-      if (updateError) {
-        console.error("[Upload] updateError:", updateError);
-        throw updateError;
-      }
+      if (updateError) throw updateError;
 
-      toast.success(
-        `${field === "avatar_url" ? "Avatar" : "Banner"} uploaded successfully.`
-      );
+      toast.success(`${field === "avatar_url" ? "Avatar" : "Banner"} uploaded successfully.`);
     } catch (error: any) {
-      console.error("[Upload] caught error:", error);
-      if (error?.message) {
-        toast.error(`Upload error: ${error.message}`);
-      } else if (typeof error === "string") {
-        toast.error(`Upload error: ${error}`);
-      } else {
-        toast.error("Failed to upload file due to unknown error.");
-      }
+      if (error?.message) toast.error(`Upload error: ${error.message}`);
+      else toast.error("Failed to upload file.");
     } finally {
       setLoading(false);
       e.target.value = "";
@@ -197,7 +209,6 @@ const navigate = useNavigate(); // optional if you want to redirect
         toast.success("Password updated successfully.");
       }
     } catch (error) {
-      console.error("Update email/password error:", error);
       toast.error("Failed to update email or password.");
     } finally {
       setLoading(false);
@@ -207,58 +218,48 @@ const navigate = useNavigate(); // optional if you want to redirect
   };
 
   const handleDeleteAccount = async () => {
-  if (!confirm('Are you absolutely sure you want to delete your account? This action cannot be undone.')) {
-    return;
-  }
-
-  setIsDeleting(true);
-
-  try {
-    const user = supabase.auth.user();
-    if (!user) {
-      alert('No user logged in.');
-      setIsDeleting(false);
+    if (!confirm("Are you absolutely sure you want to delete your account? This action cannot be undone.")) {
       return;
     }
 
-    // Call your SQL function to delete user account
-    const { error } = await supabase.rpc('delete_user_account', { uid: user.id });
+    setIsDeleting(true);
 
-    if (error) {
-      alert(`Failed to delete account: ${error.message}`);
+    try {
+      const currentUser = supabase.auth.user();
+      if (!currentUser) {
+        alert("No user logged in.");
+        setIsDeleting(false);
+        return;
+      }
+
+      const { error } = await supabase.rpc("delete_user_account", { uid: currentUser.id });
+
+      if (error) {
+        alert(`Failed to delete account: ${error.message}`);
+        setIsDeleting(false);
+        return;
+      }
+
+      alert("Your account has been deleted successfully.");
+      await supabase.auth.signOut();
+      // navigate('/goodbye');
+    } catch {
+      alert("An unexpected error occurred.");
+    } finally {
       setIsDeleting(false);
-      return;
     }
-
-    alert('Your account has been deleted successfully.');
-
-    // Option 1: Sign out user
-    await supabase.auth.signOut();
-
-    // Option 2: Redirect user somewhere (uncomment if you want)
-    // navigate('/goodbye'); 
-
-  } catch (error) {
-    alert('An unexpected error occurred.');
-  } finally {
-    setIsDeleting(false);
-  }
-};
+  };
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-4 md:p-6 max-w-7xl mx-auto grid grid-cols-12 gap-6 md:gap-8">
       {/* Sidebar */}
       <aside className="col-span-12 md:col-span-3 bg-slate-800 rounded-lg p-6 space-y-6 self-start">
-        <h2 className="text-xl font-semibold border-b border-slate-700 pb-2">
-          Settings Menu
-        </h2>
+        <h2 className="text-xl font-semibold border-b border-slate-700 pb-2">Settings Menu</h2>
         <nav className="flex flex-col space-y-3 text-slate-300">
           <button
             onClick={() => setActiveTab("account")}
             className={`text-left transition ${
-              activeTab === "account"
-                ? "text-white font-semibold"
-                : "hover:text-white"
+              activeTab === "account" ? "text-white font-semibold" : "hover:text-white"
             }`}
           >
             Account
@@ -266,12 +267,18 @@ const navigate = useNavigate(); // optional if you want to redirect
           <button
             onClick={() => setActiveTab("security")}
             className={`text-left transition ${
-              activeTab === "security"
-                ? "text-white font-semibold"
-                : "hover:text-white"
+              activeTab === "security" ? "text-white font-semibold" : "hover:text-white"
             }`}
           >
             Security
+          </button>
+          <button
+            onClick={() => setActiveTab("notifications")}
+            className={`text-left transition ${
+              activeTab === "notifications" ? "text-white font-semibold" : "hover:text-white"
+            }`}
+          >
+            Notifications
           </button>
         </nav>
       </aside>
@@ -288,9 +295,8 @@ const navigate = useNavigate(); // optional if you want to redirect
           <>
             <h1 className="text-3xl font-bold mb-6">Account Settings</h1>
 
-            {/* Banner + Avatar container */}
+            {/* Banner + Avatar */}
             <div className="relative mb-20 rounded-lg">
-              {/* Banner */}
               <div
                 className="relative h-40 md:h-48 bg-slate-700 rounded-lg cursor-pointer group overflow-hidden"
                 onClick={() => bannerInputRef.current?.click()}
@@ -308,7 +314,6 @@ const navigate = useNavigate(); // optional if you want to redirect
                   </div>
                 )}
 
-                {/* Banner overlay edit icon */}
                 <div className="absolute inset-0 bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 rounded-lg">
                   <Edit2 className="text-white h-8 w-8" />
                 </div>
@@ -322,26 +327,25 @@ const navigate = useNavigate(); // optional if you want to redirect
                 />
               </div>
 
-              {/* Avatar */}
               <div
                 onClick={() => avatarInputRef.current?.click()}
                 title="Click to change avatar"
                 className="
-      absolute
-      left-6 md:left-10
-      bottom-[-48px] md:bottom-[-56px]
-      w-24 h-24 md:w-28 md:h-28
-      rounded-full
-      border-4 border-slate-900
-      bg-slate-700
-      cursor-pointer
-      group
-      overflow-hidden
-      shadow-lg
-      flex items-center justify-center
-      transition-transform duration-300 hover:scale-105
-      z-30
-    "
+                  absolute
+                  left-6 md:left-10
+                  bottom-[-48px] md:bottom-[-56px]
+                  w-24 h-24 md:w-28 md:h-28
+                  rounded-full
+                  border-4 border-slate-900
+                  bg-slate-700
+                  cursor-pointer
+                  group
+                  overflow-hidden
+                  shadow-lg
+                  flex items-center justify-center
+                  transition-transform duration-300 hover:scale-105
+                  z-30
+                "
               >
                 {profile.avatar_url ? (
                   <img
@@ -367,15 +371,13 @@ const navigate = useNavigate(); // optional if you want to redirect
               </div>
             </div>
 
-            {/* Profile Form */}
+            {/* Profile form */}
             <div className="space-y-6 pt-12">
               <div>
                 <label className="block mb-1 font-semibold">Username</label>
                 <input
                   value={profile.username}
-                  onChange={(e) =>
-                    setProfile({ ...profile, username: e.target.value })
-                  }
+                  onChange={(e) => setProfile({ ...profile, username: e.target.value })}
                   className="w-full bg-slate-700 p-3 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
@@ -384,9 +386,7 @@ const navigate = useNavigate(); // optional if you want to redirect
                 <label className="block mb-1 font-semibold">Display Name</label>
                 <input
                   value={profile.display_name}
-                  onChange={(e) =>
-                    setProfile({ ...profile, display_name: e.target.value })
-                  }
+                  onChange={(e) => setProfile({ ...profile, display_name: e.target.value })}
                   className="w-full bg-slate-700 p-3 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
@@ -394,19 +394,17 @@ const navigate = useNavigate(); // optional if you want to redirect
               <div>
                 <label className="block mb-1 font-semibold">Bio</label>
                 <textarea
+                  rows={3}
                   value={profile.bio}
-                  onChange={(e) =>
-                    setProfile({ ...profile, bio: e.target.value })
-                  }
+                  onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
                   className="w-full bg-slate-700 p-3 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  rows={4}
                 />
               </div>
 
               <button
                 onClick={handleSave}
-                className="flex items-center justify-center space-x-3 bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded font-semibold transition-transform duration-200 hover:scale-105"
                 disabled={loading}
+                className="flex items-center justify-center space-x-3 bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded font-semibold transition-transform duration-200 hover:scale-105"
               >
                 <Save className="h-5 w-5" />
                 <span>Save Profile</span>
@@ -420,13 +418,13 @@ const navigate = useNavigate(); // optional if you want to redirect
             <h1 className="text-3xl font-bold mb-6">Security Settings</h1>
 
             <div>
-              <label className="block mb-1 font-semibold">New Email</label>
+              <label className="block mb-1 font-semibold">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-slate-700 p-3 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="you@example.com"
+                placeholder="Email"
               />
             </div>
 
@@ -437,20 +435,18 @@ const navigate = useNavigate(); // optional if you want to redirect
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-slate-700 p-3 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="New password"
+                placeholder="Password"
               />
             </div>
 
             <div>
-              <label className="block mb-1 font-semibold">
-                Confirm Password
-              </label>
+              <label className="block mb-1 font-semibold">Confirm Password</label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full bg-slate-700 p-3 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="Confirm new password"
+                placeholder="Confirm Password"
               />
             </div>
 
@@ -460,27 +456,59 @@ const navigate = useNavigate(); // optional if you want to redirect
               disabled={loading}
             >
               <Save className="h-5 w-5" />
-              <span>Update Email/Password</span>
+              <span>Update Security Settings</span>
             </button>
 
-             {/* ←–– ADD DANGER ZONE HERE ––→ */}
-            <hr className="my-8 border-slate-700" />
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-red-500">Danger Zone</h2>
-              <p className="text-slate-400">
-                Deleting your account is irreversible. All your profile data will be permanently removed.
+            <hr className="border-slate-700" />
+
+            <div className="pt-6">
+              <h2 className="text-xl font-semibold mb-2">Delete Account</h2>
+              <p className="mb-4 text-slate-400">
+                Deleting your account is permanent and will remove all your data.
+                This action cannot be undone.
               </p>
               <button
                 onClick={handleDeleteAccount}
-                className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded font-semibold transition-transform duration-200 hover:scale-105 text-white"
-                disabled={loading}
+                disabled={isDeleting}
+                className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded font-semibold transition-transform duration-200 hover:scale-105"
               >
-                Delete Account
+                {isDeleting ? "Deleting..." : "Delete Account"}
               </button>
             </div>
           </section>
         )}
+
+        {activeTab === "notifications" && (
+          <section className="pt-8 border-t border-slate-700 space-y-6">
+            <h1 className="text-3xl font-bold mb-6">Notifications</h1>
+
+            {loadingNotifications ? (
+              <div className="flex justify-center">
+                <Loader className="animate-spin text-purple-400" size={32} />
+              </div>
+            ) : notifications.length === 0 ? (
+              <p className="text-slate-400">You have no notifications.</p>
+            ) : (
+              <ul className="space-y-4 max-h-96 overflow-y-auto">
+                {notifications.map((note) => (
+                  <li
+                    key={note.id}
+                    className={`p-4 rounded-lg border ${
+                      note.read ? "border-slate-700 bg-slate-800" : "border-purple-600 bg-purple-900"
+                    }`}
+                  >
+                    <p>{note.message}</p>
+                    <small className="text-slate-400">
+                      {new Date(note.created_at).toLocaleString()}
+                    </small>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
       </main>
+
     </div>
   );
 }

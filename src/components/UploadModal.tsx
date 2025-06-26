@@ -73,6 +73,9 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isSubmitting) return; // <-- prevent double submits
+
     if (!formData.file || !formData.title || !user) return;
 
     // Check file size max 10MB
@@ -85,6 +88,8 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     setError(null);
 
     try {
+      console.log("Submitting upload for:", formData.title);
+
       // Sanitize filename: replace spaces and remove unsafe chars
       const cleanFileName = formData.file.name
         .replace(/\s+/g, "_")
@@ -340,10 +345,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
                   <span>Uploading...</span>
                 </>
               ) : (
-                <>
-                  <Upload className="h-4 w-4" />
-                  <span>Upload Profile</span>
-                </>
+                <span>Upload</span>
               )}
             </button>
           </div>

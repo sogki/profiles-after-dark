@@ -270,7 +270,7 @@ export default function UserProfile() {
           <div className="absolute bottom-[-3.5rem] right-4">
             {isOwnProfile ? (
               <Link
-                to="/account/settings"
+                to="/profile-settings"
                 className="inline-block bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition"
               >
                 Edit Profile

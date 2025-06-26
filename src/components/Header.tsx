@@ -115,7 +115,7 @@ export default function Header({
                   <div className="relative group">
                     <button
                       className="w-8 h-8 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-purple-400"
-                      title="User menu"
+                      title=""
                     >
                       {userProfile?.avatar_url ? (
                         <img

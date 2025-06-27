@@ -1,10 +1,10 @@
 // src/pages/UserProfile.tsx
-import React, { useEffect, useState, Fragment } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
-import Footer from '../Footer';
-import { Dialog, Transition, Menu } from '@headlessui/react';
-import { X, MoreHorizontal } from 'lucide-react';
+import React, { useEffect, useState, Fragment } from "react";
+import { useParams, Link } from "react-router-dom";
+import { supabase } from "../../lib/supabase";
+import Footer from "../Footer";
+import { Dialog, Transition, Menu } from "@headlessui/react";
+import { X, MoreHorizontal } from "lucide-react";
 
 interface Badge {
   name: string;
@@ -16,8 +16,8 @@ interface UserBadge {
 }
 
 interface UserProfile {
-  id: string;            // Note: this is the user_profiles.id (important for reports)
-  user_id: string;       // auth.users.id
+  id: string; // Note: this is the user_profiles.id (important for reports)
+  user_id: string; // auth.users.id
   username: string;
   avatar_url: string | null;
   banner_url: string | null;
@@ -46,20 +46,26 @@ export default function UserProfile() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [reportReason, setReportReason] = useState('');
+  const [reportReason, setReportReason] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
 
   // Store logged-in user's profile id (user_profiles.id)
-  const [currentUserProfileId, setCurrentUserProfileId] = useState<string | null>(null);
+  const [currentUserProfileId, setCurrentUserProfileId] = useState<
+    string | null
+  >(null);
   // Store logged-in user's auth id and username for display or logic
-  const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    id: string;
+    username: string;
+  } | null>(null);
 
   useEffect(() => {
     // Get logged-in user and their user_profiles.id
     const getCurrentUserProfile = async () => {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
+      const { data: authData, error: authError } =
+        await supabase.auth.getUser();
       if (authError || !authData.user) {
         setCurrentUser(null);
         setCurrentUserProfileId(null);
@@ -67,14 +73,14 @@ export default function UserProfile() {
       }
       setCurrentUser({
         id: authData.user.id,
-        username: authData.user.user_metadata?.username || '',
+        username: authData.user.user_metadata?.username || "",
       });
 
       // Fetch user_profiles.id from user_id
       const { data: profileData, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('user_id', authData.user.id)
+        .from("user_profiles")
+        .select("id")
+        .eq("user_id", authData.user.id)
         .single();
 
       if (profileError || !profileData) {
@@ -96,8 +102,9 @@ export default function UserProfile() {
 
       // Fetch profile by username
       const { data: profileData, error: profileError } = await supabase
-        .from('user_profiles')
-        .select(`
+        .from("user_profiles")
+        .select(
+          `
           id,
           user_id,
           username,
@@ -110,12 +117,13 @@ export default function UserProfile() {
               image_url
             )
           )
-        `)
-        .eq('username', username)
+        `
+        )
+        .eq("username", username)
         .single();
 
       if (profileError || !profileData) {
-        console.error('Error fetching profile:', profileError);
+        console.error("Error fetching profile:", profileError);
         setProfile(null);
         setUploads([]);
         setFavorites([]);
@@ -127,13 +135,13 @@ export default function UserProfile() {
 
       // Fetch uploads by user_profiles.user_id (which matches auth.users.id)
       const { data: uploadsData, error: uploadsError } = await supabase
-        .from('profiles')
-        .select('id, title, image_url, tags, category, type, created_at')
-        .eq('user_id', profileData.user_id)
-        .order('created_at', { ascending: false });
+        .from("profiles")
+        .select("id, title, image_url, tags, category, type, created_at")
+        .eq("user_id", profileData.user_id)
+        .order("created_at", { ascending: false });
 
       if (uploadsError) {
-        console.error('Error fetching uploads:', uploadsError);
+        console.error("Error fetching uploads:", uploadsError);
         setUploads([]);
       } else {
         setUploads(uploadsData || []);
@@ -141,8 +149,9 @@ export default function UserProfile() {
 
       // Fetch favorites for this user (joined on uploads)
       const { data: favoritesData, error: favoritesError } = await supabase
-        .from('favorites')
-        .select(`
+        .from("favorites")
+        .select(
+          `
           id,
           upload:profiles (
             id,
@@ -153,12 +162,13 @@ export default function UserProfile() {
             type,
             created_at
           )
-        `)
-        .eq('user_id', profileData.user_id)
-        .order('created_at', { ascending: false });
+        `
+        )
+        .eq("user_id", profileData.user_id)
+        .order("created_at", { ascending: false });
 
       if (favoritesError) {
-        console.error('Error fetching favorites:', favoritesError);
+        console.error("Error fetching favorites:", favoritesError);
         setFavorites([]);
       } else {
         const favs = favoritesData?.map((fav: any) => fav.upload) || [];
@@ -182,7 +192,7 @@ export default function UserProfile() {
   };
 
   const openReportModal = () => {
-    setReportReason('');
+    setReportReason("");
     setReportError(null);
     setReportSuccess(false);
     setIsReportModalOpen(true);
@@ -197,38 +207,36 @@ export default function UserProfile() {
     setReportSuccess(false);
 
     if (!currentUserProfileId) {
-      setReportError('You must be logged in to submit a report.');
+      setReportError("You must be logged in to submit a report.");
       return;
     }
     if (!profile) {
-      setReportError('Reported user profile not found.');
+      setReportError("Reported user profile not found.");
       return;
     }
     if (reportReason.trim().length === 0) {
-      setReportError('Please provide a reason for the report.');
+      setReportError("Please provide a reason for the report.");
       return;
     }
 
     setReportSubmitting(true);
 
-    const { error } = await supabase
-      .from('reports')
-      .insert({
-        reporter_user_id: currentUserProfileId,
-        reported_user_id: profile.id,
-        handled_by: null,
-        reason: reportReason.trim(),
-        created_at: new Date().toISOString(),
-      });
+    const { error } = await supabase.from("reports").insert({
+      reporter_user_id: currentUserProfileId,
+      reported_user_id: profile.id,
+      handled_by: null,
+      reason: reportReason.trim(),
+      created_at: new Date().toISOString(),
+    });
 
     setReportSubmitting(false);
 
     if (error) {
-      console.error('Error submitting report:', error);
-      setReportError('Failed to submit report. Please try again later.');
+      console.error("Error submitting report:", error);
+      setReportError("Failed to submit report. Please try again later.");
     } else {
       setReportSuccess(true);
-      setReportReason('');
+      setReportReason("");
       // Optionally close modal after delay:
       setTimeout(() => {
         closeReportModal();
@@ -261,7 +269,7 @@ export default function UserProfile() {
 
           {/* Avatar */}
           <img
-            src={profile.avatar_url || '/default-avatar.png'}
+            src={profile.avatar_url || "/default-avatar.png"}
             alt={`${profile.username}'s avatar`}
             className="w-24 h-24 rounded-full border-4 border-purple-600 absolute -bottom-14 left-4 object-cover bg-slate-800"
           />
@@ -297,7 +305,9 @@ export default function UserProfile() {
                           <button
                             onClick={openReportModal}
                             className={`${
-                              active ? 'bg-purple-600 text-white' : 'text-slate-200'
+                              active
+                                ? "bg-purple-600 text-white"
+                                : "text-slate-200"
                             } group flex w-full items-center px-4 py-2 text-sm`}
                           >
                             Report User
@@ -314,19 +324,28 @@ export default function UserProfile() {
 
         {/* Username, Badges & Bio */}
         <div className="pt-20 mb-8">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-3xl font-bold text-white">{profile.username}</h1>
-            {profile.user_badges?.map(({ badges }) => (
-              <img
-                key={badges.name}
-                src={badges.image_url}
-                alt={badges.name}
-                title={badges.name}
-                className="w-8 h-8 object-contain rounded-md mt-3"
-              />
-            ))}
+          <div className="flex items-center flex-wrap">
+            <h1 className="text-3xl font-bold text-white mr-4">
+              {profile.username}
+            </h1>
+
+            {/* Badges container with dark background */}
+            <div className="flex bg-gray-800 bg-opacity-70 rounded-md px-1 py-0.2 mt-2">
+              {profile.user_badges?.map(({ badges }) => (
+                <img
+                  key={badges.name}
+                  src={badges.image_url}
+                  alt={badges.name}
+                  title={badges.name}
+                  className="w-10 h-10 object-contain rounded-md"
+                />
+              ))}
+            </div>
           </div>
-          <p className="mt-2 text-slate-300">{profile.bio || 'No bio provided.'}</p>
+
+          <p className="mt-2 text-slate-300">
+            {profile.bio || "No bio provided."}
+          </p>
         </div>
 
         {/* Uploads and Favorites */}
@@ -349,7 +368,9 @@ export default function UserProfile() {
                       className="object-cover w-full h-36"
                     />
                     <div className="p-2">
-                      <h3 className="text-white font-semibold">{upload.title}</h3>
+                      <h3 className="text-white font-semibold">
+                        {upload.title}
+                      </h3>
                     </div>
                   </div>
                 ))}
@@ -360,7 +381,9 @@ export default function UserProfile() {
           <div className="w-px bg-slate-600 my-2 ml-6"></div>
 
           <section className="flex-1 max-w-[35%] ml-auto">
-            <h2 className="text-2xl font-semibold mb-4 text-white">Favorites</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-white">
+              Favorites
+            </h2>
             {favorites.length === 0 ? (
               <p className="text-slate-400 italic">No favorites yet.</p>
             ) : (
@@ -473,7 +496,10 @@ export default function UserProfile() {
                   </Dialog.Title>
 
                   <div className="mt-4">
-                    <label htmlFor="reason" className="block text-sm font-medium text-white">
+                    <label
+                      htmlFor="reason"
+                      className="block text-sm font-medium text-white"
+                    >
                       Reason
                     </label>
                     <textarea
@@ -510,7 +536,7 @@ export default function UserProfile() {
                       onClick={submitReport}
                       disabled={reportSubmitting || reportSuccess}
                     >
-                      {reportSubmitting ? 'Submitting...' : 'Submit Report'}
+                      {reportSubmitting ? "Submitting..." : "Submit Report"}
                     </button>
                   </div>
                 </Dialog.Panel>

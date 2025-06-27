@@ -330,14 +330,14 @@ export default function UserProfile() {
             </h1>
 
             {/* Badges container with dark background */}
-            <div className="flex bg-gray-800 bg-opacity-70 rounded-md px-1 py-0.2 mt-2">
+            <div className="flex bg-gray-800 bg-opacity-70 rounded-md px-1 py-0.5 mt-2">
               {profile.user_badges?.map(({ badges }) => (
                 <img
                   key={badges.name}
                   src={badges.image_url}
                   alt={badges.name}
                   title={badges.name}
-                  className="w-10 h-10 object-contain rounded-md"
+                  className="w-12 h-12 object-contain rounded-md"
                 />
               ))}
             </div>

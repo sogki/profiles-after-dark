@@ -362,7 +362,7 @@ const ModerationPanel = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-4 md:p-6 max-w-8xl mx-auto grid grid-cols-12 gap-6 md:gap-8">
-      <aside className="col-span-12 md:col-span-3 bg-slate-800 rounded-lg p-6 flex flex-col space-y-8 self-start">
+      <aside className="col-span-12 md:col-span-3 bg-slate-800 rounded-lg p-6 flex flex-col space-y-6 self-start">
         <h2 className="text-2xl font-semibold border-b border-slate-700 pb-3 mb-4">
           Moderation Panel
         </h2>
@@ -440,36 +440,36 @@ const ModerationPanel = () => {
             </h3>
 
             {isEditingAnnouncement ? (
-              <div className="flex flex-col space-y-3">
+              <div className="flex flex-col space-y-4">
                 <textarea
                   value={announcementDraft}
                   onChange={(e) => setAnnouncementDraft(e.target.value)}
-                  className="resize-none rounded bg-blue-700 p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[100px]"
+                  className="resize-none rounded bg-blue-800/15 p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[100px]"
                   rows={4}
                   placeholder="Write your announcement here..."
                 />
-                <div className="flex justify-end space-x-2">
+                <div className="flex justify-center space-x-4">
                   <button
                     onClick={saveAnnouncement}
                     className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 px-4 py-2 rounded transition"
                   >
-                    <Save size={16} />
-                    <span>Save</span>
+                    <Save size={20} />
+                    <span></span>
                   </button>
                   <button
                     onClick={() => setIsEditingAnnouncement(false)}
                     className="flex items-center space-x-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded transition"
                   >
-                    <XCircle size={16} />
-                    <span>Cancel</span>
+                    <XCircle size={20} />
+                    <span></span>
                   </button>
                   {announcement && (
                     <button
                       onClick={deleteAnnouncement}
                       className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition"
                     >
-                      <Trash2 size={16} />
-                      <span>Delete</span>
+                      <Trash2 size={20} />
+                      <span></span>
                     </button>
                   )}
                 </div>
@@ -484,7 +484,7 @@ const ModerationPanel = () => {
                     setAnnouncementDraft(announcement || "");
                     setIsEditingAnnouncement(true);
                   }}
-                  className="text-sm bg-black bg-opacity-30 px-3 py-1 rounded hover:bg-opacity-50 transition flex items-center space-x-1"
+                  className="text-sm bg-black bg-opacity-30 px-3 py-1 rounded hover:bg-opacity-50 transition flex items-center space-x-"
                   aria-label="Edit announcement"
                 >
                   <Edit2 size={16} />
@@ -515,7 +515,7 @@ const ModerationPanel = () => {
                     className="relative flex bg-slate-800 rounded-lg overflow-hidden min-h-[120px]"
                   >
                     {/* Avatar container filling full height */}
-                    <div className="relative w-48 h-full flex-shrink-0">
+                    <div className="relative h-60 w-60 h-full flex-shrink-0">
                       <img
                         src={
                           r.reported_user?.avatar_url
@@ -530,7 +530,7 @@ const ModerationPanel = () => {
                         className="w-full h-full object-cover"
                       />
                       {/* Fade effect on right side of avatar */}
-                      <div className="absolute top-0 right-0 h-full w-10 pointer-events-none bg-gradient-to-l from-slate-900/90 to-transparent" />
+                      <div className="absolute top-0 right-0 h-full w-20 pointer-events-none bg-gradient-to-l from-slate-900/90 to-transparent" />
                     </div>
 
                     {/* Report details */}

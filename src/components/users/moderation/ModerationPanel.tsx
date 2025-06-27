@@ -5,7 +5,15 @@ import { Navigate } from "react-router-dom";
 import { Loader } from "lucide-react";
 import toast from "react-hot-toast";
 import ModerationLogs from "./ModerationLogs";
-import { Users, ListChecks, Megaphone, Save, XCircle, Trash2, Edit2 } from "lucide-react";
+import {
+  Users,
+  ListChecks,
+  Megaphone,
+  Save,
+  XCircle,
+  Trash2,
+  Edit2,
+} from "lucide-react";
 
 interface ReportedUser {
   id: string;
@@ -553,7 +561,15 @@ const ModerationPanel = () => {
                           Terminate
                         </button>
                         <button
-                          onClick={() => handleDismiss(r.id)}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                "Are you sure you want to dismiss this report?"
+                              )
+                            ) {
+                              handleDismiss(r.id);
+                            }
+                          }}
                           className="px-3 py-1 rounded bg-gray-600 hover:bg-gray-700 transition"
                         >
                           Dismiss

@@ -26,6 +26,17 @@ interface GalleryProps {
 
 type SortOption = "recent" | "oldest" | "most_downloads" | "least_downloads";
 
+// Helper to format counts like 1200 -> "1.2k"
+const formatCount = (num: number) => {
+  if (num >= 1_000_000) {
+    return (num / 1_000_000).toFixed(num % 1_000_000 === 0 ? 0 : 1) + "M";
+  }
+  if (num >= 1_000) {
+    return (num / 1_000).toFixed(num % 1_000 === 0 ? 0 : 1) + "k";
+  }
+  return num.toString();
+};
+
 export default function Gallery({
   searchQuery,
   selectedCategory,
@@ -39,32 +50,32 @@ export default function Gallery({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("recent");
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
-  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [uploaderNames, setUploaderNames] = useState<Record<string, string>>({});
 
-  // Fetch current user's display name from Supabase
-  useEffect(() => {
-    async function fetchDisplayName() {
-      if (!user) {
-        setDisplayName(null);
-        return;
-      }
+  // Initialize favorites from profiles or your logic for the user's favorites
+useEffect(() => {
+  if (!user) {
+    setFavorites(new Set());
+    return;
+  }
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("display_name")
-        .eq("id", user.id)
-        .single();
+  async function fetchFavorites() {
+    const { data, error } = await supabase
+      .from("favorites")
+      .select("profile_id")
+      .eq("user_id", user.id);
 
-      if (error) {
-        console.error("Error fetching display name:", error);
-        setDisplayName(null);
-      } else {
-        setDisplayName(data.display_name);
-      }
+    if (error) {
+      console.error("Error fetching favorites:", error);
+      return;
     }
 
-    fetchDisplayName();
-  }, [user]);
+    const userFavorites = new Set(data.map((fav) => fav.profile_id));
+    setFavorites(userFavorites);
+  }
+
+  fetchFavorites();
+}, [user]);
 
   // Filter profiles based on search, category and type
   const filteredProfiles = useMemo(() => {
@@ -114,6 +125,42 @@ export default function Gallery({
     }
     return sorted;
   }, [filteredProfiles, sortBy]);
+
+  // Fetch uploader display names for all profiles shown
+  useEffect(() => {
+    async function fetchUploaderNames() {
+      const uploaderIds = Array.from(
+        new Set(
+          sortedProfiles
+            .map((profile) => profile.user_id)
+            .filter(Boolean)
+        )
+      );
+
+      if (uploaderIds.length === 0) {
+        setUploaderNames({});
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, display_name")
+        .in("id", uploaderIds);
+
+      if (error) {
+        console.error("Error fetching uploader names:", error);
+        setUploaderNames({});
+      } else {
+        const namesMap: Record<string, string> = {};
+        data.forEach(({ id, display_name }: { id: string; display_name: string }) => {
+          namesMap[id] = display_name || "Unknown";
+        });
+        setUploaderNames(namesMap);
+      }
+    }
+
+    fetchUploaderNames();
+  }, [sortedProfiles]);
 
   const getFileExtension = (url: string) => {
     return url.split(".").pop()?.split(/[#?]/)[0] || "png";
@@ -246,7 +293,7 @@ export default function Gallery({
                     {previewProfile.category} / {previewProfile.type}
                   </p>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 mb-4">
                     {(previewProfile.tags || []).map((tag) => (
                       <span
                         key={tag}
@@ -256,6 +303,13 @@ export default function Gallery({
                       </span>
                     ))}
                   </div>
+
+                  <button
+                    onClick={() => handleDownload(previewProfile)}
+                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded"
+                  >
+                    Download
+                  </button>
                 </>
               )}
             </Dialog.Panel>
@@ -265,154 +319,154 @@ export default function Gallery({
     </Transition>
   );
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      {/* Sorting dropdown UI */}
-      <div className="mb-6 flex items-center justify-end relative">
-        <button
-          onClick={() => setIsSortDropdownOpen((open) => !open)}
-          className="inline-flex items-center gap-2 rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          aria-haspopup="listbox"
-          aria-expanded={isSortDropdownOpen}
-        >
-          Sort by: {sortOptions.find((o) => o.value === sortBy)?.label}
-          <ChevronDown className="h-4 w-4" />
-        </button>
+  if (loading) {
+    return (
+      <div className="text-center text-slate-500 mt-20">
+        Loading profiles...
+      </div>
+    );
+  }
 
-        {isSortDropdownOpen && (
-          <ul
-            role="listbox"
-            tabIndex={-1}
-            className="absolute right-0 mt-2 w-48 rounded-md bg-slate-900 border border-slate-700 shadow-lg z-50"
+  if (profiles.length === 0) {
+    return (
+      <div className="text-center text-slate-500 mt-20">
+        No profiles available yet.
+      </div>
+    );
+  }
+
+  if (filteredProfiles.length === 0) {
+    return (
+      <div className="text-center text-slate-500 mt-20">
+        No profiles match your search or filters.
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex justify-between items-center mb-4">
+        <div className="relative inline-block text-left">
+          <button
+            onClick={() => setIsSortDropdownOpen((prev) => !prev)}
+            className="inline-flex justify-center w-full rounded-md border border-gray-700 shadow-sm px-4 m-5 py-2 bg-slate-900 text-sm font-medium text-gray-200 hover:bg-gray-800 focus:outline-none"
+            aria-haspopup="true"
+            aria-expanded={isSortDropdownOpen}
           >
-            {sortOptions.map((option) => (
-              <li
-                key={option.value}
-                role="option"
-                aria-selected={sortBy === option.value}
-                className={`cursor-pointer px-4 py-2 text-sm hover:bg-purple-600 hover:text-white ${
-                  sortBy === option.value
-                    ? "bg-purple-700 text-white"
-                    : "text-slate-300"
-                }`}
-                onClick={() => {
-                  setSortBy(option.value);
-                  setIsSortDropdownOpen(false);
-                }}
-              >
-                {option.label}
-              </li>
-            ))}
-          </ul>
-        )}
+            Sort by:{" "}
+            {
+              sortOptions.find((option) => option.value === sortBy)?.label ||
+              "Select"
+            }
+            <ChevronDown className="ml-2 -mr-1 h-5 w-5" aria-hidden="true" />
+          </button>
+
+          {isSortDropdownOpen && (
+            <div className="origin-top-right absolute mt-2 w-56 rounded-md shadow-lg bg-slate-900 ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+              <div className="py-1">
+                {sortOptions.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      setSortBy(value);
+                      setIsSortDropdownOpen(false);
+                    }}
+                    className={`block w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-purple-700 hover:text-white ${
+                      sortBy === value ? "bg-purple-700" : ""
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div
         className={
           viewMode === "grid"
-            ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-            : "space-y-4"
+            ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 ml-5 mr-5"
+            : "flex flex-col space-y-4"
         }
       >
         {sortedProfiles.map((profile) => (
           <div
             key={profile.id}
-            className={`group bg-slate-800/50 backdrop-blur-sm rounded-xl overflow-hidden border border-slate-700/50 hover:border-purple-500/50 transition-all duration-300 hover:transform hover:scale-105 ${
-              viewMode === "list" ? "flex" : ""
+            className={`cursor-pointer ${
+              viewMode === "grid"
+                ? "bg-slate-800 rounded-md overflow-hidden shadow"
+                : "flex bg-slate-800 rounded-md overflow-hidden shadow"
             }`}
+            onClick={() => openPreview(profile)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") openPreview(profile);
+            }}
           >
-            <div
-              className={`relative overflow-hidden ${
-                viewMode === "list" ? "w-48 flex-shrink-0" : "aspect-square"
-              }`}
-            >
-              <img
-                src={profile.image_url}
-                alt={profile.title}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => openPreview(profile)}
-                    className="p-2 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30 transition-all"
-                    aria-label={`Preview ${profile.title}`}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDownload(profile)}
-                    className="p-2 bg-purple-600/80 backdrop-blur-sm rounded-full text-white hover:bg-purple-600 transition-all transform hover:scale-110"
-                    aria-label={`Download ${profile.title}`}
-                  >
-                    <Download className="h-4 w-4" />
-                  </button>
-                  {user && (
-                    <button
-                      onClick={() => handleFavorite(profile.id)}
-                      className={`p-2 backdrop-blur-sm rounded-full transition-all ${
-                        favorites.has(profile.id)
-                          ? "bg-red-600/80 text-white hover:bg-red-600"
-                          : "bg-white/20 text-white hover:bg-white/30"
-                      }`}
-                      aria-label={`Favorite ${profile.title}`}
-                    >
-                      <Heart
-                        className={`h-4 w-4 ${
-                          favorites.has(profile.id) ? "fill-current" : ""
-                        }`}
-                      />
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="absolute top-3 left-3">
-                <span
-                  className={`px-2 py-1 text-xs font-medium bg-black/50 backdrop-blur-sm rounded-full ${getCategoryColor(
-                    profile.category
-                  )}`}
-                >
-                  {profile.category}
-                </span>
-              </div>
-              <div className="absolute top-3 right-3">
-                <span className="px-2 py-1 text-xs font-medium bg-black/50 backdrop-blur-sm rounded-full text-white">
-                  {profile.type}
-                </span>
-              </div>
-            </div>
+            <img
+              src={profile.image_url}
+              alt={profile.title}
+              className={
+                viewMode === "grid"
+                  ? "w-full h-48 object-cover"
+                  : "w-48 h-48 object-cover flex-shrink-0"
+              }
+              loading="lazy"
+            />
 
-            <div className="p-4 flex-1">
-              <h3 className="text-white font-semibold mb-1 group-hover:text-purple-400 transition-colors">
-                {profile.title}
-              </h3>
-              {/* <p className="text-sm text-slate-400 mb-3">
-                Curated by{" "}
-                <span className="text-purple-400 font-medium">
-                  {displayName || "Unknown"}
-                </span>
-              </p> */}
-              <div className="flex items-center space-x-4 text-sm text-slate-400 mb-3">
-                <div className="flex items-center space-x-1">
-                  <Download className="h-3 w-3" />
-                  <span>{(profile.download_count || 0).toLocaleString()}</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <Calendar className="h-3 w-3" />
-                  <span>{formatDate(profile.created_at || "")}</span>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {(profile.tags || []).slice(0, 3).map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center space-x-1 px-2 py-1 rounded-md bg-purple-700 text-purple-200 text-xs font-medium"
-                  >
-                    <Tag className="h-3 w-3" />
-                    <span>#{tag}</span>
+            <div className="p-4 flex flex-col justify-between flex-grow">
+              <div>
+                <h3 className="text-white font-semibold text-lg mb-1">
+                  {profile.title}
+                </h3>
+                <p className={`text-sm font-medium mb-2 ${getCategoryColor(profile.category)}`}>
+                  {profile.category}
+                </p>
+                <p className="text-xs text-slate-400 mb-2 truncate max-w-full">
+                  {(profile.tags || []).map((tag) => `#${tag} `)}
+                </p>
+                <p className="text-xs text-slate-400">
+                  Curated by{" "}
+                  <span className="text-purple-400 font-medium">
+                    {uploaderNames[profile.user_id] || "Loading..."}
                   </span>
-                ))}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between mt-4">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleFavorite(profile.id);
+                  }}
+                  aria-label={`${favorites.has(profile.id) ? "Unfavorite" : "Favorite"} ${profile.title}`}
+                  className="flex flex-col items-center text-pink-400 hover:text-pink-500 focus:outline-none"
+                >
+                  <Heart className="w-6 h-6" />
+                  <span className="text-xs">{formatCount(profile.favorites_count || 0)}</span>
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownload(profile);
+                  }}
+                  aria-label={`Download ${profile.title}`}
+                  className="flex flex-col items-center text-green-400 hover:text-green-500 focus:outline-none"
+                >
+                  <Download className="w-6 h-6" />
+                  <span className="text-xs">{formatCount(profile.download_count || 0)}</span>
+                </button>
+
+                <div className="flex flex-col items-center text-slate-400">
+                  <Calendar className="w-5 h-5 mb-1" />
+                  <span className="text-xs">
+                    {profile.created_at ? formatDate(profile.created_at) : "Unknown"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -420,6 +474,6 @@ export default function Gallery({
       </div>
 
       <PreviewModal />
-    </div>
+    </>
   );
 }

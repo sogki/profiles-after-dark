@@ -39,7 +39,7 @@ export default function UsersList() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-900"> {/* make full height & bg like UserProfile */}
       <div className="max-w-7xl mx-auto px-4 py-8 flex-grow">
-        <h1 className="text-3xl font-bold mb-6 text-white">User Profiles</h1>
+        <h1 className="text-3xl font-bold mb-6 text-white">Members</h1>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {users.map((user) => (
             <Link

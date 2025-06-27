@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Header from "./components/Header";
@@ -24,6 +24,8 @@ import ModerationLogs from "./components/users/moderation/ModerationLogs";
 import { useAuth } from "./context/authContext";
 import { Toaster } from "react-hot-toast";
 
+import { supabase } from './lib/supabase'; 
+
 function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -32,7 +34,29 @@ function App() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
+  const [announcement, setAnnouncement] = useState<string | null>(null);
+
   const { user, loading } = useAuth();
+
+  // Fetch announcement on mount
+  useEffect(() => {
+    const fetchAnnouncement = async () => {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('message')
+        .eq('is_active', true)
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching announcement:', error);
+      } else if (data) {
+        setAnnouncement(data.message);
+      }
+    };
+
+    fetchAnnouncement();
+  }, []);
 
   const handleUploadClick = () => {
     if (user) {
@@ -55,7 +79,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
         <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
 
         <Header
@@ -66,53 +90,62 @@ function App() {
           user={user}
         />
 
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <>
-                <Hero />
+        {/* Announcement banner */}
+        {announcement && (
+          <div className="bg-blue-200/20 text-white px-4 py-2 text-center font-semibold">
+            {announcement}
+          </div>
+        )}
 
-                <FilterBar
-                  selectedCategory={selectedCategory}
-                  onCategoryChange={setSelectedCategory}
-                  selectedType={selectedType}
-                  onTypeChange={setSelectedType}
-                  viewMode={viewMode}
-                  onViewModeChange={setViewMode}
-                  totalItems={0}
-                />
+        <div className="flex-grow">
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <>
+                  <Hero />
 
-                <Gallery
-                  searchQuery={searchQuery}
-                  selectedCategory={selectedCategory}
-                  selectedType={selectedType}
-                  viewMode={viewMode}
-                />
+                  <FilterBar
+                    selectedCategory={selectedCategory}
+                    onCategoryChange={setSelectedCategory}
+                    selectedType={selectedType}
+                    onTypeChange={setSelectedType}
+                    viewMode={viewMode}
+                    onViewModeChange={setViewMode}
+                    totalItems={0}
+                  />
 
-                <DiscordCTA />
+                  <Gallery
+                    searchQuery={searchQuery}
+                    selectedCategory={selectedCategory}
+                    selectedType={selectedType}
+                    viewMode={viewMode}
+                  />
 
-                <Footer />
-              </>
-            }
-          />
+                  <DiscordCTA />
 
-          <Route path="/profile-settings" element={<ProfileSettings />} />
+                  <Footer />
+                </>
+              }
+            />
 
-          {/* User routes */}
-          <Route path="/users" element={<UsersList />} />
-          <Route path="/user/:username" element={<UserProfile />} />
+            <Route path="/profile-settings" element={<ProfileSettings />} />
 
-          {/* Moderation route */}
-          <Route path="/moderation" element={<ModerationPanel />} />
-          <Route path="/moderation/logs" element={<ModerationLogs />} />
+            {/* User routes */}
+            <Route path="/users" element={<UsersList />} />
+            <Route path="/user/:username" element={<UserProfile />} />
 
-          {/* Gallery routes */}
-          <Route path="/gallery/pfps" element={<PfpGallery />} />
-          <Route path="/gallery/banners" element={<BannersGallery />} />
-          <Route path="/gallery/emotes" element={<EmotesGallery />} />
-          <Route path="/gallery/emoji-combos" element={<EmojiCombosGallery />} />
-        </Routes>
+            {/* Moderation route */}
+            <Route path="/moderation" element={<ModerationPanel />} />
+            <Route path="/moderation/logs" element={<ModerationLogs />} />
+
+            {/* Gallery routes */}
+            <Route path="/gallery/pfps" element={<PfpGallery />} />
+            <Route path="/gallery/banners" element={<BannersGallery />} />
+            <Route path="/gallery/emotes" element={<EmotesGallery />} />
+            <Route path="/gallery/emoji-combos" element={<EmojiCombosGallery />} />
+          </Routes>
+        </div>
 
         <UploadModal
           isOpen={isUploadModalOpen}

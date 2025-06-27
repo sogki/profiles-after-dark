@@ -4,13 +4,14 @@ import { supabase } from "../../../lib/supabase";
 import { Navigate } from "react-router-dom";
 import { Loader } from "lucide-react";
 import toast from "react-hot-toast";
-import ModerationLogs from "./ModerationLogs"; // Make sure path is correct
+import ModerationLogs from "./ModerationLogs";
+import { Users, ListChecks, Megaphone, Save, XCircle, Trash2, Edit2 } from "lucide-react";
 
 interface ReportedUser {
   id: string;
   reason: string;
   created_at: string;
-  reported_user: { username: string; avatar_url?: string } | null;
+  reported_user: { username: string; avatar_url?: string; id?: string } | null;
   reporter_user: { username: string } | null;
 }
 
@@ -36,6 +37,8 @@ interface UserSummary {
 const ModerationPanel = () => {
   const { userProfile, loading } = useAuth();
 
+  const [announcement, setAnnouncement] = useState<string | null>(null);
+
   const [reports, setReports] = useState<ReportedUser[]>([]);
   const [fetchingReports, setFetchingReports] = useState(true);
   const [activeTab, setActiveTab] = useState<"reportedUsers" | "logs">(
@@ -52,6 +55,54 @@ const ModerationPanel = () => {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [warningMessage, setWarningMessage] = useState("");
 
+  // Announcement editing state
+  const [isEditingAnnouncement, setIsEditingAnnouncement] = useState(false);
+  const [announcementDraft, setAnnouncementDraft] = useState("");
+
+  // Save edited or new announcement to DB
+  const saveAnnouncement = async () => {
+    try {
+      const { data, error } = await supabase.from("announcements").upsert(
+        [
+          {
+            id: 1, // Using a fixed id for the single announcement bar
+            message: announcementDraft,
+            is_active: true,
+          },
+        ],
+        { onConflict: ["id"] }
+      );
+
+      if (error) throw error;
+
+      toast.success("Announcement saved");
+      setAnnouncement(announcementDraft);
+      setIsEditingAnnouncement(false);
+    } catch (error) {
+      toast.error("Failed to save announcement");
+      console.error(error);
+    }
+  };
+
+  // Delete (deactivate) announcement
+  const deleteAnnouncement = async () => {
+    try {
+      const { error } = await supabase
+        .from("announcements")
+        .update({ is_active: false })
+        .eq("id", 1);
+
+      if (error) throw error;
+
+      toast.success("Announcement deleted");
+      setAnnouncement(null);
+      setIsEditingAnnouncement(false);
+    } catch (error) {
+      toast.error("Failed to delete announcement");
+      console.error(error);
+    }
+  };
+
   const fetchReports = async () => {
     setFetchingReports(true);
     const { data, error } = await supabase
@@ -61,7 +112,7 @@ const ModerationPanel = () => {
         id,
         reason,
         created_at,
-        reported_user:user_profiles!reports_reported_user_id_fkey(username, avatar_url),
+        reported_user:user_profiles!reports_reported_user_id_fkey(username, avatar_url, id),
         reporter_user:user_profiles!reports_reporter_user_id_fkey(username)
       `
       )
@@ -139,6 +190,65 @@ const ModerationPanel = () => {
       setFetchingLogs(false);
     }
   };
+
+  const fetchAnnouncement = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("announcements")
+        .select("id, message, is_active")
+        .order("created_at", { ascending: false })
+        .limit(1); // get max 1 row, returns array
+
+      if (error) {
+        console.error("Failed to fetch announcement", error);
+        toast.error("Failed to fetch announcement");
+        setAnnouncement(null);
+        return;
+      }
+
+      if (data.length > 0 && data[0].is_active) {
+        setAnnouncement(data[0].message);
+      } else {
+        setAnnouncement(null);
+      }
+    } catch (err) {
+      console.error("Unexpected error fetching announcement", err);
+      toast.error("Unexpected error fetching announcement");
+      setAnnouncement(null);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnnouncement();
+
+    const channel = supabase
+      .channel("realtime:announcements")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "announcements",
+        },
+        (payload) => {
+          if (
+            payload.eventType === "UPDATE" ||
+            payload.eventType === "INSERT"
+          ) {
+            if (payload.new?.is_active) {
+              setAnnouncement(payload.new.message);
+            } else {
+              setAnnouncement(null);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   useEffect(() => {
     if (userProfile?.role === "staff") {
@@ -242,32 +352,116 @@ const ModerationPanel = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-4 md:p-6 max-w-7xl mx-auto grid grid-cols-12 gap-6 md:gap-8">
-      <aside className="col-span-12 md:col-span-3 bg-slate-800 rounded-lg p-6 space-y-6 self-start">
-        <h2 className="text-xl font-semibold border-b border-slate-700 pb-2">
+      <aside className="col-span-12 md:col-span-3 bg-slate-800 rounded-lg p-6 flex flex-col space-y-8 self-start">
+        <h2 className="text-2xl font-semibold border-b border-slate-700 pb-3 mb-4">
           Moderation Panel
         </h2>
-        <nav className="flex flex-col space-y-3 text-slate-300">
-          <button
-            onClick={() => setActiveTab("reportedUsers")}
-            className={`text-left transition ${
-              activeTab === "reportedUsers"
-                ? "text-white font-semibold"
-                : "hover:text-white"
-            }`}
-          >
-            Reported Users
-          </button>
-          <button
-            onClick={() => setActiveTab("logs")}
-            className={`text-left transition ${
-              activeTab === "logs"
-                ? "text-white font-semibold"
-                : "hover:text-white"
-            }`}
-          >
-            Logs
-          </button>
-        </nav>
+
+        {/* Moderation Section */}
+        <section>
+          <h3 className="text-lg font-semibold text-slate-400 mb-3 uppercase tracking-wide">
+            Moderation
+          </h3>
+          <nav className="flex flex-col space-y-3 text-slate-300">
+            <button
+              onClick={() => setActiveTab("reportedUsers")}
+              className={`flex items-center space-x-2 transition rounded px-3 py-2 ${
+                activeTab === "reportedUsers"
+                  ? "bg-slate-700 text-white font-semibold"
+                  : "hover:bg-slate-700 hover:text-white"
+              }`}
+            >
+              <Users size={18} />
+              <span>Reported Users</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("logs")}
+              className={`flex items-center space-x-2 transition rounded px-3 py-2 ${
+                activeTab === "logs"
+                  ? "bg-slate-700 text-white font-semibold"
+                  : "hover:bg-slate-700 hover:text-white"
+              }`}
+            >
+              <ListChecks size={18} />
+              <span>Logs</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("logs")}
+              className={`flex items-center space-x-2 transition rounded px-3 py-2 ${
+                activeTab === "logs"
+                  ? "bg-slate-700 text-white font-semibold"
+                  : "hover:bg-slate-700 hover:text-white"
+              }`}
+            >
+              <ListChecks size={18} />
+              <span>Mod Tool 3</span>
+            </button>
+          </nav>
+        </section>
+
+        {/* Announcements Section */}
+        {userProfile?.role === "staff" && (
+          <section className="mt-auto">
+            <h3 className="text-lg font-semibold text-slate-400 mb-3 uppercase tracking-wide flex items-center space-x-2">
+              <Megaphone size={20} />
+              <span>Announcements</span>
+            </h3>
+
+            {isEditingAnnouncement ? (
+              <div className="flex flex-col space-y-3">
+                <textarea
+                  value={announcementDraft}
+                  onChange={(e) => setAnnouncementDraft(e.target.value)}
+                  className="resize-none rounded bg-blue-700 p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[100px]"
+                  rows={4}
+                  placeholder="Write your announcement here..."
+                />
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={saveAnnouncement}
+                    className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 px-4 py-2 rounded transition"
+                  >
+                    <Save size={16} />
+                    <span>Save</span>
+                  </button>
+                  <button
+                    onClick={() => setIsEditingAnnouncement(false)}
+                    className="flex items-center space-x-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded transition"
+                  >
+                    <XCircle size={16} />
+                    <span>Cancel</span>
+                  </button>
+                  {announcement && (
+                    <button
+                      onClick={deleteAnnouncement}
+                      className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition"
+                    >
+                      <Trash2 size={16} />
+                      <span>Delete</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between items-start space-x-3">
+                <p className="text-sm leading-relaxed overflow-y-auto max-h-20 whitespace-pre-wrap">
+                  {announcement || "No active announcements."}
+                </p>
+                <button
+                  onClick={() => {
+                    setAnnouncementDraft(announcement || "");
+                    setIsEditingAnnouncement(true);
+                  }}
+                  className="text-sm bg-black bg-opacity-30 px-3 py-1 rounded hover:bg-opacity-50 transition flex items-center space-x-1"
+                  aria-label="Edit announcement"
+                >
+                  <Edit2 size={16} />
+                  <span>Edit</span>
+                </button>
+              </div>
+            )}
+          </section>
+        )}
       </aside>
 
       <main className="col-span-12 md:col-span-9 space-y-8">

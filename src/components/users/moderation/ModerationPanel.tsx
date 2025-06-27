@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../../context/authContext";
 import { supabase } from "../../../lib/supabase";
 import { Navigate } from "react-router-dom";
-import { Loader } from "lucide-react";
+import { BarChart, Database, Loader, UserCog } from "lucide-react";
 import toast from "react-hot-toast";
 import ModerationLogs from "./ModerationLogs";
+
+
 import {
   Users,
   ListChecks,
@@ -359,7 +361,7 @@ const ModerationPanel = () => {
   if (!loading && userProfile?.role !== "staff") return <Navigate to="/" />;
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-4 md:p-6 max-w-7xl mx-auto grid grid-cols-12 gap-6 md:gap-8">
+    <div className="min-h-screen bg-slate-900 text-white p-4 md:p-6 max-w-8xl mx-auto grid grid-cols-12 gap-6 md:gap-8">
       <aside className="col-span-12 md:col-span-3 bg-slate-800 rounded-lg p-6 flex flex-col space-y-8 self-start">
         <h2 className="text-2xl font-semibold border-b border-slate-700 pb-3 mb-4">
           Moderation Panel
@@ -394,15 +396,37 @@ const ModerationPanel = () => {
               <span>Logs</span>
             </button>
             <button
-              onClick={() => setActiveTab("logs")}
+              onClick={() => setActiveTab("activity")}
               className={`flex items-center space-x-2 transition rounded px-3 py-2 ${
-                activeTab === "logs"
+                activeTab === "activity"
                   ? "bg-slate-700 text-white font-semibold"
                   : "hover:bg-slate-700 hover:text-white"
               }`}
             >
-              <ListChecks size={18} />
-              <span>Mod Tool 3</span>
+              <BarChart size={18} />
+              <span>Analytics</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("user-management")}
+              className={`flex items-center space-x-2 transition rounded px-3 py-2 ${
+                activeTab === "user-management"
+                  ? "bg-slate-700 text-white font-semibold"
+                  : "hover:bg-slate-700 hover:text-white"
+              }`}
+            >
+              <UserCog size={18} />
+              <span>User Management</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("dev-portal")}
+              className={`flex items-center space-x-2 transition rounded px-3 py-2 ${
+                activeTab === "dev-portal"
+                  ? "bg-slate-700 text-white font-semibold"
+                  : "hover:bg-slate-700 hover:text-white"
+              }`}
+            >
+              <Database size={18} />
+              <span>Developer Portal</span>
             </button>
           </nav>
         </section>

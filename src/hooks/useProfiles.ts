@@ -133,7 +133,6 @@ function useProfiles(
       text_data?: string | null;
     }) => {
       try {
-        // Insert profile first
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .insert([profileData])
@@ -142,7 +141,6 @@ function useProfiles(
 
         if (profileError) throw profileError;
 
-        // Insert moderation log entry
         const { error: modError } = await supabase.from('moderation_logs').insert([
           {
             moderator_id: profileData.user_id,
@@ -154,12 +152,9 @@ function useProfiles(
         ]);
         if (modError) throw modError;
 
-        // Add new profile to state if it matches filter
         if (!typeFilter || profileData.type === typeFilter) {
           setProfiles(prev => {
-            // Avoid duplicate insertion
             if (prev.some(p => p.id === profile.id)) return prev;
-            // Add initial counts with zero and false favorite
             const newProfile: ProfileWithExtras = {
               ...profile,
               favorites_count: 0,
@@ -178,6 +173,25 @@ function useProfiles(
     },
     [typeFilter]
   );
+
+const uploadProfilePair = useCallback(
+  async (pairData: { pfp_url: string; banner_url: string; user_id: string }) => {
+    try {
+      const { data, error } = await supabase
+        .from('profile_pairs')
+        .insert([pairData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { data, error: null };
+    } catch (err) {
+      return { data: null, error: err instanceof Error ? err.message : 'Upload failed' };
+    }
+  },
+  []
+);
 
   // Fetch emoji combos (memoized)
   const fetchEmojiCombos = useCallback(async () => {
@@ -275,7 +289,6 @@ function useProfiles(
         if (fetchError) throw fetchError;
 
         if (existing) {
-          // Unfavorite
           const { error: deleteError } = await supabase
             .from('favorites')
             .delete()
@@ -290,9 +303,8 @@ function useProfiles(
             )
           );
 
-          return false; // now unfavorited
+          return false;
         } else {
-          // Favorite
           const { error: insertError } = await supabase
             .from('favorites')
             .insert([{ profile_id: profileId, user_id: userId }]);
@@ -306,7 +318,7 @@ function useProfiles(
             )
           );
 
-          return true; // now favorited
+          return true;
         }
       } catch (err) {
         console.error('Error toggling favorite:', err);
@@ -350,6 +362,7 @@ function useProfiles(
     profilesError,
     fetchProfiles,
     uploadProfile,
+    uploadProfilePair,
     downloadProfile,
     toggleFavorite,
     uploadImage,
@@ -361,3 +374,4 @@ function useProfiles(
     uploadEmojiCombo,
   };
 }
+

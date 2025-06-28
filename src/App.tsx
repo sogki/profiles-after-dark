@@ -13,6 +13,7 @@ import ProfileSettings from "./components/users/ProfileSettings";
 import UsersList from './components/users/UserList';
 import UserProfile from './components/users/UserProfile';
 
+import ProfilesGallery from "./components/gallery/ProfilesGallery";
 import PfpGallery from "./components/gallery/PfpGallery";
 import BannersGallery from "./components/gallery/BannersGallery";
 import EmotesGallery from "./components/gallery/EmotesGallery";
@@ -160,6 +161,7 @@ function App() {
             <Route path="/moderation/logs" element={<ModerationLogs />} />
 
             {/* Gallery routes */}
+            <Route path="/gallery/profiles" element={<ProfilesGallery />} />
             <Route path="/gallery/pfps" element={<PfpGallery />} />
             <Route path="/gallery/banners" element={<BannersGallery />} />
             <Route path="/gallery/emotes" element={<EmotesGallery />} />

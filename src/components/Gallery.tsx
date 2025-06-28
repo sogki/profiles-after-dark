@@ -37,6 +37,21 @@ const formatCount = (num: number) => {
   return num.toString();
 };
 
+// Add ProfilePair type
+type ProfilePair = {
+  id: string;
+  title: string;
+  category: string;
+  type: string;
+  tags: string[];
+  user_id: string;
+  pfp_url: string;
+  banner_url: string;
+  created_at: string;
+  favorites_count?: number;
+  download_count?: number;
+};
+
 export default function Gallery({
   searchQuery,
   selectedCategory,

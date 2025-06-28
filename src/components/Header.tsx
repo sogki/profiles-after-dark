@@ -321,6 +321,16 @@ export default function Header({
               Members
             </Link>
             <Link
+              to="/gallery/profiles"
+              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium ${
+                isActive("/gallery/profiles")
+                  ? "bg-purple-600 text-white"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              }`}
+            >
+              Profiles
+            </Link>
+            <Link
               to="/gallery/pfps"
               className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium ${
                 isActive("/gallery/pfps")

@@ -1,7 +1,7 @@
-// src/pages/ReportContent.tsx
 import React, { useState } from "react";
 import Footer from "../Footer";
 import { AlertCircle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const reportItems = [
   {
@@ -100,7 +100,10 @@ export default function ReportContent() {
 
           <div className="space-y-6 mt-6">
             {reportItems.map(({ title, description }, idx) => (
-              <div key={idx} className="bg-slate-800 rounded-xl p-5 shadow-md hover:shadow-2xl transition-shadow duration-300">
+              <div
+                key={idx}
+                className="bg-slate-800 rounded-xl p-5 shadow-md hover:shadow-2xl transition-shadow duration-300"
+              >
                 <h2 className="text-2xl font-semibold mb-2">{title}</h2>
                 <p className="text-slate-300 leading-relaxed">{description}</p>
               </div>
@@ -110,7 +113,9 @@ export default function ReportContent() {
 
         {/* Sidebar: FAQ Accordion */}
         <aside className="w-full md:w-96 bg-slate-800 rounded-2xl shadow-lg p-6 md:p-8 text-white relative z-0 hover:shadow-2xl transition-shadow duration-300">
-          <h2 className="text-2xl font-bold mb-4 border-b border-slate-700 pb-2">Reporting FAQs</h2>
+          <h2 className="text-2xl font-bold mb-4 border-b border-slate-700 pb-2">
+            Reporting FAQs
+          </h2>
           <div className="space-y-4">
             {faqs.map(({ question, answer }, idx) => {
               const isOpen = openFaqs.includes(idx);
@@ -123,27 +128,39 @@ export default function ReportContent() {
                     aria-controls={`faq-content-${idx}`}
                   >
                     {question}
-                    <svg
-                      className={`w-5 h-5 ml-2 transform transition-transform duration-300 ${
-                        isOpen ? "rotate-180" : "rotate-0"
-                      }`}
+                    <motion.svg
+                      animate={{ rotate: isOpen ? 180 : 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="w-5 h-5 ml-2"
                       fill="none"
                       stroke="currentColor"
                       strokeWidth={2}
                       viewBox="0 0 24 24"
                       xmlns="http://www.w3.org/2000/svg"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"></path>
-                    </svg>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19 9l-7 7-7-7"
+                      ></path>
+                    </motion.svg>
                   </button>
-                  <div
-                    id={`faq-content-${idx}`}
-                    className={`mt-2 text-slate-300 text-base overflow-hidden transition-max-height duration-300 ease-in-out ${
-                      isOpen ? "max-h-96" : "max-h-0"
-                    }`}
-                  >
-                    <p>{answer}</p>
-                  </div>
+
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        id={`faq-content-${idx}`}
+                        key="content"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        className="mt-2 text-slate-300 text-base overflow-hidden"
+                      >
+                        <p>{answer}</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })}

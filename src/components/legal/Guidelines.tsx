@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Footer from "../Footer";
 import { BookOpen } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const rules = [
   "Respect all members: avoid harassment, hate speech, and personal attacks.",
@@ -98,10 +99,10 @@ export default function Guidelines() {
                     aria-controls={`faq-content-${idx}`}
                   >
                     {question}
-                    <svg
-                      className={`w-5 h-5 ml-2 transform transition-transform duration-300 ${
-                        isOpen ? "rotate-180" : "rotate-0"
-                      }`}
+                    <motion.svg
+                      animate={{ rotate: isOpen ? 180 : 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="w-5 h-5 ml-2"
                       fill="none"
                       stroke="currentColor"
                       strokeWidth={2}
@@ -109,16 +110,24 @@ export default function Guidelines() {
                       xmlns="http://www.w3.org/2000/svg"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"></path>
-                    </svg>
+                    </motion.svg>
                   </button>
-                  <div
-                    id={`faq-content-${idx}`}
-                    className={`mt-2 text-slate-300 text-base overflow-hidden transition-max-height duration-300 ease-in-out ${
-                      isOpen ? "max-h-96" : "max-h-0"
-                    }`}
-                  >
-                    <p>{answer}</p>
-                  </div>
+
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        id={`faq-content-${idx}`}
+                        key="content"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        className="mt-2 text-slate-300 text-base overflow-hidden"
+                      >
+                        <p>{answer}</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })}

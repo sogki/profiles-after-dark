@@ -419,7 +419,7 @@ export default function ProfilesGallery() {
                 <div className="pt-20 pb-8 px-6 text-center">
                   <Dialog.Title
                     as="h3"
-                    className="text-2xl font-bold leading-6 text-white mb-4 truncate"
+                    className="text-2xl font-bold leading-12 text-white mb-5 truncate"
                   >
                     {previewProfile?.title}
                   </Dialog.Title>

@@ -325,8 +325,8 @@ export default function UserProfile() {
         {/* Username, Badges & Bio */}
         <div className="pt-20 mb-8">
           <div className="flex items-center flex-wrap">
-            <h1 className="text-3xl font-bold text-white mr-4">
-              {profile.username}
+            <h1 className="text-2xl font-bold text-white mr-4">
+             @{profile.username}
             </h1>
 
             {/* Badges container with dark background */}
@@ -438,7 +438,7 @@ export default function UserProfile() {
               >
                 <Dialog.Panel className="w-full max-w-3xl rounded bg-slate-900 p-6 shadow-xl">
                   <button
-                    className="absolute top-4 right-4 text-white hover:text-purple-400"
+                    className="absolute top-7 right-7 text-gray-400 hover:text-white-400 bg-gray-900 py-2 px-2 rounded-full"
                     onClick={closePreview}
                     aria-label="Close preview modal"
                   >

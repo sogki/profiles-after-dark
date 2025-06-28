@@ -63,7 +63,7 @@ useEffect(() => {
     const { data, error } = await supabase
       .from("favorites")
       .select("profile_id")
-      .eq("user_id", user.id);
+      .eq("user_id", user?.id);
 
     if (error) {
       console.error("Error fetching favorites:", error);

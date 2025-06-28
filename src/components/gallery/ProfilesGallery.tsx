@@ -13,7 +13,6 @@ import { supabase } from "../../lib/supabase";
 interface ProfilePair {
   id: string;
   title: string;
-  // category removed
   tags?: string[];
   pfp_url: string;
   banner_url: string;

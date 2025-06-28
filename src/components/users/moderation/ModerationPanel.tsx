@@ -1,205 +1,152 @@
-import { useEffect, useState } from "react";
-import { useAuth } from "../../../context/authContext";
-import { supabase } from "../../../lib/supabase";
-import { Navigate } from "react-router-dom";
-import { BarChart, Database, Loader, UserCog } from "lucide-react";
-import toast from "react-hot-toast";
-import ModerationLogs from "./ModerationLogs";
-
+import { useEffect, useState } from "react"
+import { useAuth } from "../../../context/authContext"
+import { supabase } from "../../../lib/supabase"
+import { Navigate } from "react-router-dom"
+import toast from "react-hot-toast"
 
 import {
   Users,
-  ListChecks,
+  FileText,
+  BarChart3,
   Megaphone,
-  Save,
-  XCircle,
+  AlertTriangle,
+  Shield,
+  Ban,
   Trash2,
-  Edit2,
-} from "lucide-react";
+  Edit3,
+  Save,
+  X,
+  Loader2,
+  Clock,
+  User,
+  MessageSquare,
+  Eye,
+  CheckCircle,
+  XCircle,
+  Database,
+  UserCog,
+} from "lucide-react"
 
 interface ReportedUser {
-  id: string;
-  reason: string;
-  created_at: string;
-  reported_user: { username: string; avatar_url?: string; id?: string } | null;
-  reporter_user: { username: string } | null;
+  id: string
+  reason: string
+  created_at: string
+  reported_user: { username: string; avatar_url?: string; id?: string } | null
+  reporter_user: { username: string } | null
 }
 
 interface Log {
-  id: string;
-  moderator_id: string;
-  action: string;
-  target_user_id: string;
-  target_profile_id: string | null;
-  description: string | null;
-  created_at: string;
-  title?: string;
-  tags?: string[];
-  content_url?: string;
+  id: string
+  moderator_id: string
+  action: string
+  target_user_id: string
+  target_profile_id: string | null
+  description: string | null
+  created_at: string
+  title?: string
+  tags?: string[]
+  content_url?: string
 }
 
 interface UserSummary {
-  user_id: string;
-  display_name: string | null;
-  username: string | null;
+  user_id: string
+  display_name: string | null
+  username: string | null
 }
 
 const ModerationPanel = () => {
-  const { userProfile, loading } = useAuth();
+  const { userProfile, loading } = useAuth()
+  const [announcement, setAnnouncement] = useState<string | null>(null)
+  const [reports, setReports] = useState<ReportedUser[]>([])
+  const [fetchingReports, setFetchingReports] = useState(true)
+  const [activeTab, setActiveTab] = useState("reports")
+  const [logs, setLogs] = useState<Log[]>([])
+  const [fetchingLogs, setFetchingLogs] = useState(false)
+  const [usersMap, setUsersMap] = useState<Record<string, UserSummary>>({})
 
-  const [announcement, setAnnouncement] = useState<string | null>(null);
+  // Modal states
+  const [actionModal, setActionModal] = useState({
+    open: false,
+    action: null as "warn" | "restrict" | "terminate" | null,
+    userId: null as string | null,
+    username: "",
+  })
+  const [warningMessage, setWarningMessage] = useState("")
 
-  const [reports, setReports] = useState<ReportedUser[]>([]);
-  const [fetchingReports, setFetchingReports] = useState(true);
-  const [activeTab, setActiveTab] = useState<"reportedUsers" | "logs">(
-    "reportedUsers"
-  );
-  const [logs, setLogs] = useState<Log[]>([]);
-  const [fetchingLogs, setFetchingLogs] = useState(false);
-  const [usersMap, setUsersMap] = useState<Record<string, UserSummary>>({});
-
-  const [showActionModal, setShowActionModal] = useState(false);
-  const [selectedAction, setSelectedAction] = useState<
-    "warn" | "restrict" | "terminate" | null
-  >(null);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [warningMessage, setWarningMessage] = useState("");
-
-  // Announcement editing state
-  const [isEditingAnnouncement, setIsEditingAnnouncement] = useState(false);
-  const [announcementDraft, setAnnouncementDraft] = useState("");
-
-  // Save edited or new announcement to DB
-  const saveAnnouncement = async () => {
-    try {
-      const { data, error } = await supabase.from("announcements").upsert(
-        [
-          {
-            id: 1, // Using a fixed id for the single announcement bar
-            message: announcementDraft,
-            is_active: true,
-          },
-        ],
-        { onConflict: ["id"] }
-      );
-
-      if (error) throw error;
-
-      toast.success("Announcement saved");
-      setAnnouncement(announcementDraft);
-      setIsEditingAnnouncement(false);
-    } catch (error) {
-      toast.error("Failed to save announcement");
-      console.error(error);
-    }
-  };
-
-  // Delete (deactivate) announcement
-  const deleteAnnouncement = async () => {
-    try {
-      const { error } = await supabase
-        .from("announcements")
-        .update({ is_active: false })
-        .eq("id", 1);
-
-      if (error) throw error;
-
-      toast.success("Announcement deleted");
-      setAnnouncement(null);
-      setIsEditingAnnouncement(false);
-    } catch (error) {
-      toast.error("Failed to delete announcement");
-      console.error(error);
-    }
-  };
+  // Announcement states
+  const [isEditingAnnouncement, setIsEditingAnnouncement] = useState(false)
+  const [announcementDraft, setAnnouncementDraft] = useState("")
 
   const fetchReports = async () => {
-    setFetchingReports(true);
-    const { data, error } = await supabase
-      .from("reports")
-      .select(
-        `
-        id,
-        reason,
-        created_at,
-        reported_user:user_profiles!reports_reported_user_id_fkey(username, avatar_url, id),
-        reporter_user:user_profiles!reports_reporter_user_id_fkey(username)
-      `
-      )
-      .order("created_at", { ascending: false });
+    setFetchingReports(true)
+    try {
+      const { data, error } = await supabase
+        .from("reports")
+        .select(`
+          id,
+          reason,
+          created_at,
+          reported_user:user_profiles!reports_reported_user_id_fkey(username, avatar_url, id),
+          reporter_user:user_profiles!reports_reporter_user_id_fkey(username)
+        `)
+        .order("created_at", { ascending: false })
 
-    if (error) {
-      console.error("Failed to fetch reports", error);
-      toast.error("Failed to fetch reported users");
-    } else {
-      setReports(data as ReportedUser[]);
+      if (error) throw error
+      setReports(data as ReportedUser[])
+    } catch (error) {
+      console.error("Failed to fetch reports", error)
+      toast.error("Failed to fetch reported users")
+    } finally {
+      setFetchingReports(false)
     }
-    setFetchingReports(false);
-  };
+  }
 
   const fetchLogs = async () => {
-    setFetchingLogs(true);
+    setFetchingLogs(true)
     try {
       const { data: logsData, error: logsError } = await supabase
         .from("moderation_logs")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(50)
 
-      if (logsError) {
-        console.error("Failed to fetch logs", logsError);
-        toast.error("Failed to fetch moderation logs");
-        setFetchingLogs(false);
-        return;
-      }
-      if (!logsData) {
-        setFetchingLogs(false);
-        return;
-      }
-      setLogs(logsData);
+      if (logsError) throw logsError
+      if (!logsData) return
 
-      const userIdsSet = new Set<string>();
+      setLogs(logsData)
+
+      const userIdsSet = new Set<string>()
       logsData.forEach((log) => {
-        if (log.moderator_id) userIdsSet.add(log.moderator_id);
-        if (log.target_user_id) userIdsSet.add(log.target_user_id);
-      });
-      const userIds = Array.from(userIdsSet);
+        if (log.moderator_id) userIdsSet.add(log.moderator_id)
+        if (log.target_user_id) userIdsSet.add(log.target_user_id)
+      })
 
-      if (userIds.length === 0) {
-        setUsersMap({});
-        setFetchingLogs(false);
-        return;
-      }
+      const userIds = Array.from(userIdsSet)
+      if (userIds.length === 0) return
 
       const { data: usersData, error: usersError } = await supabase
         .from("user_profiles")
         .select("user_id, display_name, username")
-        .in("user_id", userIds);
+        .in("user_id", userIds)
 
-      if (usersError) {
-        console.error("Failed to fetch users", usersError);
-        toast.error("Failed to fetch user info for logs");
-        setUsersMap({});
-        setFetchingLogs(false);
-        return;
-      }
+      if (usersError) throw usersError
 
-      const userMap: Record<string, UserSummary> = {};
+      const userMap: Record<string, UserSummary> = {}
       usersData?.forEach((u) => {
         userMap[u.user_id] = {
           user_id: u.user_id,
           display_name: u.display_name,
           username: u.username,
-        };
-      });
-      setUsersMap(userMap);
+        }
+      })
+      setUsersMap(userMap)
     } catch (error) {
-      console.error("Unexpected error fetching logs", error);
-      toast.error("Unexpected error fetching moderation logs");
+      console.error("Failed to fetch logs", error)
+      toast.error("Failed to fetch moderation logs")
     } finally {
-      setFetchingLogs(false);
+      setFetchingLogs(false)
     }
-  };
+  }
 
   const fetchAnnouncement = async () => {
     try {
@@ -207,29 +154,141 @@ const ModerationPanel = () => {
         .from("announcements")
         .select("id, message, is_active")
         .order("created_at", { ascending: false })
-        .limit(1); // get max 1 row, returns array
+        .limit(1)
 
-      if (error) {
-        console.error("Failed to fetch announcement", error);
-        toast.error("Failed to fetch announcement");
-        setAnnouncement(null);
-        return;
-      }
+      if (error) throw error
 
       if (data.length > 0 && data[0].is_active) {
-        setAnnouncement(data[0].message);
+        setAnnouncement(data[0].message)
       } else {
-        setAnnouncement(null);
+        setAnnouncement(null)
       }
-    } catch (err) {
-      console.error("Unexpected error fetching announcement", err);
-      toast.error("Unexpected error fetching announcement");
-      setAnnouncement(null);
+    } catch (error) {
+      console.error("Failed to fetch announcement", error)
+      toast.error("Failed to fetch announcement")
     }
-  };
+  }
+
+  const saveAnnouncement = async () => {
+    try {
+      const { error } = await supabase.from("announcements").upsert(
+        [
+          {
+            id: 1,
+            message: announcementDraft,
+            is_active: true,
+          },
+        ],
+        { onConflict: ["id"] },
+      )
+
+      if (error) throw error
+
+      toast.success("Announcement saved successfully")
+      setAnnouncement(announcementDraft)
+      setIsEditingAnnouncement(false)
+    } catch (error) {
+      toast.error("Failed to save announcement")
+      console.error(error)
+    }
+  }
+
+  const deleteAnnouncement = async () => {
+    try {
+      const { error } = await supabase.from("announcements").update({ is_active: false }).eq("id", 1)
+
+      if (error) throw error
+
+      toast.success("Announcement deleted")
+      setAnnouncement(null)
+      setIsEditingAnnouncement(false)
+    } catch (error) {
+      toast.error("Failed to delete announcement")
+      console.error(error)
+    }
+  }
+
+  const handleDismiss = async (id: string) => {
+    try {
+      const { error } = await supabase.from("reports").delete().eq("id", id)
+      if (error) throw error
+
+      setReports((prev) => prev.filter((r) => r.id !== id))
+      toast.success("Report dismissed")
+    } catch (error) {
+      toast.error("Failed to dismiss report")
+      console.error(error)
+    }
+  }
+
+  const openActionModal = (action: "warn" | "restrict" | "terminate", userId: string, username: string) => {
+    setActionModal({ open: true, action, userId, username })
+    setWarningMessage("")
+  }
+
+  const closeActionModal = () => {
+    setActionModal({ open: false, action: null, userId: null, username: "" })
+    setWarningMessage("")
+  }
+
+  const handleActionConfirmed = async () => {
+    if (!actionModal.userId || !actionModal.action) {
+      toast.error("No action selected or target user missing")
+      closeActionModal()
+      return
+    }
+
+    try {
+      if (actionModal.action === "warn") {
+        const { error } = await supabase.from("user_warnings").insert([
+          {
+            user_id: actionModal.userId,
+            moderator_id: userProfile?.user_id,
+            message: warningMessage || "No message provided",
+          },
+        ])
+        if (error) throw error
+        toast.success(`User ${actionModal.username} has been warned`)
+      } else if (actionModal.action === "restrict") {
+        const { error } = await supabase
+          .from("user_profiles")
+          .update({ restricted: true })
+          .eq("user_id", actionModal.userId)
+        if (error) throw error
+        toast.success(`User ${actionModal.username} has been restricted`)
+      } else if (actionModal.action === "terminate") {
+        const { error } = await supabase
+          .from("user_profiles")
+          .update({ terminated: true })
+          .eq("user_id", actionModal.userId)
+        if (error) throw error
+        toast.success(`User ${actionModal.username} has been terminated`)
+      }
+
+      await supabase.from("moderation_logs").insert([
+        {
+          moderator_id: userProfile?.user_id,
+          action: `${actionModal.action} user`,
+          target_user_id: actionModal.userId,
+          description:
+            actionModal.action === "warn"
+              ? `Warned user with message: ${warningMessage}`
+              : `Performed ${actionModal.action} on user`,
+        },
+      ])
+
+      fetchReports()
+      fetchLogs()
+    } catch (error) {
+      console.error("Failed to perform action:", error)
+      toast.error("Failed to perform action")
+    } finally {
+      closeActionModal()
+    }
+  }
 
   useEffect(() => {
-    fetchAnnouncement();
+    fetchAnnouncement()
 
     const channel = supabase
       .channel("realtime:announcements")
@@ -241,425 +300,432 @@ const ModerationPanel = () => {
           table: "announcements",
         },
         (payload) => {
-          if (
-            payload.eventType === "UPDATE" ||
-            payload.eventType === "INSERT"
-          ) {
+          if (payload.eventType === "UPDATE" || payload.eventType === "INSERT") {
             if (payload.new?.is_active) {
-              setAnnouncement(payload.new.message);
+              setAnnouncement(payload.new.message)
             } else {
-              setAnnouncement(null);
+              setAnnouncement(null)
             }
           }
-        }
+        },
       )
-      .subscribe();
+      .subscribe()
 
     return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+      supabase.removeChannel(channel)
+    }
+  }, [])
 
   useEffect(() => {
     if (userProfile?.role === "staff") {
-      if (activeTab === "reportedUsers") {
-        fetchReports();
+      if (activeTab === "reports") {
+        fetchReports()
       } else if (activeTab === "logs") {
-        fetchLogs();
+        fetchLogs()
       }
     }
-  }, [userProfile, activeTab]);
+  }, [userProfile, activeTab])
 
-  const handleDismiss = async (id: string) => {
-    const { error } = await supabase.from("reports").delete().eq("id", id);
-    if (error) {
-      toast.error("Failed to dismiss report");
-      console.error("Failed to delete report:", error);
-      return;
-    }
-    setReports((prev) => prev.filter((r) => r.id !== id));
-  };
+  if (!loading && userProfile?.role !== "staff") {
+    return <Navigate to="/" />
+  }
 
-  const openActionModal = (
-    action: "warn" | "restrict" | "terminate",
-    userId: string
-  ) => {
-    setSelectedAction(action);
-    setSelectedUserId(userId);
-    setWarningMessage("");
-    setShowActionModal(true);
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <Loader2 className="h-8 w-8 animate-spin text-white" />
+      </div>
+    )
+  }
 
-  const closeModal = () => {
-    setShowActionModal(false);
-    setSelectedAction(null);
-    setSelectedUserId(null);
-    setWarningMessage("");
-  };
-
-  const handleActionConfirmed = async () => {
-    if (!selectedUserId || !selectedAction) {
-      toast.error("No action selected or target user missing");
-      closeModal();
-      return;
-    }
-
-    try {
-      if (selectedAction === "warn") {
-        const { error } = await supabase.from("user_warnings").insert([
-          {
-            user_id: selectedUserId,
-            moderator_id: userProfile?.user_id,
-            message: warningMessage || "No message provided",
-          },
-        ]);
-        if (error) throw error;
-
-        toast.success(`User ${selectedUserId} has been warned.`);
-      } else if (selectedAction === "restrict") {
-        const { error } = await supabase
-          .from("user_profiles")
-          .update({ restricted: true })
-          .eq("user_id", selectedUserId);
-
-        if (error) throw error;
-
-        toast.success(`User ${selectedUserId} has been restricted.`);
-      } else if (selectedAction === "terminate") {
-        const { error } = await supabase
-          .from("user_profiles")
-          .update({ terminated: true })
-          .eq("user_id", selectedUserId);
-
-        if (error) throw error;
-
-        toast.success(`User ${selectedUserId} has been terminated.`);
-      }
-
-      await supabase.from("moderation_logs").insert([
-        {
-          moderator_id: userProfile?.user_id,
-          action: `${selectedAction} user`,
-          target_user_id: selectedUserId,
-          description:
-            selectedAction === "warn"
-              ? `Warned user with message: ${warningMessage}`
-              : `Performed ${selectedAction} on user`,
-        },
-      ]);
-
-      if (activeTab === "reportedUsers") await fetchReports();
-      if (activeTab === "logs") await fetchLogs();
-    } catch (error) {
-      console.error("Failed to perform action:", error);
-      toast.error("Failed to perform action. See console for details.");
-    } finally {
-      closeModal();
-    }
-  };
-
-  if (!loading && userProfile?.role !== "staff") return <Navigate to="/" />;
+  const navigationItems = [
+    { id: "reports", label: "Reported Users", icon: Users },
+    { id: "logs", label: "Moderation Logs", icon: FileText },
+    { id: "analytics", label: "Analytics", icon: BarChart3 },
+    { id: "users", label: "User Management", icon: UserCog },
+    { id: "settings", label: "Developer Portal", icon: Database },
+  ]
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-4 md:p-6 max-w-8xl mx-auto grid grid-cols-12 gap-6 md:gap-8">
-      <aside className="col-span-12 md:col-span-3 bg-slate-800 rounded-lg p-6 flex flex-col space-y-6 self-start">
-        <h2 className="text-2xl font-semibold border-b border-slate-700 pb-3 mb-4">
-          Moderation Panel
-        </h2>
+    <div className="min-h-screen bg-gray-900 text-white p-4 md:p-6">
+      <div className="max-w-8xl mx-auto grid grid-cols-12 gap-6 md:gap-8">
+        {/* Sidebar */}
+        <aside className="col-span-12 md:col-span-3 bg-gray-800 rounded-lg border border-gray-700 p-6 flex flex-col space-y-6 self-start">
+          {/* Header */}
+          <div className="border-b border-gray-700 pb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="h-6 w-6 text-blue-400" />
+              <h2 className="text-2xl font-bold">Moderation Panel</h2>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <div className="h-2 w-2 bg-green-400 rounded-full"></div>
+              <span>Staff Access Active</span>
+            </div>
+          </div>
 
-        {/* Moderation Section */}
-        <section>
-          <h3 className="text-lg font-semibold text-slate-400 mb-3 uppercase tracking-wide">
-            Moderation
-          </h3>
-          <nav className="flex flex-col space-y-3 text-slate-300">
-            <button
-              onClick={() => setActiveTab("reportedUsers")}
-              className={`flex items-center space-x-2 transition rounded px-3 py-2 ${
-                activeTab === "reportedUsers"
-                  ? "bg-slate-700 text-white font-semibold"
-                  : "hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <Users size={18} />
-              <span>Reported Users</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("logs")}
-              className={`flex items-center space-x-2 transition rounded px-3 py-2 ${
-                activeTab === "logs"
-                  ? "bg-slate-700 text-white font-semibold"
-                  : "hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <ListChecks size={18} />
-              <span>Logs</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("activity")}
-              className={`flex items-center space-x-2 transition rounded px-3 py-2 ${
-                activeTab === "activity"
-                  ? "bg-slate-700 text-white font-semibold"
-                  : "hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <BarChart size={18} />
-              <span>Analytics</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("user-management")}
-              className={`flex items-center space-x-2 transition rounded px-3 py-2 ${
-                activeTab === "user-management"
-                  ? "bg-slate-700 text-white font-semibold"
-                  : "hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <UserCog size={18} />
-              <span>User Management</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("dev-portal")}
-              className={`flex items-center space-x-2 transition rounded px-3 py-2 ${
-                activeTab === "dev-portal"
-                  ? "bg-slate-700 text-white font-semibold"
-                  : "hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <Database size={18} />
-              <span>Developer Portal</span>
-            </button>
-          </nav>
-        </section>
+          {/* Navigation */}
+          <section>
+            <h3 className="text-lg font-semibold text-gray-300 mb-4 uppercase tracking-wide text-sm">
+              Moderation Tools
+            </h3>
+            <nav className="flex flex-col space-y-2">
+              {navigationItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex items-center space-x-3 transition-all duration-200 rounded-lg px-4 py-3 text-left ${
+                    activeTab === item.id
+                      ? "bg-blue-600 text-white font-semibold shadow-lg"
+                      : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                  }`}
+                >
+                  <item.icon size={20} />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </nav>
+          </section>
 
-        {/* Announcements Section */}
-        {userProfile?.role === "staff" && (
+          {/* Announcements Section */}
           <section className="mt-auto">
-            <h3 className="text-lg font-semibold text-slate-400 mb-3 uppercase tracking-wide flex items-center space-x-2">
-              <Megaphone size={20} />
+            <h3 className="text-lg font-semibold text-gray-300 mb-4 uppercase tracking-wide text-sm flex items-center space-x-2">
+              <Megaphone size={18} />
               <span>Announcements</span>
             </h3>
 
             {isEditingAnnouncement ? (
-              <div className="flex flex-col space-y-4">
+              <div className="space-y-4">
                 <textarea
                   value={announcementDraft}
                   onChange={(e) => setAnnouncementDraft(e.target.value)}
-                  className="resize-none rounded bg-blue-800/15 p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[100px]"
+                  className="w-full min-h-[100px] p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
                   rows={4}
                   placeholder="Write your announcement here..."
                 />
-                <div className="flex justify-center space-x-4">
+                <div className="flex justify-center space-x-2">
                   <button
                     onClick={saveAnnouncement}
-                    className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 px-4 py-2 rounded transition"
+                    className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 px-3 py-2 rounded-lg transition-colors"
                   >
-                    <Save size={20} />
-                    <span></span>
+                    <Save size={16} />
                   </button>
                   <button
                     onClick={() => setIsEditingAnnouncement(false)}
-                    className="flex items-center space-x-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded transition"
+                    className="flex items-center space-x-1 bg-gray-600 hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors"
                   >
-                    <XCircle size={20} />
-                    <span></span>
+                    <X size={16} />
                   </button>
                   {announcement && (
                     <button
                       onClick={deleteAnnouncement}
-                      className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition"
+                      className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg transition-colors"
                     >
-                      <Trash2 size={20} />
-                      <span></span>
+                      <Trash2 size={16} />
                     </button>
                   )}
                 </div>
               </div>
             ) : (
-              <div className="flex justify-between items-start space-x-3">
-                <p className="text-sm leading-relaxed overflow-y-auto max-h-20 whitespace-pre-wrap">
-                  {announcement || "No active announcements."}
-                </p>
+              <div className="space-y-3">
+                <div className="bg-gray-700 rounded-lg p-3 min-h-[80px]">
+                  <p className="text-sm leading-relaxed text-gray-300 whitespace-pre-wrap">
+                    {announcement || "No active announcements."}
+                  </p>
+                </div>
                 <button
                   onClick={() => {
-                    setAnnouncementDraft(announcement || "");
-                    setIsEditingAnnouncement(true);
+                    setAnnouncementDraft(announcement || "")
+                    setIsEditingAnnouncement(true)
                   }}
-                  className="text-sm bg-black bg-opacity-30 px-3 py-1 rounded hover:bg-opacity-50 transition flex items-center space-x-2"
-                  aria-label="Edit announcement"
+                  className="w-full flex items-center justify-center space-x-2 bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-lg transition-colors text-sm"
                 >
-                  <Edit2 size={16} />
-                  <span>Edit</span>
+                  <Edit3 size={16} />
+                  <span>Edit Announcement</span>
                 </button>
               </div>
             )}
           </section>
-        )}
-      </aside>
+        </aside>
 
-      <main className="col-span-12 md:col-span-9 space-y-8">
-        {activeTab === "reportedUsers" && (
-          <>
-            {fetchingReports && (
-              <div className="flex justify-center py-8">
-                <Loader className="animate-spin" size={32} />
-              </div>
-            )}
-            {!fetchingReports && reports.length === 0 && (
-              <p className="text-gray-400">No reported users.</p>
-            )}
-            {!fetchingReports && reports.length > 0 && (
-              <div className="space-y-4">
-                {reports.map((r) => (
-                  <div
-                    key={r.id}
-                    className="relative flex bg-slate-800 rounded-lg overflow-hidden min-h-[120px]"
-                  >
-                    {/* Avatar container filling full height */}
-                    <div className="relative h-60 w-60 h-full flex-shrink-0">
-                      <img
-                        src={
-                          r.reported_user?.avatar_url
-                            ? r.reported_user.avatar_url
-                            : `https://your-cdn.com/profiles/${
-                                r.reported_user?.username || "default"
-                              }.jpg`
-                        }
-                        alt={`Profile of ${
-                          r.reported_user?.username || "Unknown"
-                        }`}
-                        className="w-full h-full object-cover"
-                      />
-                      {/* Fade effect on right side of avatar */}
-                      <div className="absolute top-0 right-0 h-full w-20 pointer-events-none bg-gradient-to-l from-slate-900/90 to-transparent" />
-                    </div>
+        {/* Main Content */}
+        <main className="col-span-12 md:col-span-9 space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">
+                {navigationItems.find((item) => item.id === activeTab)?.label || "Dashboard"}
+              </h1>
+              <p className="text-gray-400 mt-1">
+                {activeTab === "reports" && "Review and take action on user reports"}
+                {activeTab === "logs" && "View recent moderation actions and system events"}
+                {activeTab === "analytics" && "Platform statistics and insights"}
+                {activeTab === "users" && "Manage user accounts and permissions"}
+                {activeTab === "settings" && "Configure platform-wide settings"}
+              </p>
+            </div>
+          </div>
 
-                    {/* Report details */}
-                    <div className="flex-1 px-6 py-4 text-white">
-                      <h3 className="text-lg font-semibold mb-1">
-                        {r.reported_user?.username || "Unknown User"}
-                      </h3>
-                      <p className="mb-1 text-slate-300">
-                        <span className="font-semibold text-slate-400">
-                          Reported by:{" "}
-                        </span>
-                        {r.reporter_user?.username || "Unknown"}
-                      </p>
-                      <p className="mb-2 text-slate-300">
-                        <span className="font-semibold text-slate-400">
-                          Reason:{" "}
-                        </span>
-                        {r.reason}
-                      </p>
-                      <p className="text-slate-400 text-sm mb-4">
-                        Reported at: {new Date(r.created_at).toLocaleString()}
-                      </p>
-                      <div className="flex space-x-3">
-                        <button
-                          onClick={() =>
-                            openActionModal("warn", r.reported_user?.id || "")
-                          }
-                          className="px-3 py-1 rounded bg-yellow-600 hover:bg-yellow-700 transition"
-                        >
-                          Warn
-                        </button>
-                        <button
-                          onClick={() =>
-                            openActionModal(
-                              "restrict",
-                              r.reported_user?.id || ""
-                            )
-                          }
-                          className="px-3 py-1 rounded bg-orange-600 hover:bg-orange-700 transition"
-                        >
-                          Restrict
-                        </button>
-                        <button
-                          onClick={() =>
-                            openActionModal(
-                              "terminate",
-                              r.reported_user?.id || ""
-                            )
-                          }
-                          className="px-3 py-1 rounded bg-red-700 hover:bg-red-800 transition"
-                        >
-                          Terminate
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                "Are you sure you want to dismiss this report?"
-                              )
-                            ) {
-                              handleDismiss(r.id);
-                            }
-                          }}
-                          className="px-3 py-1 rounded bg-gray-600 hover:bg-gray-700 transition"
-                        >
-                          Dismiss
-                        </button>
-                      </div>
+          {/* Content */}
+          <div className="bg-gray-800 rounded-lg border border-gray-700">
+            <div className="p-6">
+              {/* Reports Tab */}
+              {activeTab === "reports" && (
+                <div>
+                  {fetchingReports ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
                     </div>
+                  ) : reports.length === 0 ? (
+                    <div className="text-center py-12">
+                      <CheckCircle className="h-16 w-16 mx-auto text-green-400 mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No pending reports</h3>
+                      <p className="text-gray-400">All reports have been reviewed</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {reports.map((report) => (
+                        <div key={report.id} className="bg-gray-700 rounded-lg border-l-4 border-l-orange-500 p-6">
+                          <div className="flex items-start gap-4">
+                            <div className="relative">
+                              <img
+                                src={report.reported_user?.avatar_url || "/placeholder.svg?height=48&width=48"}
+                                alt={report.reported_user?.username || "User"}
+                                className="h-12 w-12 rounded-full object-cover"
+                              />
+                              <div className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full flex items-center justify-center">
+                                <AlertTriangle className="h-2.5 w-2.5 text-white" />
+                              </div>
+                            </div>
+
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold text-lg">
+                                  {report.reported_user?.username || "Unknown User"}
+                                </h3>
+                                <span className="bg-red-600 text-white px-2 py-1 rounded text-xs font-medium">
+                                  REPORTED
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
+                                <div className="flex items-center gap-2">
+                                  <User className="h-4 w-4 text-gray-400" />
+                                  <span>Reported by: {report.reporter_user?.username || "Unknown"}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Clock className="h-4 w-4 text-gray-400" />
+                                  <span>{new Date(report.created_at).toLocaleString()}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-start gap-2">
+                                <MessageSquare className="h-4 w-4 text-gray-400 mt-0.5" />
+                                <span className="text-sm text-gray-300">{report.reason}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                              <button
+                                onClick={() =>
+                                  openActionModal(
+                                    "warn",
+                                    report.reported_user?.id || "",
+                                    report.reported_user?.username || "",
+                                  )
+                                }
+                                className="flex items-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors text-sm"
+                              >
+                                <AlertTriangle className="h-4 w-4" />
+                                Warn
+                              </button>
+                              <button
+                                onClick={() =>
+                                  openActionModal(
+                                    "restrict",
+                                    report.reported_user?.id || "",
+                                    report.reported_user?.username || "",
+                                  )
+                                }
+                                className="flex items-center gap-2 px-3 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors text-sm"
+                              >
+                                <Ban className="h-4 w-4" />
+                                Restrict
+                              </button>
+                              <button
+                                onClick={() =>
+                                  openActionModal(
+                                    "terminate",
+                                    report.reported_user?.id || "",
+                                    report.reported_user?.username || "",
+                                  )
+                                }
+                                className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm"
+                              >
+                                <XCircle className="h-4 w-4" />
+                                Terminate
+                              </button>
+                              <div className="border-t border-gray-600 my-1"></div>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm("Are you sure you want to dismiss this report?")) {
+                                    handleDismiss(report.id)
+                                  }
+                                }}
+                                className="flex items-center gap-2 px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors text-sm"
+                              >
+                                <Eye className="h-4 w-4" />
+                                Dismiss
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Logs Tab */}
+              {activeTab === "logs" && (
+                <div>
+                  {fetchingLogs ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                    </div>
+                  ) : logs.length === 0 ? (
+                    <div className="text-center py-12">
+                      <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No logs available</h3>
+                      <p className="text-gray-400">Moderation actions will appear here</p>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-700 rounded-lg overflow-hidden">
+                      <table className="w-full">
+                        <thead className="bg-gray-800">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                              Date
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                              Moderator
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                              Action
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                              Target User
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                              Description
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-600">
+                          {logs.map((log) => (
+                            <tr key={log.id} className="hover:bg-gray-600 transition-colors">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                                {new Date(log.created_at).toLocaleString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-6 w-6 bg-gray-600 rounded-full flex items-center justify-center text-xs font-medium">
+                                    {usersMap[log.moderator_id]?.username?.charAt(0)?.toUpperCase() || "M"}
+                                  </div>
+                                  <span className="text-sm text-gray-300">
+                                    {usersMap[log.moderator_id]?.username || "Unknown"}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
+                                  {log.action}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                                {usersMap[log.target_user_id]?.username || "Unknown"}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-400 max-w-xs truncate">
+                                {log.description || "No description"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Other Tabs */}
+              {["analytics", "users", "settings"].includes(activeTab) && (
+                <div className="text-center py-12">
+                  <div className="h-16 w-16 mx-auto text-gray-400 mb-4">
+                    {activeTab === "analytics" && <BarChart3 className="h-full w-full" />}
+                    {activeTab === "users" && <UserCog className="h-full w-full" />}
+                    {activeTab === "settings" && <Database className="h-full w-full" />}
                   </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {activeTab === "logs" && (
-          <>
-            {fetchingLogs && (
-              <div className="flex justify-center py-8">
-                <Loader className="animate-spin" size={32} />
-              </div>
-            )}
-            {!fetchingLogs && logs.length === 0 && (
-              <p className="text-gray-400">No moderation logs.</p>
-            )}
-            {!fetchingLogs && logs.length > 0 && (
-              <ModerationLogs logs={logs} usersMap={usersMap} />
-            )}
-          </>
-        )}
+                  <h3 className="text-lg font-medium mb-2 capitalize">{activeTab} Coming Soon</h3>
+                  <p className="text-gray-400">This feature will be available in a future update</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </main>
 
         {/* Action Modal */}
-        {showActionModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 px-4">
-            <div className="bg-slate-900 rounded-lg p-6 max-w-lg w-full space-y-4">
-              <h3 className="text-xl font-semibold text-white">
-                {selectedAction === "warn" && "Warn User"}
-                {selectedAction === "restrict" && "Restrict User"}
-                {selectedAction === "terminate" && "Terminate User"}
-              </h3>
-              {selectedAction === "warn" && (
-                <textarea
-                  className="w-full h-24 p-2 rounded bg-slate-800 text-white border border-slate-700 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                  placeholder="Enter warning message (optional)"
-                  value={warningMessage}
-                  onChange={(e) => setWarningMessage(e.target.value)}
-                />
+        {actionModal.open && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 max-w-lg w-full">
+              <div className="flex items-center gap-2 mb-4">
+                {actionModal.action === "warn" && <AlertTriangle className="h-5 w-5 text-yellow-500" />}
+                {actionModal.action === "restrict" && <Ban className="h-5 w-5 text-orange-500" />}
+                {actionModal.action === "terminate" && <XCircle className="h-5 w-5 text-red-500" />}
+                <h3 className="text-xl font-semibold">
+                  {actionModal.action === "warn" && "Warn User"}
+                  {actionModal.action === "restrict" && "Restrict User"}
+                  {actionModal.action === "terminate" && "Terminate User"}
+                </h3>
+              </div>
+
+              <p className="text-gray-400 mb-4">
+                You are about to {actionModal.action} user "{actionModal.username}".
+                {actionModal.action === "terminate" && " This action cannot be undone."}
+              </p>
+
+              {actionModal.action === "warn" && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Warning Message</label>
+                  <textarea
+                    placeholder="Enter warning message (optional)"
+                    value={warningMessage}
+                    onChange={(e) => setWarningMessage(e.target.value)}
+                    className="w-full min-h-[100px] p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                </div>
               )}
-              <div className="flex justify-end space-x-4">
+
+              <div className="flex justify-end gap-3">
                 <button
-                  onClick={closeModal}
-                  className="px-4 py-2 bg-slate-700 rounded hover:bg-slate-600"
+                  onClick={closeActionModal}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleActionConfirmed}
-                  className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700"
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    actionModal.action === "terminate" ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"
+                  }`}
                 >
-                  Confirm
+                  Confirm {actionModal.action}
                 </button>
               </div>
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
-  );
-};
+  )
+}
 
-export default ModerationPanel;
+export default ModerationPanel

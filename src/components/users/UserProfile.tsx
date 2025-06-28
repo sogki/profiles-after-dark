@@ -16,7 +16,7 @@ interface UserBadge {
 }
 
 interface UserProfile {
-  id: string; // Note: this is the user_profiles.id (important for reports)
+  id: string; // user_profiles.id
   user_id: string; // auth.users.id
   username: string;
   avatar_url: string | null;
@@ -35,14 +35,26 @@ interface UserUpload {
   created_at?: string;
 }
 
+interface ProfilePair {
+  id: string;
+  user_id: string;
+  pfp_url: string | null;
+  banner_url: string | null;
+  title: string | null;
+  category: string | null;
+  tags?: string[];
+  created_at?: string;
+}
+
 export default function UserProfile() {
   const { username } = useParams<{ username: string }>();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [uploads, setUploads] = useState<UserUpload[]>([]);
   const [favorites, setFavorites] = useState<UserUpload[]>([]);
+  const [profilePairs, setProfilePairs] = useState<ProfilePair[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [previewItem, setPreviewItem] = useState<UserUpload | null>(null);
+  const [previewItem, setPreviewItem] = useState<UserUpload | ProfilePair | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -51,21 +63,12 @@ export default function UserProfile() {
   const [reportSuccess, setReportSuccess] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
 
-  // Store logged-in user's profile id (user_profiles.id)
-  const [currentUserProfileId, setCurrentUserProfileId] = useState<
-    string | null
-  >(null);
-  // Store logged-in user's auth id and username for display or logic
-  const [currentUser, setCurrentUser] = useState<{
-    id: string;
-    username: string;
-  } | null>(null);
+  const [currentUserProfileId, setCurrentUserProfileId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null);
 
   useEffect(() => {
-    // Get logged-in user and their user_profiles.id
     const getCurrentUserProfile = async () => {
-      const { data: authData, error: authError } =
-        await supabase.auth.getUser();
+      const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError || !authData.user) {
         setCurrentUser(null);
         setCurrentUserProfileId(null);
@@ -76,7 +79,6 @@ export default function UserProfile() {
         username: authData.user.user_metadata?.username || "",
       });
 
-      // Fetch user_profiles.id from user_id
       const { data: profileData, error: profileError } = await supabase
         .from("user_profiles")
         .select("id")
@@ -127,13 +129,14 @@ export default function UserProfile() {
         setProfile(null);
         setUploads([]);
         setFavorites([]);
+        setProfilePairs([]);
         setLoading(false);
         return;
       }
 
       setProfile(profileData);
 
-      // Fetch uploads by user_profiles.user_id (which matches auth.users.id)
+      // Fetch uploads
       const { data: uploadsData, error: uploadsError } = await supabase
         .from("profiles")
         .select("id, title, image_url, tags, category, type, created_at")
@@ -147,7 +150,21 @@ export default function UserProfile() {
         setUploads(uploadsData || []);
       }
 
-      // Fetch favorites for this user (joined on uploads)
+      // Fetch profile pairs
+      const { data: pairsData, error: pairsError } = await supabase
+        .from("profile_pairs")
+        .select("id, user_id, pfp_url, banner_url, title, category, tags, created_at")
+        .eq("user_id", profileData.user_id)
+        .order("created_at", { ascending: false });
+
+      if (pairsError) {
+        console.error("Error fetching profile pairs:", pairsError);
+        setProfilePairs([]);
+      } else {
+        setProfilePairs(pairsData || []);
+      }
+
+      // Fetch favorites
       const { data: favoritesData, error: favoritesError } = await supabase
         .from("favorites")
         .select(
@@ -181,7 +198,7 @@ export default function UserProfile() {
     fetchProfileAndUploads();
   }, [username]);
 
-  const openPreview = (item: UserUpload) => {
+  const openPreview = (item: UserUpload | ProfilePair) => {
     setPreviewItem(item);
     setIsModalOpen(true);
   };
@@ -237,7 +254,6 @@ export default function UserProfile() {
     } else {
       setReportSuccess(true);
       setReportReason("");
-      // Optionally close modal after delay:
       setTimeout(() => {
         closeReportModal();
       }, 2000);
@@ -247,12 +263,11 @@ export default function UserProfile() {
   if (loading) return <p className="text-white p-4">Loading profile...</p>;
   if (!profile) return <p className="text-white p-4">User not found.</p>;
 
-  // Check if logged-in user is viewing their own profile
   const isOwnProfile = currentUserProfileId === profile.id;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-900">
-      <div className="max-w-6xl mx-auto px-4 py-8 flex-grow">
+      <div className="max-w-7xl mx-auto px-4 py-8 flex-grow">
         {/* Banner & Avatar */}
         <div className="relative mb-5 rounded-lg w-[80vw] max-w-full mx-auto">
           {profile.banner_url ? (
@@ -285,10 +300,9 @@ export default function UserProfile() {
               </Link>
             ) : (
               <Menu as="div" className="relative inline-block text-left">
-                <Menu.Button className="p-1 rounded-full hover:bg-slate-700 transition bg-slate-800">
-                  <MoreHorizontal className="w-6 h-6 text-white" />
+                <Menu.Button className="inline-flex justify-center rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700 focus:outline-none">
+                  <MoreHorizontal className="w-5 h-5" />
                 </Menu.Button>
-
                 <Transition
                   as={Fragment}
                   enter="transition ease-out duration-100"
@@ -298,23 +312,19 @@ export default function UserProfile() {
                   leaveFrom="transform opacity-100 scale-100"
                   leaveTo="transform opacity-0 scale-95"
                 >
-                  <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right rounded-md bg-slate-900 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
-                    <div className="py-1">
-                      <Menu.Item>
-                        {({ active }) => (
-                          <button
-                            onClick={openReportModal}
-                            className={`${
-                              active
-                                ? "bg-purple-600 text-white"
-                                : "text-slate-200"
-                            } group flex w-full items-center px-4 py-2 text-sm`}
-                          >
-                            Report User
-                          </button>
-                        )}
-                      </Menu.Item>
-                    </div>
+                  <Menu.Items className="absolute right-0 mt-2 w-36 origin-top-right rounded-md bg-slate-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          onClick={openReportModal}
+                          className={`${
+                            active ? "bg-slate-700" : ""
+                          } block w-full px-4 py-2 text-left text-sm text-white`}
+                        >
+                          Report User
+                        </button>
+                      )}
+                    </Menu.Item>
                   </Menu.Items>
                 </Transition>
               </Menu>
@@ -322,97 +332,155 @@ export default function UserProfile() {
           </div>
         </div>
 
-        {/* Username, Badges & Bio */}
-        <div className="pt-20 mb-8">
-          <div className="flex items-center flex-wrap">
-            <h1 className="text-2xl font-bold text-white mr-4">
-             @{profile.username}
-            </h1>
-
-            {/* Badges container with dark background */}
-            <div className="flex bg-gray-800 bg-opacity-70 rounded-md px-1 py-0.5 mt-2">
-              {profile.user_badges?.map(({ badges }) => (
+        {/* Username & Bio */}
+        <div className="max-w-[80vw] mx-auto mt-14 mb-8 px-4">
+          <h1 className="text-3xl font-bold text-white">@{profile.username}</h1>
+          {profile.bio && <p className="mt-2 text-gray-300">{profile.bio}</p>}
+          {profile.user_badges && profile.user_badges.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-1">
+              {profile.user_badges.map((ub, idx) => (
                 <img
-                  key={badges.name}
-                  src={badges.image_url}
-                  alt={badges.name}
-                  title={badges.name}
-                  className="w-12 h-12 object-contain rounded-md"
+                  key={idx}
+                  src={ub.badges.image_url}
+                  alt={ub.badges.name}
+                  title={ub.badges.name}
+                  className="h-10 w-10 rounded-full"
                 />
               ))}
             </div>
-          </div>
-
-          <p className="mt-2 text-slate-300">
-            {profile.bio || "No bio provided."}
-          </p>
+          )}
         </div>
 
-        {/* Uploads and Favorites */}
-        <div className="flex gap-6">
-          <section className="flex-1 max-w-[48%]">
-            <h2 className="text-2xl font-semibold mb-4 text-white">Uploads</h2>
-            {uploads.length === 0 ? (
-              <p className="text-slate-400 italic">No uploads yet.</p>
-            ) : (
-              <div className="grid grid-cols-3 gap-4">
-                {uploads.map((upload) => (
-                  <div
-                    key={upload.id}
-                    onClick={() => openPreview(upload)}
-                    className="cursor-pointer bg-slate-800 rounded-lg overflow-hidden shadow hover:shadow-lg transition-shadow"
-                  >
-                    <img
-                      src={upload.image_url}
-                      alt={upload.title}
-                      className="object-cover w-full h-36"
-                    />
-                    <div className="p-2">
-                      <h3 className="text-white font-semibold">
-                        {upload.title}
-                      </h3>
+        {/* Main content grid: Profile Pairs, Uploads, Favorites */}
+        <div className="max-w-[80vw] mx-auto flex gap-8 px-4">
+          {/* Left Column */}
+          <div className="flex flex-col flex-grow max-w-[40vw] gap-4">
+            {/* Profile Pairs */}
+            <div>
+              <h2 className="text-xl font-semibold text-white mb-3">Profile Pairs</h2>
+              {profilePairs.length === 0 ? (
+                <p className="text-gray-400 italic">No profile pairs found.</p>
+              ) : (
+                <div className="flex flex-col gap-6">
+                  {profilePairs.map((pair) => (
+                    <div
+                      key={pair.id}
+                      className="border border-slate-700 rounded-lg overflow-hidden bg-slate-800 shadow-lg cursor-pointer"
+                      onClick={() => openPreview(pair)}
+                    >
+                      {/* Banner */}
+                      <div className="relative h-28 w-full">
+                        {pair.banner_url ? (
+                          <img
+                            src={pair.banner_url}
+                            alt={pair.title || "Pair banner"}
+                            className="object-cover w-full h-full"
+                          />
+                        ) : (
+                          <div className="bg-slate-700 flex items-center justify-center h-full text-gray-400 italic">
+                            No banner
+                          </div>
+                        )}
+
+                        {/* Avatar overlapping bottom-left corner */}
+                        <div className="absolute -bottom-8 left-4 w-20 h-20 rounded-full border-4 border-slate-900 overflow-hidden bg-slate-900 shadow-md">
+                          {pair.pfp_url ? (
+                            <img
+                              src={pair.pfp_url}
+                              alt={pair.title || "Pair avatar"}
+                              className="object-cover w-full h-full"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-gray-500 italic">
+                              No Avatar
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Spacer for avatar overlap */}
+                      <div className="h-12" />
+
+                      {/* Title and category */}
+                      <div className="p-4 pt-2 text-white">
+                        <h3 className="text-lg font-semibold">{pair.title || "Untitled"}</h3>
+                        <p className="text-sm text-gray-400">{pair.category || "No category"}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          <div className="w-px bg-slate-600 my-2 ml-6"></div>
+            {/* Uploads */}
+            <div>
+              <h2 className="text-xl font-semibold text-white mb-3">Uploads</h2>
+              {uploads.length === 0 ? (
+                <p className="text-gray-400 italic">No uploads found.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {uploads.map((upload) => (
+                    <div
+                      key={upload.id}
+                      className="bg-slate-800 rounded-lg overflow-hidden shadow cursor-pointer hover:scale-[1.03] transition-transform"
+                      onClick={() => openPreview(upload)}
+                    >
+                      <img
+                        src={upload.image_url}
+                        alt={upload.title || "Upload image"}
+                        className="object-cover w-full h-48"
+                      />
+                      <div className="p-3 text-white">
+                        <h3 className="font-semibold">{upload.title || "Untitled"}</h3>
+                        <p className="text-sm text-gray-400">{upload.category || "No category"}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
-          <section className="flex-1 max-w-[35%] ml-auto">
-            <h2 className="text-2xl font-semibold mb-4 text-white">
-              Favorites
-            </h2>
+          {/* Right Column: Favorites sidebar */}
+          <aside className="sticky top-20 h-[80vh] w-72 bg-slate-800 rounded-lg overflow-y-auto shadow-lg px-4 py-6 text-white">
+            <h2 className="text-xl font-semibold mb-4">Favorites</h2>
             {favorites.length === 0 ? (
-              <p className="text-slate-400 italic">No favorites yet.</p>
+              <p className="italic text-gray-400">No favorites found.</p>
             ) : (
-              <div className="grid grid-cols-1 gap-4">
+              <ul className="flex flex-col gap-3">
                 {favorites.map((fav) => (
-                  <div
+                  <li
                     key={fav.id}
+                    className="flex items-center gap-3 cursor-pointer hover:bg-slate-700 rounded-md p-2"
                     onClick={() => openPreview(fav)}
-                    className="cursor-pointer bg-slate-800 rounded-lg overflow-hidden shadow hover:shadow-lg transition-shadow"
                   >
                     <img
                       src={fav.image_url}
-                      alt={fav.title}
-                      className="object-cover w-full h-24"
+                      alt={fav.title || "Favorite image"}
+                      className="w-12 h-12 rounded-md object-cover flex-shrink-0"
                     />
-                    <div className="p-2">
-                      <h3 className="text-white font-semibold">{fav.title}</h3>
+                    <div>
+                      <p className="font-semibold">{fav.title || "Untitled"}</p>
+                      <p className="text-xs text-gray-400">{fav.category || "No category"}</p>
                     </div>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
-          </section>
+          </aside>
         </div>
       </div>
 
+      <Footer />
+
       {/* Preview Modal */}
       <Transition appear show={isModalOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={closePreview}>
+        <Dialog
+          as="div"
+          className="relative z-50"
+          onClose={closePreview}
+          static
+        >
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -422,51 +490,61 @@ export default function UserProfile() {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-black bg-opacity-75" />
+            <div className="fixed inset-0 bg-black bg-opacity-80" />
           </Transition.Child>
 
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <Dialog.Panel className="w-full max-w-3xl rounded bg-slate-900 p-6 shadow-xl">
-                  <button
-                    className="absolute top-7 right-7 text-gray-400 hover:text-white-400 bg-gray-900 py-2 px-2 rounded-full"
-                    onClick={closePreview}
-                    aria-label="Close preview modal"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-
-                  {previewItem && (
-                    <>
-                      <img
-                        src={previewItem.image_url}
-                        alt={previewItem.title}
-                        className="w-full max-h-[70vh] object-contain rounded"
-                      />
-                      <h3 className="mt-4 text-white text-xl font-semibold">
-                        {previewItem.title}
-                      </h3>
-                    </>
-                  )}
-                </Dialog.Panel>
-              </Transition.Child>
-            </div>
+          <div className="fixed inset-0 overflow-y-auto flex items-center justify-center p-4">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="max-w-3xl w-full bg-slate-900 rounded-lg shadow-lg p-4 relative">
+                <button
+                  className="absolute top-2 right-2 text-gray-400 hover:text-white"
+                  onClick={closePreview}
+                  aria-label="Close preview"
+                >
+                  <X />
+                </button>
+                {previewItem && "image_url" in previewItem && (
+                  <>
+                    <img
+                      src={previewItem.image_url}
+                      alt={previewItem.title || "Preview image"}
+                      className="w-full max-h-[60vh] object-contain rounded-md"
+                    />
+                    <h3 className="mt-3 text-white text-lg font-semibold">
+                      {previewItem.title || "Untitled"}
+                    </h3>
+                    <p className="text-gray-400">{previewItem.category || "No category"}</p>
+                    {previewItem.tags && (
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {previewItem.tags.map((tag, i) => (
+                          <span
+                            key={i}
+                            className="bg-slate-700 text-xs rounded px-2 py-0.5"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </Dialog.Panel>
+            </Transition.Child>
           </div>
         </Dialog>
       </Transition>
 
       {/* Report Modal */}
       <Transition appear show={isReportModalOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={closeReportModal}>
+        <Dialog as="div" className="relative z-50" onClose={closeReportModal} static>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -476,77 +554,52 @@ export default function UserProfile() {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-black bg-opacity-75" />
+            <div className="fixed inset-0 bg-black bg-opacity-70" />
           </Transition.Child>
 
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <Dialog.Panel className="w-full max-w-md rounded bg-slate-900 p-6 shadow-xl">
-                  <Dialog.Title className="text-lg font-medium leading-6 text-white">
-                    Report User: {profile.username}
-                  </Dialog.Title>
-
-                  <div className="mt-4">
-                    <label
-                      htmlFor="reason"
-                      className="block text-sm font-medium text-white"
-                    >
-                      Reason
-                    </label>
-                    <textarea
-                      id="reason"
-                      rows={4}
-                      className="mt-1 block w-full rounded-md border border-gray-700 bg-slate-800 text-white shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
-                      value={reportReason}
-                      onChange={(e) => setReportReason(e.target.value)}
-                      disabled={reportSubmitting || reportSuccess}
-                    />
-                  </div>
-
-                  {reportError && (
-                    <p className="mt-2 text-sm text-red-500">{reportError}</p>
-                  )}
-                  {reportSuccess && (
-                    <p className="mt-2 text-sm text-green-500">
-                      Report submitted successfully!
-                    </p>
-                  )}
-
-                  <div className="mt-6 flex justify-end space-x-3">
-                    <button
-                      type="button"
-                      className="inline-flex justify-center rounded-md border border-transparent bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-600 focus:outline-none"
-                      onClick={closeReportModal}
-                      disabled={reportSubmitting}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className={`inline-flex justify-center rounded-md border border-transparent bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 focus:outline-none disabled:opacity-50`}
-                      onClick={submitReport}
-                      disabled={reportSubmitting || reportSuccess}
-                    >
-                      {reportSubmitting ? "Submitting..." : "Submit Report"}
-                    </button>
-                  </div>
-                </Dialog.Panel>
-              </Transition.Child>
-            </div>
+          <div className="fixed inset-0 overflow-y-auto flex items-center justify-center p-4">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="bg-slate-900 rounded-lg max-w-md w-full p-6">
+                <Dialog.Title className="text-lg font-semibold text-white mb-4">Report User</Dialog.Title>
+                <textarea
+                  rows={4}
+                  placeholder="Describe the reason for reporting this user..."
+                  className="w-full p-2 rounded-md bg-slate-700 text-white focus:outline-none resize-none"
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  disabled={reportSubmitting || reportSuccess}
+                />
+                {reportError && <p className="text-red-500 mt-2">{reportError}</p>}
+                {reportSuccess && <p className="text-green-500 mt-2">Report submitted successfully.</p>}
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    onClick={closeReportModal}
+                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white"
+                    disabled={reportSubmitting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitReport}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-white"
+                    disabled={reportSubmitting || reportSuccess}
+                  >
+                    {reportSubmitting ? "Submitting..." : "Submit"}
+                  </button>
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
           </div>
         </Dialog>
       </Transition>
-
-      <Footer />
     </div>
   );
 }

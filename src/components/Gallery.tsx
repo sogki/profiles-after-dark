@@ -143,7 +143,7 @@ useEffect(() => {
       }
 
       const { data, error } = await supabase
-        .from("profiles")
+        .from("user_profiles")
         .select("id, display_name")
         .in("id", uploaderIds);
 

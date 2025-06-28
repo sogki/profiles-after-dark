@@ -35,7 +35,9 @@ export default function ProfileSettings() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [activeTab, setActiveTab] = useState<"account" | "security" | "notifications">("account");
+  const [activeTab, setActiveTab] = useState<
+    "account" | "security" | "notifications"
+  >("account");
 
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -138,18 +140,16 @@ export default function ProfileSettings() {
     try {
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, file, { upsert: true, contentType: file.type });
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData, error: urlError } = supabase.storage
+      const { data: urlData } = supabase.storage
         .from(bucket)
         .getPublicUrl(filePath);
 
-      if (urlError) throw urlError;
-      if (!urlData?.publicUrl) throw new Error("No public URL returned.");
-
       const publicUrl = urlData.publicUrl;
+      if (!publicUrl) throw new Error("No public URL returned.");
 
       setProfile((prev) => ({ ...prev, [field]: publicUrl }));
 
@@ -158,12 +158,17 @@ export default function ProfileSettings() {
         .update({ [field]: publicUrl })
         .eq("user_id", user.id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error(updateError);
+        throw updateError;
+      }
 
-      toast.success(`${field === "avatar_url" ? "Avatar" : "Banner"} uploaded successfully.`);
+      toast.success(
+        `${field === "avatar_url" ? "Avatar" : "Banner"} uploaded successfully.`
+      );
     } catch (error: any) {
-      if (error?.message) toast.error(`Upload error: ${error.message}`);
-      else toast.error("Failed to upload file.");
+      console.error("Upload Error:", error);
+      toast.error(error?.message || "Failed to upload file.");
     } finally {
       setLoading(false);
       e.target.value = "";
@@ -218,7 +223,11 @@ export default function ProfileSettings() {
   };
 
   const handleDeleteAccount = async () => {
-    if (!confirm("Are you absolutely sure you want to delete your account? This action cannot be undone.")) {
+    if (
+      !confirm(
+        "Are you absolutely sure you want to delete your account? This action cannot be undone."
+      )
+    ) {
       return;
     }
 
@@ -232,7 +241,9 @@ export default function ProfileSettings() {
         return;
       }
 
-      const { error } = await supabase.rpc("delete_user_account", { uid: currentUser.id });
+      const { error } = await supabase.rpc("delete_user_account", {
+        uid: currentUser.id,
+      });
 
       if (error) {
         alert(`Failed to delete account: ${error.message}`);
@@ -254,12 +265,16 @@ export default function ProfileSettings() {
     <div className="min-h-screen bg-slate-900 text-white p-4 md:p-6 max-w-7xl mx-auto grid grid-cols-12 gap-6 md:gap-8">
       {/* Sidebar */}
       <aside className="col-span-12 md:col-span-3 bg-slate-800 rounded-lg p-6 space-y-6 self-start">
-        <h2 className="text-xl font-semibold border-b border-slate-700 pb-2">Settings Menu</h2>
+        <h2 className="text-xl font-semibold border-b border-slate-700 pb-2">
+          Settings Menu
+        </h2>
         <nav className="flex flex-col space-y-3 text-slate-300">
           <button
             onClick={() => setActiveTab("account")}
             className={`text-left transition ${
-              activeTab === "account" ? "text-white font-semibold" : "hover:text-white"
+              activeTab === "account"
+                ? "text-white font-semibold"
+                : "hover:text-white"
             }`}
           >
             Account
@@ -267,7 +282,9 @@ export default function ProfileSettings() {
           <button
             onClick={() => setActiveTab("security")}
             className={`text-left transition ${
-              activeTab === "security" ? "text-white font-semibold" : "hover:text-white"
+              activeTab === "security"
+                ? "text-white font-semibold"
+                : "hover:text-white"
             }`}
           >
             Security
@@ -275,7 +292,9 @@ export default function ProfileSettings() {
           <button
             onClick={() => setActiveTab("notifications")}
             className={`text-left transition ${
-              activeTab === "notifications" ? "text-white font-semibold" : "hover:text-white"
+              activeTab === "notifications"
+                ? "text-white font-semibold"
+                : "hover:text-white"
             }`}
           >
             Notifications
@@ -377,7 +396,9 @@ export default function ProfileSettings() {
                 <label className="block mb-1 font-semibold">Username</label>
                 <input
                   value={profile.username}
-                  onChange={(e) => setProfile({ ...profile, username: e.target.value })}
+                  onChange={(e) =>
+                    setProfile({ ...profile, username: e.target.value })
+                  }
                   className="w-full bg-slate-700 p-3 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
@@ -386,7 +407,9 @@ export default function ProfileSettings() {
                 <label className="block mb-1 font-semibold">Display Name</label>
                 <input
                   value={profile.display_name}
-                  onChange={(e) => setProfile({ ...profile, display_name: e.target.value })}
+                  onChange={(e) =>
+                    setProfile({ ...profile, display_name: e.target.value })
+                  }
                   className="w-full bg-slate-700 p-3 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
@@ -396,7 +419,9 @@ export default function ProfileSettings() {
                 <textarea
                   rows={3}
                   value={profile.bio}
-                  onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+                  onChange={(e) =>
+                    setProfile({ ...profile, bio: e.target.value })
+                  }
                   className="w-full bg-slate-700 p-3 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
@@ -440,7 +465,9 @@ export default function ProfileSettings() {
             </div>
 
             <div>
-              <label className="block mb-1 font-semibold">Confirm Password</label>
+              <label className="block mb-1 font-semibold">
+                Confirm Password
+              </label>
               <input
                 type="password"
                 value={confirmPassword}
@@ -464,8 +491,8 @@ export default function ProfileSettings() {
             <div className="pt-6">
               <h2 className="text-xl font-semibold mb-2">Delete Account</h2>
               <p className="mb-4 text-slate-400">
-                Deleting your account is permanent and will remove all your data.
-                This action cannot be undone.
+                Deleting your account is permanent and will remove all your
+                data. This action cannot be undone.
               </p>
               <button
                 onClick={handleDeleteAccount}
@@ -494,7 +521,9 @@ export default function ProfileSettings() {
                   <li
                     key={note.id}
                     className={`p-4 rounded-lg border ${
-                      note.read ? "border-slate-700 bg-slate-800" : "border-purple-600 bg-purple-900"
+                      note.read
+                        ? "border-slate-700 bg-slate-800"
+                        : "border-purple-600 bg-purple-900"
                     }`}
                   >
                     <p>{note.message}</p>
@@ -508,7 +537,6 @@ export default function ProfileSettings() {
           </section>
         )}
       </main>
-
     </div>
   );
 }

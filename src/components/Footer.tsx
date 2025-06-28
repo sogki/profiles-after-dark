@@ -17,7 +17,7 @@ export default function Footer() {
             </div>
             <p className="text-slate-400 mb-6 max-w-md">
               The ultimate destination for stunning profile pictures and banners. 
-              Join many users who've discovered their perfect aesthetic.
+              Join the community who've discovered their perfect aesthetic.
             </p>
             {/* Socials (optional)
             <div className="flex space-x-4">

@@ -527,7 +527,7 @@ export default function UserProfile() {
                         {previewItem.tags.map((tag, i) => (
                           <span
                             key={i}
-                            className="bg-slate-700 text-xs rounded px-2 py-0.5"
+                            className="bg-slate-700 text-xs text-white rounded px-2 py-0.5"
                           >
                             {tag}
                           </span>

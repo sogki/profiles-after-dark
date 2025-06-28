@@ -1,42 +1,9 @@
+"use client"
+
 import type React from "react"
 import { useEffect, useState, useRef } from "react"
 import { supabase } from "../../lib/supabase"
-import {
-  Loader2,
-  Save,
-  User,
-  Mail,
-  Lock,
-  Bell,
-  Camera,
-  Upload,
-  Trash2,
-  Shield,
-  AlertTriangle,
-  CheckCircle,
-  Settings,
-  Eye,
-  EyeOff,
-  Palette,
-  Globe,
-  Download,
-  MessageSquare,
-  Smartphone,
-  Monitor,
-  Zap,
-  Key,
-  History,
-  Users,
-  Database,
-  HelpCircle,
-  X,
-  Copy,
-  RefreshCw,
-  LogOut,
-  MapPin,
-  Volume,
-  VolumeX,
-} from "lucide-react"
+import { Loader2, Save, User, Mail, Lock, Bell, Camera, Upload, Trash2, Shield, AlertTriangle, CheckCircle, Settings, Eye, EyeOff, Palette, Globe, Download, MessageSquare, Database, HelpCircle, X, Copy, RefreshCw, Zap, Key, History, Users, Smartphone, Monitor, MapPin, LogOut, Volume, VolumeX } from 'lucide-react'
 import toast from "react-hot-toast"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { useNavigate } from "react-router-dom"
@@ -155,7 +122,7 @@ export default function ProfileSettings() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [uploadingBanner, setUploadingBanner] = useState(false)
 
-  // New feature states
+  // Essential feature states
   const [selectedTheme, setSelectedTheme] = useState("dark")
   const [selectedLanguage, setSelectedLanguage] = useState("en")
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)

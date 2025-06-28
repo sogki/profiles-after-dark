@@ -484,7 +484,7 @@ const ModerationPanel = () => {
                     setAnnouncementDraft(announcement || "");
                     setIsEditingAnnouncement(true);
                   }}
-                  className="text-sm bg-black bg-opacity-30 px-3 py-1 rounded hover:bg-opacity-50 transition flex items-center space-x-"
+                  className="text-sm bg-black bg-opacity-30 px-3 py-1 rounded hover:bg-opacity-50 transition flex items-center space-x-2"
                   aria-label="Edit announcement"
                 >
                   <Edit2 size={16} />

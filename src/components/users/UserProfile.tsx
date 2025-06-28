@@ -252,7 +252,7 @@ export default function UserProfile() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-900">
-      <div className="max-w-4xl mx-auto px-4 py-8 flex-grow">
+      <div className="max-w-6xl mx-auto px-4 py-8 flex-grow">
         {/* Banner & Avatar */}
         <div className="relative mb-5 rounded-lg w-[80vw] max-w-full mx-auto">
           {profile.banner_url ? (
@@ -355,7 +355,7 @@ export default function UserProfile() {
             {uploads.length === 0 ? (
               <p className="text-slate-400 italic">No uploads yet.</p>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 {uploads.map((upload) => (
                   <div
                     key={upload.id}

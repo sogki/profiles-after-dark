@@ -278,7 +278,7 @@ export default function ProfilesGallery() {
                   />
                 )}
 
-                <div className="pt-36 pb-6 px-6 text-center">
+                <div className="pt-20 pb-6 px-6 text-center">
                   <h3 className="text-white font-semibold text-xl truncate">
                     {profile.title}
                   </h3>

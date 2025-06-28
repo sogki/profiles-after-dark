@@ -443,7 +443,7 @@ export default function ProfilesGallery() {
                       className="inline-flex justify-center px-6 py-2 text-sm font-semibold text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
                       type="button"
                     >
-                      Download Both
+                      Download Profile
                     </button>
                     <button
                       type="button"

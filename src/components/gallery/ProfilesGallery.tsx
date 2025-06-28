@@ -13,7 +13,7 @@ import { supabase } from "../../lib/supabase";
 interface ProfilePair {
   id: string;
   title: string;
-  category: string;
+  // category removed
   tags?: string[];
   pfp_url: string;
   banner_url: string;
@@ -32,9 +32,7 @@ export default function ProfilesGallery() {
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
-  const [selectedCategory, setSelectedCategory] = useState<string | "all">(
-    "all"
-  );
+  // selectedCategory state removed
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -107,7 +105,7 @@ export default function ProfilesGallery() {
           return {
             id: item.id,
             title: item.title,
-            category: item.category,
+            // category removed
             tags,
             pfp_url: item.pfp_url,
             banner_url: item.banner_url,
@@ -132,13 +130,7 @@ export default function ProfilesGallery() {
     return Array.from(tagsSet).sort((a, b) => a.localeCompare(b));
   }, [profiles]);
 
-  const allCategories = useMemo(() => {
-    const categoriesSet = new Set<string>();
-    profiles.forEach((p) => {
-      if (p.category) categoriesSet.add(p.category);
-    });
-    return Array.from(categoriesSet).sort((a, b) => a.localeCompare(b));
-  }, [profiles]);
+  // allCategories useMemo removed
 
   const filteredProfiles = useMemo(() => {
     return profiles.filter((profile) => {
@@ -153,12 +145,10 @@ export default function ProfilesGallery() {
         selectedTags.size === 0 ||
         profile.tags?.some((tag) => selectedTags.has(tag));
 
-      const matchesCategory =
-        selectedCategory === "all" || profile.category === selectedCategory;
-
-      return matchesSearch && matchesTags && matchesCategory;
+      // matchesCategory removed, always true now
+      return matchesSearch && matchesTags;
     });
-  }, [profiles, searchQuery, selectedTags, selectedCategory]);
+  }, [profiles, searchQuery, selectedTags]);
 
   const pagedProfiles = useMemo(() => {
     const start = (page - 1) * ITEMS_PER_PAGE;
@@ -167,7 +157,7 @@ export default function ProfilesGallery() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, selectedTags, selectedCategory]);
+  }, [searchQuery, selectedTags]);
 
   async function downloadImage(url: string, filename: string) {
     try {
@@ -233,7 +223,7 @@ export default function ProfilesGallery() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h2 className="text-white text-3xl font-bold mb-6">
-        Profile Pairs Gallery
+        Profiles Gallery
       </h2>
 
       {/* Filters */}
@@ -247,19 +237,7 @@ export default function ProfilesGallery() {
           aria-label="Search profiles"
         />
 
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="px-4 py-2 rounded-md bg-slate-700 text-white"
-          aria-label="Filter by category"
-        >
-          <option value="all">All Categories</option>
-          {allCategories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
+        {/* Category filter removed */}
       </div>
 
       {/* Profiles grid using gallery.tsx card style */}
@@ -275,7 +253,7 @@ export default function ProfilesGallery() {
             {pagedProfiles.map((profile) => (
               <div
                 key={profile.id}
-                className="relative group bg-slate-900 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-shadow cursor-pointer"
+                className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-shadow cursor-pointer"
                 style={{ minHeight: "280px" }}
               >
                 {profile.banner_url ? (
@@ -304,9 +282,7 @@ export default function ProfilesGallery() {
                   <h3 className="text-white font-semibold text-xl truncate">
                     {profile.title}
                   </h3>
-                  <p className="text-purple-300 text-xs mb-2 truncate">
-                    {profile.category}
-                  </p>
+                  {/* Category display removed */}
                   <div className="flex flex-wrap justify-center gap-1 mb-4 max-h-16 overflow-auto px-2">
                     {(profile.tags || []).map((tag) => (
                       <span
@@ -440,18 +416,15 @@ export default function ProfilesGallery() {
                   )}
                 </div>
 
-                <div className="pt-20 pb-8 px-8 text-center">
+                <div className="pt-20 pb-8 px-6 text-center">
                   <Dialog.Title
                     as="h3"
-                    className="text-3xl font-semibold text-white mb-2"
+                    className="text-2xl font-bold leading-6 text-white mb-4 truncate"
                   >
                     {previewProfile?.title}
                   </Dialog.Title>
-                  <p className="text-purple-300 text-sm mb-3">
-                    {previewProfile?.category}
-                  </p>
 
-                  <div className="flex flex-wrap justify-center gap-2 max-h-24 overflow-auto px-4 mb-6">
+                  <div className="flex flex-wrap justify-center gap-2 mb-6 max-h-20 overflow-auto px-2">
                     {(previewProfile?.tags || []).map((tag) => (
                       <span
                         key={tag}
@@ -467,47 +440,19 @@ export default function ProfilesGallery() {
                       onClick={() =>
                         previewProfile && handleDownloadBoth(previewProfile)
                       }
-                      className="inline-flex items-center px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="inline-flex justify-center px-6 py-2 text-sm font-semibold text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
                       type="button"
                     >
-                      <Download className="mr-2" /> Download Both
+                      Download Both
                     </button>
-
-                    {user && previewProfile && (
-                      <button
-                        onClick={() => handleFavorite(previewProfile.id)}
-                        className={`inline-flex items-center px-6 py-2 border border-pink-500 text-pink-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 ${
-                          favorites.has(previewProfile.id)
-                            ? "bg-pink-500 text-white"
-                            : "bg-transparent"
-                        }`}
-                        type="button"
-                        aria-pressed={favorites.has(previewProfile.id)}
-                        aria-label={
-                          favorites.has(previewProfile.id)
-                            ? `Remove ${previewProfile.title} from favorites`
-                            : `Add ${previewProfile.title} to favorites`
-                        }
-                      >
-                        <Heart
-                          size={20}
-                          fill={favorites.has(previewProfile.id) ? "currentColor" : "none"}
-                          className="mr-2"
-                        />
-                        {favorites.has(previewProfile.id)
-                          ? "Remove Favorite"
-                          : "Add Favorite"}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="inline-flex justify-center px-6 py-2 text-sm font-semibold text-purple-600 bg-transparent border border-purple-600 rounded-md hover:bg-purple-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      onClick={closePreview}
+                    >
+                      Close
+                    </button>
                   </div>
-
-                  <button
-                    onClick={closePreview}
-                    className="mt-8 text-sm text-purple-300 underline focus:outline-none"
-                    type="button"
-                  >
-                    Close Preview
-                  </button>
                 </div>
               </Dialog.Panel>
             </Transition.Child>

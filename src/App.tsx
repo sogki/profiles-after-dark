@@ -21,6 +21,11 @@ import EmojiCombosGallery from "./components/gallery/EmojiCombosGallery";
 import ModerationPanel from "./components/users/moderation/ModerationPanel";
 import ModerationLogs from "./components/users/moderation/ModerationLogs"; 
 
+import Terms from "./components/legal/Terms";
+import Policies from "./components/legal/Policies";
+import Guidelines from './components/legal/Guidelines';
+import ReportContent from './components/legal/ReportContent';
+
 import { useAuth } from "./context/authContext";
 import { Toaster } from "react-hot-toast";
 
@@ -37,6 +42,8 @@ function App() {
   const [announcement, setAnnouncement] = useState<string | null>(null);
 
   const { user, loading } = useAuth();
+
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   // Fetch announcement on mount
   useEffect(() => {
@@ -57,6 +64,19 @@ function App() {
 
     fetchAnnouncement();
   }, []);
+
+  // Scroll listener to show/hide scroll to top button
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.pageYOffset > 300);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleUploadClick = () => {
     if (user) {
@@ -79,7 +99,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col relative">
         <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
 
         <Header
@@ -144,6 +164,12 @@ function App() {
             <Route path="/gallery/banners" element={<BannersGallery />} />
             <Route path="/gallery/emotes" element={<EmotesGallery />} />
             <Route path="/gallery/emoji-combos" element={<EmojiCombosGallery />} />
+
+            {/* Legal routes */}
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/policies" element={<Policies />} />
+            <Route path="/guidelines" element={<Guidelines />} />
+            <Route path="/report-content" element={<ReportContent />} />
           </Routes>
         </div>
 
@@ -156,6 +182,28 @@ function App() {
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
         />
+
+        {/* Scroll to Top Button with fade and scale animation */}
+        <button
+          onClick={scrollToTop}
+          aria-label="Scroll to top"
+          className={`fixed bottom-8 right-8 z-50 p-3 rounded-full bg-sky-600 hover:bg-sky-500 text-white shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-sky-400
+            transform origin-center
+            ${showScrollTop ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-75 pointer-events-none"}
+          `}
+          style={{ transitionProperty: "opacity, transform" }}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+          </svg>
+        </button>
       </div>
     </BrowserRouter>
   );

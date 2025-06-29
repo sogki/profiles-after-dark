@@ -183,15 +183,15 @@ export default function Footer() {
                   Settings
                 </Link>
               </li>
-              <li>
+              {/* <li>
                 <Link
-                  to="/profile"
+                  to={`/user/${userProfile.username}`}
                   className="text-slate-400 hover:text-blue-400 transition-colors duration-200 flex items-center gap-2 group"
                 >
                   <span className="w-1 h-1 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
                   My Profile
                 </Link>
-              </li>
+              </li> */}
               <li>
                 <Link
                   to="/favorites"

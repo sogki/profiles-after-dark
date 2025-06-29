@@ -9,7 +9,6 @@ import {
   analyzeUserBehavior,
   type ModerationResult,
 } from "../../../lib/openai-moderation"
-
 import {
   Users,
   FileText,
@@ -41,11 +40,7 @@ import {
   PieChart,
   Settings,
   Bot,
-  HardDrive,
   Monitor,
-  Mail,
-  UserX,
-  UserCheck,
   RefreshCw,
   Plus,
   Zap,
@@ -65,7 +60,13 @@ import {
 interface ReportedUser {
   id: string
   reason: string
+  description?: string
   created_at: string
+  status?: string
+  reported_user_id?: string
+  reporter_user_id: string
+  content_id?: string
+  content_type?: string
   reported_user: { username: string; avatar_url?: string; id?: string } | null
   reporter_user: { username: string } | null
 }
@@ -243,6 +244,15 @@ const ModerationPanel = () => {
   const [fetchingLogs, setFetchingLogs] = useState(false)
   const [usersMap, setUsersMap] = useState<Record<string, UserSummary>>({})
 
+  // Report modal states
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false)
+  const [reportTarget, setReportTarget] = useState<{
+    userId?: string
+    username?: string
+    contentId?: string
+    contentType?: string
+  }>({})
+
   // Content management states
   const [content, setContent] = useState<ContentItem[]>([])
   const [fetchingContent, setFetchingContent] = useState(false)
@@ -329,6 +339,29 @@ const ModerationPanel = () => {
   const [isEditingAnnouncement, setIsEditingAnnouncement] = useState(false)
   const [announcementDraft, setAnnouncementDraft] = useState("")
 
+  // Report modal functions
+  const openReportModal = (target: {
+    userId?: string
+    username?: string
+    contentId?: string
+    contentType?: string
+  }) => {
+    setReportTarget(target)
+    setIsReportModalOpen(true)
+  }
+
+  const closeReportModal = () => {
+    setIsReportModalOpen(false)
+    setReportTarget({})
+  }
+
+  const handleReportSubmitted = () => {
+    closeReportModal()
+    fetchReports() // Refresh reports list
+    fetchLogs() // Refresh logs
+    toast.success("Report submitted successfully")
+  }
+
   const fetchReports = async () => {
     setFetchingReports(true)
     try {
@@ -337,14 +370,47 @@ const ModerationPanel = () => {
         .select(`
           id,
           reason,
+          description,
           created_at,
-          reported_user:user_profiles!reports_reported_user_id_fkey(username, avatar_url, id),
-          reporter_user:user_profiles!reports_reporter_user_id_fkey(username)
+          status,
+          reported_user_id,
+          reporter_user_id,
+          content_id,
+          content_type,
+          reported_user:user_profiles!reports_reported_user_id_fkey(username, avatar_url, user_id),
+          reporter_user:user_profiles!reports_reporter_user_id_fkey(username, user_id)
         `)
         .order("created_at", { ascending: false })
 
       if (error) throw error
-      setReports(data as ReportedUser[])
+
+      // Transform the data to match the expected interface
+      const transformedReports =
+        data?.map((report) => ({
+          id: report.id,
+          reason: report.reason,
+          description: report.description,
+          created_at: report.created_at,
+          status: report.status,
+          reported_user_id: report.reported_user_id,
+          reporter_user_id: report.reporter_user_id,
+          content_id: report.content_id,
+          content_type: report.content_type,
+          reported_user: report.reported_user
+            ? {
+                username: report.reported_user.username,
+                avatar_url: report.reported_user.avatar_url,
+                id: report.reported_user.user_id,
+              }
+            : null,
+          reporter_user: report.reporter_user
+            ? {
+                username: report.reporter_user.username,
+              }
+            : null,
+        })) || []
+
+      setReports(transformedReports)
     } catch (error) {
       console.error("Failed to fetch reports", error)
       toast.error("Failed to fetch reported users")
@@ -388,7 +454,6 @@ const ModerationPanel = () => {
             username: "Unknown User",
             source_table: "profiles" as const,
           }))
-
           allContent.push(...profilesWithMetadata)
         }
       } catch (error) {
@@ -454,7 +519,6 @@ const ModerationPanel = () => {
 
       // Sort by creation date
       allContent.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-
       setContent(allContent)
     } catch (error) {
       console.error("Failed to fetch content", error)
@@ -469,7 +533,6 @@ const ModerationPanel = () => {
       // Calculate date range based on time filter
       const now = new Date()
       const dateFilter = new Date()
-
       switch (timeRange) {
         case "week":
           dateFilter.setDate(now.getDate() - 7)
@@ -620,10 +683,8 @@ const ModerationPanel = () => {
       profilesCount.data?.forEach((item) => {
         if (item.type === "profile") profileCount++
         else if (item.type === "banner") bannerCount++
-
         const category = item.category || "General"
         categoriesMap[category] = (categoriesMap[category] || 0) + 1
-
         if (Array.isArray(item.tags)) {
           item.tags.forEach((tag: string) => {
             tagsMap[tag] = (tagsMap[tag] || 0) + 1
@@ -635,7 +696,6 @@ const ModerationPanel = () => {
       pairsCount.data?.forEach((item) => {
         const category = item.category || "General"
         categoriesMap[category] = (categoriesMap[category] || 0) + 1
-
         if (Array.isArray(item.tags)) {
           item.tags.forEach((tag: string) => {
             tagsMap[tag] = (tagsMap[tag] || 0) + 1
@@ -764,7 +824,6 @@ const ModerationPanel = () => {
     try {
       // Check if system_settings table exists, if not create it
       const { error: createTableError } = await supabase.rpc("create_system_settings_table")
-
       if (createTableError && !createTableError.message.includes("already exists")) {
         console.warn("Could not create system_settings table:", createTableError)
       }
@@ -961,7 +1020,6 @@ const ModerationPanel = () => {
 
   const updateSystemSetting = async (key: string, value: string) => {
     setSavingSettings((prev) => ({ ...prev, [key]: true }))
-
     try {
       // Validate the value based on type
       const setting = systemSettings.find((s) => s.key === key)
@@ -1078,7 +1136,6 @@ const ModerationPanel = () => {
 
       // Calculate stats from real data
       const totalScans = await supabase.from("auto_moderation_scans").select("id", { count: "exact" })
-
       const flaggedContent = await supabase
         .from("auto_moderation_scans")
         .select("id", { count: "exact" })
@@ -1346,6 +1403,7 @@ const ModerationPanel = () => {
 
       // Update local state
       setModerationRules((prev) => prev.filter((rule) => rule.id !== ruleId))
+
       toast.success("Moderation rule deleted successfully")
 
       // Log the action
@@ -1508,7 +1566,6 @@ const ModerationPanel = () => {
 
           if (!moderationResult.isAppropriate) {
             flaggedCount++
-
             // Log the AI action
             await supabase.from("moderation_logs").insert([
               {
@@ -1630,6 +1687,7 @@ const ModerationPanel = () => {
         .limit(50)
 
       if (logsError) throw logsError
+
       if (!logsData) return
 
       setLogs(logsData)
@@ -1736,7 +1794,8 @@ const ModerationPanel = () => {
 
   const handleDismiss = async (id: string) => {
     try {
-      const { error } = await supabase.from("reports").delete().eq("id", id)
+      const { error } = await supabase.from("reports").update({ status: "dismissed" }).eq("id", id)
+
       if (error) throw error
 
       setReports((prev) => prev.filter((r) => r.id !== id))
@@ -1773,21 +1832,27 @@ const ModerationPanel = () => {
             message: warningMessage || "No message provided",
           },
         ])
+
         if (error) throw error
+
         toast.success(`User ${actionModal.username} has been warned`)
       } else if (actionModal.action === "restrict") {
         const { error } = await supabase
           .from("user_profiles")
           .update({ restricted: true })
           .eq("user_id", actionModal.userId)
+
         if (error) throw error
+
         toast.success(`User ${actionModal.username} has been restricted`)
       } else if (actionModal.action === "terminate") {
         const { error } = await supabase
           .from("user_profiles")
           .update({ terminated: true })
           .eq("user_id", actionModal.userId)
+
         if (error) throw error
+
         toast.success(`User ${actionModal.username} has been terminated`)
       }
 
@@ -1907,10 +1972,12 @@ const ModerationPanel = () => {
     try {
       if (contentItem.source_table === "profiles") {
         const { error } = await supabase.from("profiles").delete().eq("id", contentItem.id)
+
         if (error) throw error
       } else if (contentItem.source_table === "profile_pairs") {
         const pairId = contentItem.id.split("-")[0] // Remove -pfp or -banner suffix
         const { error } = await supabase.from("profile_pairs").delete().eq("id", pairId)
+
         if (error) throw error
       }
 
@@ -1937,6 +2004,7 @@ const ModerationPanel = () => {
     try {
       // In real implementation, this would update the user_profiles table
       setUsers((prev) => prev.map((user) => (user.id === userId ? { ...user, status } : user)))
+
       toast.success(`User status updated to ${status}`)
     } catch (error) {
       console.error("Failed to update user status:", error)
@@ -1958,6 +2026,7 @@ const ModerationPanel = () => {
           ...prev,
           editedTags: [...new Set([...prev.editedTags, ...generatedTags])],
         }))
+
         toast.success(`Generated ${generatedTags.length} AI tags`)
       } else {
         toast.error("No tags could be generated")
@@ -1974,7 +2043,9 @@ const ModerationPanel = () => {
       item.title.toLowerCase().includes(contentSearch.toLowerCase()) ||
       item.username?.toLowerCase().includes(contentSearch.toLowerCase()) ||
       item.tags.some((tag) => tag.toLowerCase().includes(contentSearch.toLowerCase()))
+
     const matchesFilter = contentFilter === "all" || item.type === contentFilter
+
     return matchesSearch && matchesFilter
   })
 
@@ -1984,7 +2055,9 @@ const ModerationPanel = () => {
       user.username.toLowerCase().includes(userSearch.toLowerCase()) ||
       user.email.toLowerCase().includes(userSearch.toLowerCase()) ||
       user.display_name.toLowerCase().includes(userSearch.toLowerCase())
+
     const matchesFilter = userFilter === "all" || user.status === userFilter
+
     return matchesSearch && matchesFilter
   })
 
@@ -2003,7 +2076,6 @@ const ModerationPanel = () => {
 
   useEffect(() => {
     fetchAnnouncement()
-
     const channel = supabase
       .channel("realtime:announcements")
       .on(
@@ -2084,11 +2156,11 @@ const ModerationPanel = () => {
           <div className="border-b border-gray-700 pb-4">
             <div className="flex items-center gap-2 mb-2">
               <Shield className="h-6 w-6 text-blue-400" />
-              <h2 className="text-2xl font-bold">AI Moderation Panel</h2>
+              <h2 className="text-2xl font-bold">Moderation Panel</h2>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <div className="h-2 w-2 bg-green-400 rounded-full"></div>
-              <span>OpenAI Integration Active</span>
+              <span>AI Integration Active</span>
             </div>
           </div>
 
@@ -2131,6 +2203,7 @@ const ModerationPanel = () => {
                   rows={4}
                   placeholder="Write your announcement here..."
                 />
+
                 <div className="flex justify-center space-x-2">
                   <button
                     onClick={saveAnnouncement}
@@ -2195,6 +2268,7 @@ const ModerationPanel = () => {
                 {activeTab === "monitoring" && "Monitor system performance and health"}
               </p>
             </div>
+
             {activeTab === "analytics" && (
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-gray-400" />
@@ -2210,6 +2284,7 @@ const ModerationPanel = () => {
                 </select>
               </div>
             )}
+
             {activeTab === "settings" && (
               <div className="flex items-center gap-2">
                 <button
@@ -2221,6 +2296,7 @@ const ModerationPanel = () => {
                 </button>
               </div>
             )}
+
             {activeTab === "automation" && (
               <div className="flex items-center gap-2">
                 <button
@@ -2231,6 +2307,7 @@ const ModerationPanel = () => {
                   {aiScanInProgress ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scan className="h-4 w-4" />}
                   AI Scan
                 </button>
+
                 <button
                   onClick={runBulkAiScan}
                   disabled={bulkScanInProgress}
@@ -2239,6 +2316,7 @@ const ModerationPanel = () => {
                   {bulkScanInProgress ? <Loader2 className="h-4 w-4 animate-spin" /> : <Robot className="h-4 w-4" />}
                   Bulk Scan
                 </button>
+
                 <button
                   onClick={() => setRuleModal({ open: true, rule: null, isEditing: false })}
                   className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors text-sm"
@@ -2248,11 +2326,312 @@ const ModerationPanel = () => {
                 </button>
               </div>
             )}
+
+            {activeTab === "reports" && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => openReportModal({})}
+                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm"
+                >
+                  <Plus className="h-4 w-4" />
+                  New Report
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Content */}
           <div className="bg-gray-800 rounded-lg border border-gray-700">
             <div className="p-6">
+              {/* Reports Tab - Enhanced with report button */}
+              {activeTab === "reports" && (
+                <div>
+                  {fetchingReports ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                    </div>
+                  ) : reports.length === 0 ? (
+                    <div className="text-center py-12">
+                      <CheckCircle className="h-16 w-16 mx-auto text-green-400 mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No pending reports</h3>
+                      <p className="text-gray-400">All reports have been reviewed</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {reports.map((report) => (
+                        <div key={report.id} className="bg-gray-700 rounded-lg border-l-4 border-l-orange-500 p-6">
+                          <div className="flex items-start gap-4">
+                            <div className="relative">
+                              <img
+                                src={report.reported_user?.avatar_url || "/placeholder.svg?height=48&width=48"}
+                                alt={report.reported_user?.username || "User"}
+                                className="h-12 w-12 rounded-full object-cover"
+                              />
+                              <div className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full flex items-center justify-center">
+                                <AlertTriangle className="h-2.5 w-2.5 text-white" />
+                              </div>
+                            </div>
+
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold text-lg">
+                                  {report.reported_user?.username || "Unknown User"}
+                                </h3>
+                                <span className="bg-red-600 text-white px-2 py-1 rounded text-xs font-medium">
+                                  REPORTED
+                                </span>
+                                {report.content_id && (
+                                  <span className="bg-purple-600 text-white px-2 py-1 rounded text-xs font-medium">
+                                    CONTENT
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
+                                <div className="flex items-center gap-2">
+                                  <User className="h-4 w-4 text-gray-400" />
+                                  <span>Reported by: {report.reporter_user?.username || "Unknown"}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Clock className="h-4 w-4 text-gray-400" />
+                                  <span>{new Date(report.created_at).toLocaleString()}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-start gap-2">
+                                <MessageSquare className="h-4 w-4 text-gray-400 mt-0.5" />
+                                <div className="text-sm text-gray-300">
+                                  <div className="font-medium">{report.reason}</div>
+                                  {report.description && <div className="text-gray-400 mt-1">{report.description}</div>}
+                                </div>
+                              </div>
+
+                              {report.content_id && (
+                                <div className="flex items-center gap-2 text-sm text-gray-400">
+                                  <Database className="h-4 w-4" />
+                                  <span>Content ID: {report.content_id}</span>
+                                  {report.content_type && (
+                                    <span className="bg-gray-600 px-2 py-1 rounded text-xs">{report.content_type}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                              {report.reported_user_id && (
+                                <>
+                                  <button
+                                    onClick={() =>
+                                      openActionModal(
+                                        "warn",
+                                        report.reported_user_id!,
+                                        report.reported_user?.username || "",
+                                      )
+                                    }
+                                    className="flex items-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors text-sm"
+                                  >
+                                    <AlertTriangle className="h-4 w-4" />
+                                    Warn
+                                  </button>
+
+                                  <button
+                                    onClick={() =>
+                                      openActionModal(
+                                        "restrict",
+                                        report.reported_user_id!,
+                                        report.reported_user?.username || "",
+                                      )
+                                    }
+                                    className="flex items-center gap-2 px-3 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors text-sm"
+                                  >
+                                    <Ban className="h-4 w-4" />
+                                    Restrict
+                                  </button>
+
+                                  <button
+                                    onClick={() =>
+                                      openActionModal(
+                                        "terminate",
+                                        report.reported_user_id!,
+                                        report.reported_user?.username || "",
+                                      )
+                                    }
+                                    className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm"
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                    Terminate
+                                  </button>
+
+                                  <div className="border-t border-gray-600 my-1"></div>
+                                </>
+                              )}
+
+                              <button
+                                onClick={() => {
+                                  if (window.confirm("Are you sure you want to dismiss this report?")) {
+                                    handleDismiss(report.id)
+                                  }
+                                }}
+                                className="flex items-center gap-2 px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors text-sm"
+                              >
+                                <Eye className="h-4 w-4" />
+                                Dismiss
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Content Management Tab - Enhanced with report buttons */}
+              {activeTab === "content" && (
+                <div>
+                  {/* Search and Filter Controls */}
+                  <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search by title, username, or tags..."
+                        value={contentSearch}
+                        onChange={(e) => setContentSearch(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-4 w-4 text-gray-400" />
+                      <select
+                        value={contentFilter}
+                        onChange={(e) => setContentFilter(e.target.value as "all" | "profile" | "banner")}
+                        className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="all">All Content</option>
+                        <option value="profile">Profiles Only</option>
+                        <option value="banner">Banners Only</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {fetchingContent ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                    </div>
+                  ) : filteredContent.length === 0 ? (
+                    <div className="text-center py-12">
+                      <ImageIcon className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No content found</h3>
+                      <p className="text-gray-400">
+                        {contentSearch || contentFilter !== "all"
+                          ? "Try adjusting your search or filter"
+                          : "No content has been uploaded yet"}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {filteredContent.map((item) => (
+                        <div key={item.id} className="bg-gray-700 rounded-lg overflow-hidden">
+                          <div className="aspect-square relative">
+                            <img
+                              src={item.image_url || "/placeholder.svg"}
+                              alt={item.title}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute top-2 right-2">
+                              <span
+                                className={`px-2 py-1 rounded text-xs font-medium ${
+                                  item.type === "profile" ? "bg-blue-600 text-white" : "bg-purple-600 text-white"
+                                }`}
+                              >
+                                {item.type.toUpperCase()}
+                              </span>
+                            </div>
+                            {/* Add report button overlay */}
+                            <div className="absolute top-2 left-2">
+                              <button
+                                onClick={() =>
+                                  openReportModal({
+                                    contentId: item.id,
+                                    contentType: item.type,
+                                  })
+                                }
+                                className="bg-black/50 backdrop-blur-sm hover:bg-black/70 p-2 rounded-lg transition-colors"
+                                title="Report Content"
+                              >
+                                <AlertTriangle className="h-4 w-4 text-red-400" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="p-4">
+                            <h3 className="font-semibold text-lg mb-2 truncate">{item.title}</h3>
+
+                            <div className="space-y-2 text-sm text-gray-300">
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-gray-400" />
+                                <span>{item.username}</span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <Download className="h-4 w-4 text-gray-400" />
+                                <span>{item.download_count} downloads</span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-gray-400" />
+                                <span>{new Date(item.created_at).toLocaleDateString()}</span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <Database className="h-4 w-4 text-gray-400" />
+                                <span className="text-xs bg-gray-600 px-2 py-1 rounded">{item.source_table}</span>
+                              </div>
+                            </div>
+
+                            {item.tags.length > 0 && (
+                              <div className="mt-3">
+                                <div className="flex flex-wrap gap-1">
+                                  {item.tags.slice(0, 3).map((tag) => (
+                                    <span key={tag} className="bg-gray-600 text-gray-300 px-2 py-1 rounded text-xs">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                  {item.tags.length > 3 && (
+                                    <span className="bg-gray-600 text-gray-300 px-2 py-1 rounded text-xs">
+                                      +{item.tags.length - 3}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex gap-2 mt-4">
+                              <button
+                                onClick={() => openEditModal(item)}
+                                className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm flex-1 justify-center"
+                              >
+                                <Edit3 className="h-4 w-4" />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => deleteContent(item)}
+                                className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm flex-1 justify-center"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* AI Moderation Tab */}
               {activeTab === "automation" && (
                 <div className="space-y-8">
@@ -2262,6 +2641,7 @@ const ModerationPanel = () => {
                       <Brain className="h-5 w-5 text-purple-400" />
                       OpenAI Moderation Overview
                     </h3>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                       <div className="bg-gray-700 rounded-lg p-4">
                         <div className="flex items-center justify-between">
@@ -2272,6 +2652,7 @@ const ModerationPanel = () => {
                           <Scan className="h-8 w-8 text-blue-400" />
                         </div>
                       </div>
+
                       <div className="bg-gray-700 rounded-lg p-4">
                         <div className="flex items-center justify-between">
                           <div>
@@ -2281,6 +2662,7 @@ const ModerationPanel = () => {
                           <Robot className="h-8 w-8 text-purple-400" />
                         </div>
                       </div>
+
                       <div className="bg-gray-700 rounded-lg p-4">
                         <div className="flex items-center justify-between">
                           <div>
@@ -2290,6 +2672,7 @@ const ModerationPanel = () => {
                           <AlertOctagon className="h-8 w-8 text-orange-400" />
                         </div>
                       </div>
+
                       <div className="bg-gray-700 rounded-lg p-4">
                         <div className="flex items-center justify-between">
                           <div>
@@ -2299,6 +2682,7 @@ const ModerationPanel = () => {
                           <Zap className="h-8 w-8 text-green-400" />
                         </div>
                       </div>
+
                       <div className="bg-gray-700 rounded-lg p-4">
                         <div className="flex items-center justify-between">
                           <div>
@@ -2308,6 +2692,7 @@ const ModerationPanel = () => {
                           <Target className="h-8 w-8 text-purple-400" />
                         </div>
                       </div>
+
                       <div className="bg-gray-700 rounded-lg p-4">
                         <div className="flex items-center justify-between">
                           <div>
@@ -2336,6 +2721,7 @@ const ModerationPanel = () => {
                           Refresh Insights
                         </button>
                       </div>
+
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <div className="bg-gray-700 rounded-lg p-4">
                           <h4 className="font-semibold mb-3 flex items-center gap-2">
@@ -2357,6 +2743,7 @@ const ModerationPanel = () => {
                             ))}
                           </div>
                         </div>
+
                         <div className="bg-gray-700 rounded-lg p-4">
                           <h4 className="font-semibold mb-3 flex items-center gap-2">
                             <TrendingUp className="h-4 w-4 text-green-400" />
@@ -2371,6 +2758,7 @@ const ModerationPanel = () => {
                             ))}
                           </div>
                         </div>
+
                         <div className="bg-gray-700 rounded-lg p-4">
                           <h4 className="font-semibold mb-3 flex items-center gap-2">
                             <Brain className="h-4 w-4 text-blue-400" />
@@ -2394,6 +2782,7 @@ const ModerationPanel = () => {
                       <Settings className="h-5 w-5 text-blue-400" />
                       AI Moderation Rules
                     </h3>
+
                     {fetchingRules ? (
                       <div className="flex items-center justify-center py-12">
                         <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
@@ -2436,7 +2825,9 @@ const ModerationPanel = () => {
                                     </span>
                                   )}
                                 </div>
+
                                 <p className="text-gray-300 text-sm mb-3">{rule.description}</p>
+
                                 <div className="flex items-center gap-4 text-sm text-gray-400">
                                   <span>Action: {rule.action.replace("_", " ")}</span>
                                   <span>Created: {new Date(rule.created_at).toLocaleDateString()}</span>
@@ -2446,6 +2837,7 @@ const ModerationPanel = () => {
                                   )}
                                 </div>
                               </div>
+
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => toggleModerationRule(rule.id, !rule.enabled)}
@@ -2462,6 +2854,7 @@ const ModerationPanel = () => {
                                   )}
                                   {rule.enabled ? "Disable" : "Enable"}
                                 </button>
+
                                 <button
                                   onClick={() => {
                                     setRuleModal({ open: true, rule, isEditing: true })
@@ -2482,6 +2875,7 @@ const ModerationPanel = () => {
                                   <Edit className="h-4 w-4" />
                                   Edit
                                 </button>
+
                                 <button
                                   onClick={() => deleteModerationRule(rule.id)}
                                   className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm"
@@ -2503,6 +2897,7 @@ const ModerationPanel = () => {
                       <Activity className="h-5 w-5 text-green-400" />
                       Recent AI Scans
                     </h3>
+
                     {fetchingScans ? (
                       <div className="flex items-center justify-center py-12">
                         <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
@@ -2577,6 +2972,7 @@ const ModerationPanel = () => {
                       <AlertTriangle className="h-5 w-5 text-orange-400" />
                       Spam Detection Patterns
                     </h3>
+
                     {fetchingPatterns ? (
                       <div className="flex items-center justify-center py-12">
                         <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
@@ -2618,249 +3014,6 @@ const ModerationPanel = () => {
                 </div>
               )}
 
-              {/* Reports Tab */}
-              {activeTab === "reports" && (
-                <div>
-                  {fetchingReports ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-                    </div>
-                  ) : reports.length === 0 ? (
-                    <div className="text-center py-12">
-                      <CheckCircle className="h-16 w-16 mx-auto text-green-400 mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No pending reports</h3>
-                      <p className="text-gray-400">All reports have been reviewed</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {reports.map((report) => (
-                        <div key={report.id} className="bg-gray-700 rounded-lg border-l-4 border-l-orange-500 p-6">
-                          <div className="flex items-start gap-4">
-                            <div className="relative">
-                              <img
-                                src={report.reported_user?.avatar_url || "/placeholder.svg?height=48&width=48"}
-                                alt={report.reported_user?.username || "User"}
-                                className="h-12 w-12 rounded-full object-cover"
-                              />
-                              <div className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full flex items-center justify-center">
-                                <AlertTriangle className="h-2.5 w-2.5 text-white" />
-                              </div>
-                            </div>
-
-                            <div className="flex-1 space-y-2">
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-semibold text-lg">
-                                  {report.reported_user?.username || "Unknown User"}
-                                </h3>
-                                <span className="bg-red-600 text-white px-2 py-1 rounded text-xs font-medium">
-                                  REPORTED
-                                </span>
-                              </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
-                                <div className="flex items-center gap-2">
-                                  <User className="h-4 w-4 text-gray-400" />
-                                  <span>Reported by: {report.reporter_user?.username || "Unknown"}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Clock className="h-4 w-4 text-gray-400" />
-                                  <span>{new Date(report.created_at).toLocaleString()}</span>
-                                </div>
-                              </div>
-
-                              <div className="flex items-start gap-2">
-                                <MessageSquare className="h-4 w-4 text-gray-400 mt-0.5" />
-                                <span className="text-sm text-gray-300">{report.reason}</span>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-col gap-2">
-                              <button
-                                onClick={() =>
-                                  openActionModal(
-                                    "warn",
-                                    report.reported_user?.id || "",
-                                    report.reported_user?.username || "",
-                                  )
-                                }
-                                className="flex items-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors text-sm"
-                              >
-                                <AlertTriangle className="h-4 w-4" />
-                                Warn
-                              </button>
-                              <button
-                                onClick={() =>
-                                  openActionModal(
-                                    "restrict",
-                                    report.reported_user?.id || "",
-                                    report.reported_user?.username || "",
-                                  )
-                                }
-                                className="flex items-center gap-2 px-3 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors text-sm"
-                              >
-                                <Ban className="h-4 w-4" />
-                                Restrict
-                              </button>
-                              <button
-                                onClick={() =>
-                                  openActionModal(
-                                    "terminate",
-                                    report.reported_user?.id || "",
-                                    report.reported_user?.username || "",
-                                  )
-                                }
-                                className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm"
-                              >
-                                <XCircle className="h-4 w-4" />
-                                Terminate
-                              </button>
-                              <div className="border-t border-gray-600 my-1"></div>
-                              <button
-                                onClick={() => {
-                                  if (window.confirm("Are you sure you want to dismiss this report?")) {
-                                    handleDismiss(report.id)
-                                  }
-                                }}
-                                className="flex items-center gap-2 px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors text-sm"
-                              >
-                                <Eye className="h-4 w-4" />
-                                Dismiss
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Content Management Tab */}
-              {activeTab === "content" && (
-                <div>
-                  {/* Search and Filter Controls */}
-                  <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Search by title, username, or tags..."
-                        value={contentSearch}
-                        onChange={(e) => setContentSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4 text-gray-400" />
-                      <select
-                        value={contentFilter}
-                        onChange={(e) => setContentFilter(e.target.value as "all" | "profile" | "banner")}
-                        className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="all">All Content</option>
-                        <option value="profile">Profiles Only</option>
-                        <option value="banner">Banners Only</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {fetchingContent ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-                    </div>
-                  ) : filteredContent.length === 0 ? (
-                    <div className="text-center py-12">
-                      <ImageIcon className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No content found</h3>
-                      <p className="text-gray-400">
-                        {contentSearch || contentFilter !== "all"
-                          ? "Try adjusting your search or filter"
-                          : "No content has been uploaded yet"}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredContent.map((item) => (
-                        <div key={item.id} className="bg-gray-700 rounded-lg overflow-hidden">
-                          <div className="aspect-square relative">
-                            <img
-                              src={item.image_url || "/placeholder.svg"}
-                              alt={item.title}
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute top-2 right-2">
-                              <span
-                                className={`px-2 py-1 rounded text-xs font-medium ${
-                                  item.type === "profile" ? "bg-blue-600 text-white" : "bg-purple-600 text-white"
-                                }`}
-                              >
-                                {item.type.toUpperCase()}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="p-4">
-                            <h3 className="font-semibold text-lg mb-2 truncate">{item.title}</h3>
-                            <div className="space-y-2 text-sm text-gray-300">
-                              <div className="flex items-center gap-2">
-                                <User className="h-4 w-4 text-gray-400" />
-                                <span>{item.username}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Download className="h-4 w-4 text-gray-400" />
-                                <span>{item.download_count} downloads</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Clock className="h-4 w-4 text-gray-400" />
-                                <span>{new Date(item.created_at).toLocaleDateString()}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Database className="h-4 w-4 text-gray-400" />
-                                <span className="text-xs bg-gray-600 px-2 py-1 rounded">{item.source_table}</span>
-                              </div>
-                            </div>
-
-                            {item.tags.length > 0 && (
-                              <div className="mt-3">
-                                <div className="flex flex-wrap gap-1">
-                                  {item.tags.slice(0, 3).map((tag) => (
-                                    <span key={tag} className="bg-gray-600 text-gray-300 px-2 py-1 rounded text-xs">
-                                      {tag}
-                                    </span>
-                                  ))}
-                                  {item.tags.length > 3 && (
-                                    <span className="bg-gray-600 text-gray-300 px-2 py-1 rounded text-xs">
-                                      +{item.tags.length - 3}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="flex gap-2 mt-4">
-                              <button
-                                onClick={() => openEditModal(item)}
-                                className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm flex-1 justify-center"
-                              >
-                                <Edit3 className="h-4 w-4" />
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => deleteContent(item)}
-                                className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm flex-1 justify-center"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Analytics Tab */}
               {activeTab === "analytics" && (
                 <div>
@@ -2876,6 +3029,7 @@ const ModerationPanel = () => {
                           <PieChart className="h-5 w-5 text-blue-400" />
                           Platform Overview
                         </h3>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                           <div className="bg-gray-700 rounded-lg p-4">
                             <div className="flex items-center justify-between">
@@ -2891,6 +3045,7 @@ const ModerationPanel = () => {
                               <Users className="h-8 w-8 text-blue-400" />
                             </div>
                           </div>
+
                           <div className="bg-gray-700 rounded-lg p-4">
                             <div className="flex items-center justify-between">
                               <div>
@@ -2905,6 +3060,7 @@ const ModerationPanel = () => {
                               <ImageIcon className="h-8 w-8 text-purple-400" />
                             </div>
                           </div>
+
                           <div className="bg-gray-700 rounded-lg p-4">
                             <div className="flex items-center justify-between">
                               <div>
@@ -2916,6 +3072,7 @@ const ModerationPanel = () => {
                               <Download className="h-8 w-8 text-green-400" />
                             </div>
                           </div>
+
                           <div className="bg-gray-700 rounded-lg p-4">
                             <div className="flex items-center justify-between">
                               <div>
@@ -2939,6 +3096,7 @@ const ModerationPanel = () => {
                           <BarChart3 className="h-5 w-5 text-purple-400" />
                           Content Statistics
                         </h3>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                           <div className="bg-gray-700 rounded-lg p-4">
                             <h4 className="font-semibold mb-3">Content Types</h4>
@@ -2957,6 +3115,7 @@ const ModerationPanel = () => {
                               </div>
                             </div>
                           </div>
+
                           <div className="bg-gray-700 rounded-lg p-4">
                             <h4 className="font-semibold mb-3">Top Categories</h4>
                             <div className="space-y-2">
@@ -2968,6 +3127,7 @@ const ModerationPanel = () => {
                               ))}
                             </div>
                           </div>
+
                           <div className="bg-gray-700 rounded-lg p-4">
                             <h4 className="font-semibold mb-3">Top Tags</h4>
                             <div className="space-y-2">
@@ -2988,6 +3148,7 @@ const ModerationPanel = () => {
                           <TrendingUp className="h-5 w-5 text-green-400" />
                           Trending Content
                         </h3>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                           {analyticsData.contentStats.trendingItems.map((item) => (
                             <div key={item.id} className="bg-gray-700 rounded-lg overflow-hidden">

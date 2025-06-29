@@ -133,12 +133,12 @@ const faqs = [
 ]
 
 const moderationStats = {
-  totalReports: 2847,
-  resolvedReports: 2654,
-  averageResponseTime: "18 hours",
-  accuracyRate: "94.2%",
-  activeReports: 193,
-  thisWeekReports: 127,
+  totalReports: 0,
+  resolvedReports: 0,
+  averageResponseTime: "1 hour",
+  accuracyRate: "100.0%",
+  activeReports: 1,
+  thisWeekReports: 1,
 }
 
 export default function ReportContent() {
@@ -400,7 +400,7 @@ export default function ReportContent() {
           </div>
 
           {/* Emergency Contact */}
-          <motion.div
+          {/* <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -430,7 +430,7 @@ export default function ReportContent() {
                 </a>
               </div>
             </div>
-          </motion.div>
+          </motion.div> */}
         </section>
 
         {/* Sidebar */}
@@ -499,19 +499,19 @@ export default function ReportContent() {
                   Submit Report
                 </button>
                 <a
-                  href="/community-guidelines"
+                  href="/guidelines"
                   className="w-full bg-slate-700 hover:bg-slate-600 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 justify-center"
                 >
                   <FileText className="w-4 h-4" />
                   Community Guidelines
                 </a>
-                <a
+                {/* <a
                   href="/contact"
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 justify-center"
                 >
                   <MessageSquare className="w-4 h-4" />
                   Contact Support
-                </a>
+                </a> */}
               </div>
             </div>
           </div>

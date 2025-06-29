@@ -347,13 +347,13 @@ export default function UserProfile() {
                     leaveFrom="transform opacity-100 scale-100"
                     leaveTo="transform opacity-0 scale-95"
                   >
-                    <Menu.Items className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg ring-1 ring-black/5 focus:outline-none z-50">
+                    <Menu.Items className="absolute right-0 mt-2 w-48 bg-purple-800 rounded-xl shadow-lg ring-1 text-white ring-black/5 focus:outline-none z-50">
                       <Menu.Item>
                         {({ active }) => (
                           <button
                             onClick={openReportModal}
                             className={`${
-                              active ? "bg-red-50 text-red-600" : "text-gray-700"
+                              active ? "bg-white/50 text-purple-800" : "text-white-700"
                             } flex items-center gap-3 w-full px-4 py-3 text-left text-sm rounded-xl`}
                           >
                             <Flag className="h-4 w-4" />
@@ -777,22 +777,22 @@ export default function UserProfile() {
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+              <Dialog.Panel className="bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                    <Flag className="h-5 w-5 text-red-600" />
+                  <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                    <Flag className="h-5 w-5 text-purple-600" />
                   </div>
-                  <Dialog.Title className="text-lg font-semibold text-gray-900">Report User</Dialog.Title>
+                  <Dialog.Title className="text-lg font-semibold text-white">Report User</Dialog.Title>
                 </div>
 
-                <p className="text-gray-600 mb-4">
-                  Please describe why you're reporting @{profile.username}. Our team will review this report.
+                <p className="text-gray-400 mb-4">
+                  Please describe why you're reporting <span className="text-purple-400">@{profile.username}</span>. Our team will review this report.
                 </p>
 
                 <textarea
                   rows={4}
                   placeholder="Describe the reason for reporting this user..."
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                  className="w-full p-3 border border-gray-300 text-white rounded-lg bg-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                   value={reportReason}
                   onChange={(e) => setReportReason(e.target.value)}
                   disabled={reportSubmitting || reportSuccess}
@@ -815,14 +815,14 @@ export default function UserProfile() {
                 <div className="mt-6 flex justify-end gap-3">
                   <button
                     onClick={closeReportModal}
-                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    className="px-4 py-2 text-gray-300 hover:bg-gray-100 rounded-lg transition-colors"
                     disabled={reportSubmitting}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={submitReport}
-                    className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-6 py-2 bg-purple-700 hover:bg-purple-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={reportSubmitting || reportSuccess || !reportReason.trim()}
                   >
                     {reportSubmitting ? "Submitting..." : "Submit Report"}

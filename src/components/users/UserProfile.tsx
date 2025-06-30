@@ -5,6 +5,8 @@ import { Dialog, Transition, Menu } from "@headlessui/react"
 import { X, MoreHorizontal, Settings, Flag, Heart, Grid3X3, User, Calendar, Tag } from "lucide-react"
 import { BsEmojiHeartEyes, BsFillEmojiHeartEyesFill } from "react-icons/bs"
 
+import Footer from "../Footer"
+
 interface Badge {
   name: string
   image_url: string
@@ -305,7 +307,7 @@ export default function UserProfile() {
   const isOwnProfile = currentUserProfileId === profile.id
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
+    <><div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Profile Header */}
         <div className="relative mb-8">
@@ -315,8 +317,7 @@ export default function UserProfile() {
               <img
                 src={profile.banner_url || "/placeholder.svg"}
                 alt={`${profile.username}'s banner`}
-                className="w-full h-full object-cover"
-              />
+                className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
                 <div className="text-white/20 text-6xl">
@@ -330,8 +331,7 @@ export default function UserProfile() {
             <img
               src={profile.avatar_url || "/default-avatar.png"}
               alt={`${profile.username}'s avatar`}
-              className="w-40 h-40 rounded-full border-4 border-white absolute top-60 left-40 transform -translate-x-1/2 border-solid bg-slate-900 shadow-xl object-cover"
-            />
+              className="w-40 h-40 rounded-full border-4 border-white absolute top-60 left-40 transform -translate-x-1/2 border-solid bg-slate-900 shadow-xl object-cover" />
           </div>
 
           {/* Profile Info */}
@@ -365,9 +365,7 @@ export default function UserProfile() {
                         {({ active }) => (
                           <button
                             onClick={openReportModal}
-                            className={`${
-                              active ? "bg-red-50 text-red-600" : "text-gray-700"
-                            } flex items-center gap-3 w-full px-4 py-3 text-left text-sm rounded-xl`}
+                            className={`${active ? "bg-red-50 text-red-600" : "text-gray-700"} flex items-center gap-3 w-full px-4 py-3 text-left text-sm rounded-xl`}
                           >
                             <Flag className="h-4 w-4" />
                             Report User
@@ -394,20 +392,17 @@ export default function UserProfile() {
                       {(showAllBadges ? profile.user_badges : profile.user_badges.slice(0, 3)).map((ub, idx) => (
                         <div
                           key={idx}
-                          className={`transition-all duration-300 ${
-                            showAllBadges
+                          className={`transition-all duration-300 ${showAllBadges
                               ? "transform scale-110 hover:scale-125"
                               : idx >= 3
                                 ? "opacity-0 w-0 overflow-hidden"
-                                : ""
-                          }`}
+                                : ""}`}
                         >
                           <img
                             src={ub.badges.image_url || "/placeholder.svg"}
                             alt={ub.badges.name}
                             title={ub.badges.name}
-                            className="h-8 w-8 rounded-full border-2 border-white/20 cursor-pointer"
-                          />
+                            className="h-8 w-8 rounded-full border-2 border-white/20 cursor-pointer" />
                         </div>
                       ))}
                       {!showAllBadges && profile.user_badges.length > 3 && (
@@ -426,8 +421,7 @@ export default function UserProfile() {
                               <img
                                 src={ub.badges.image_url || "/placeholder.svg"}
                                 alt={ub.badges.name}
-                                className="h-10 w-10 rounded-full border-2 border-white/20 mx-auto mb-1"
-                              />
+                                className="h-10 w-10 rounded-full border-2 border-white/20 mx-auto mb-1" />
                               <p className="text-xs text-white truncate max-w-[60px]">{ub.badges.name}</p>
                             </div>
                           ))}
@@ -472,18 +466,14 @@ export default function UserProfile() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                  activeTab === tab.id
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${activeTab === tab.id
                     ? "bg-white text-gray-900 shadow-lg"
-                    : "text-white/70 hover:text-white hover:bg-white/10"
-                }`}
+                    : "text-white/70 hover:text-white hover:bg-white/10"}`}
               >
                 <tab.icon className="h-4 w-4" />
                 {tab.label}
                 <span
-                  className={`text-xs px-2 py-1 rounded-full ${
-                    activeTab === tab.id ? "bg-gray-100 text-gray-600" : "bg-white/10 text-white/60"
-                  }`}
+                  className={`text-xs px-2 py-1 rounded-full ${activeTab === tab.id ? "bg-gray-100 text-gray-600" : "bg-white/10 text-white/60"}`}
                 >
                   {tab.count}
                 </span>
@@ -517,8 +507,7 @@ export default function UserProfile() {
                         <img
                           src={upload.image_url || "/placeholder.svg"}
                           alt={upload.title || "Upload image"}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                        />
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
                       </div>
                       <div className="p-4">
                         <h3 className="font-semibold text-white mb-1 truncate">{upload.title || "Untitled"}</h3>
@@ -570,8 +559,7 @@ export default function UserProfile() {
                           src={pair.banner_url || "/placeholder.svg"}
                           alt={`${pair.title} banner`}
                           className="w-full h-40 object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
-                          loading="lazy"
-                        />
+                          loading="lazy" />
                       ) : (
                         <div className="w-full h-40 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-gray-400">
                           No Banner
@@ -583,8 +571,7 @@ export default function UserProfile() {
                           src={pair.pfp_url || "/placeholder.svg"}
                           alt={`${pair.title} profile`}
                           className="w-24 h-24 rounded-full border-4 border-purple-500 absolute top-28 left-1/2 transform -translate-x-1/2 border-solid bg-slate-900 group-hover:border-purple-400 transition-colors"
-                          loading="lazy"
-                        />
+                          loading="lazy" />
                       )}
 
                       <div className="pt-20 pb-6 px-6 text-center">
@@ -631,8 +618,7 @@ export default function UserProfile() {
                         <img
                           src={fav.image_url || "/placeholder.svg"}
                           alt={fav.title || "Favorite image"}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                        />
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
                         <div className="absolute top-2 right-2">
                           <Heart className="h-5 w-5 text-red-500 fill-current" />
                         </div>
@@ -700,8 +686,7 @@ export default function UserProfile() {
                         <img
                           src={previewItem.image_url || "/placeholder.svg"}
                           alt={previewItem.title || "Preview image"}
-                          className="w-full h-full object-contain bg-slate-800"
-                        />
+                          className="w-full h-full object-contain bg-slate-800" />
                       </div>
                       <div className="p-6">
                         <h3 className="text-2xl font-bold text-white mb-2">{previewItem.title || "Untitled"}</h3>
@@ -737,16 +722,14 @@ export default function UserProfile() {
                               src={previewItem.banner_url || "/placeholder.svg"}
                               alt={`${previewItem.title} banner`}
                               className="w-full h-64 object-cover brightness-75"
-                              loading="lazy"
-                            />
+                              loading="lazy" />
                           )}
                           {previewItem.pfp_url && (
                             <img
                               src={previewItem.pfp_url || "/placeholder.svg"}
                               alt={`${previewItem.title} profile`}
                               className="w-32 h-32 rounded-full border-4 border-purple-500 absolute top-48 left-1/2 transform -translate-x-1/2 bg-slate-900"
-                              loading="lazy"
-                            />
+                              loading="lazy" />
                           )}
                         </div>
 
@@ -829,8 +812,7 @@ export default function UserProfile() {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                   value={reportReason}
                   onChange={(e) => setReportReason(e.target.value)}
-                  disabled={reportSubmitting || reportSuccess}
-                />
+                  disabled={reportSubmitting || reportSuccess} />
 
                 {reportError && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -867,6 +849,6 @@ export default function UserProfile() {
           </div>
         </Dialog>
       </Transition>
-    </div>
+    </div><Footer /></>
   )
 }

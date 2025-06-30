@@ -2564,13 +2564,13 @@ const handleDismiss = async (id: string) => {
 
             {activeTab === "reports" && (
               <div className="flex items-center gap-2">
-                <button
+                {/* <button
                   onClick={() => openReportModal({})}
                   className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm"
                 >
                   <Plus className="h-4 w-4" />
                   New Report
-                </button>
+                </button> */}
               </div>
             )}
           </div>

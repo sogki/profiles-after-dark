@@ -468,6 +468,7 @@ const ModerationPanel = () => {
           .select(
             `
             id,
+            user_id,
             type,
             image_url,
             download_count,
@@ -492,7 +493,7 @@ const ModerationPanel = () => {
             tags: [],
             created_at: item.created_at,
             download_count: item.download_count || 0,
-            username: "Unknown User",
+            username: item.user_id,
             source_table: "profiles" as const,
           }));
           allContent.push(...profilesWithMetadata);

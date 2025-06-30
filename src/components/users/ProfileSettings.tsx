@@ -802,7 +802,7 @@ export default function ProfileSettings() {
                       <div>
                         <h3 className="text-lg font-semibold flex items-center gap-2">
                           <Zap className="h-5 w-5 text-yellow-400" />
-                          Two-Factor Authentication
+                          Two-Factor Authentication (In Development)
                         </h3>
                         <p className="text-gray-400 text-sm">Add an extra layer of security to your account</p>
                       </div>

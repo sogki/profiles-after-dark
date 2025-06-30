@@ -352,7 +352,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                               className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
                               onClick={() => setIsUserDropdownOpen(false)}
                             >
-                              <ShieldCheck className="w-4 h-4 mr-3 text-yellow-400" />
+                              <ShieldCheck className="w-4 h-4 mr-3 text-blue-400" />
                               Moderation Panel
                             </Link>
                           )}
@@ -362,7 +362,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                               className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
                               onClick={() => setIsUserDropdownOpen(false)}
                             >
-                              <UserIcon className="w-4 h-4 mr-3 text-blue-400" />
+                              <UserIcon className="w-4 h-4 mr-3 text-white" />
                               View Profile
                             </Link>
                           )}
@@ -371,7 +371,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                             className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
                             onClick={() => setIsUserDropdownOpen(false)}
                           >
-                            <Settings className="w-4 h-4 mr-3 text-gray-400" />
+                            <Settings className="w-4 h-4 mr-3 text-white" />
                             Settings
                           </Link>
                           <div className="border-t border-slate-700 my-2"></div>

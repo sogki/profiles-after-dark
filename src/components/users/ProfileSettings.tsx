@@ -8,6 +8,8 @@ import toast from "react-hot-toast"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { useNavigate } from "react-router-dom"
 
+import Footer from "../Footer"
+
 type Profile = {
   username: string
   display_name: string
@@ -535,7 +537,7 @@ export default function ProfileSettings() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 md:p-6">
+    <><div className="min-h-screen bg-gray-900 text-white p-4 md:p-6">
       <div className="max-w-7xl mx-auto grid grid-cols-12 gap-6 md:gap-8">
         {/* Sidebar */}
         <aside className="col-span-12 md:col-span-3 bg-gray-800 rounded-lg border border-gray-700 p-6 flex flex-col space-y-6 self-start">
@@ -558,11 +560,9 @@ export default function ProfileSettings() {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id as any)}
-                  className={`flex items-center space-x-3 transition-all duration-200 rounded-lg px-4 py-3 text-left ${
-                    activeTab === item.id
+                  className={`flex items-center space-x-3 transition-all duration-200 rounded-lg px-4 py-3 text-left ${activeTab === item.id
                       ? "bg-blue-600 text-white font-semibold shadow-lg"
-                      : "text-gray-300 hover:bg-gray-700 hover:text-white"
-                  }`}
+                      : "text-gray-300 hover:bg-gray-700 hover:text-white"}`}
                 >
                   <item.icon size={20} />
                   <span>{item.label}</span>
@@ -578,8 +578,7 @@ export default function ProfileSettings() {
                 <img
                   src={profile.avatar_url || "/placeholder.svg?height=40&width=40"}
                   alt="Profile"
-                  className="h-10 w-10 rounded-full object-cover"
-                />
+                  className="h-10 w-10 rounded-full object-cover" />
                 <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-400 rounded-full border-2 border-gray-800"></div>
               </div>
               <div className="flex-1 min-w-0">
@@ -634,8 +633,7 @@ export default function ProfileSettings() {
                         <img
                           src={profile.banner_url || "/placeholder.svg"}
                           alt="Banner"
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400">
                           <div className="text-center">
@@ -655,8 +653,7 @@ export default function ProfileSettings() {
                         accept="image/*"
                         className="hidden"
                         ref={bannerInputRef}
-                        onChange={(e) => handleUpload(e, "banner_url")}
-                      />
+                        onChange={(e) => handleUpload(e, "banner_url")} />
                     </div>
 
                     {/* Avatar */}
@@ -673,8 +670,7 @@ export default function ProfileSettings() {
                         <img
                           src={profile.avatar_url || "/placeholder.svg"}
                           alt="Avatar"
-                          className="w-full h-full rounded-full object-cover"
-                        />
+                          className="w-full h-full rounded-full object-cover" />
                       ) : (
                         <User className="h-16 w-16 text-gray-400" />
                       )}
@@ -686,8 +682,7 @@ export default function ProfileSettings() {
                         accept="image/*"
                         className="hidden"
                         ref={avatarInputRef}
-                        onChange={(e) => handleUpload(e, "avatar_url")}
-                      />
+                        onChange={(e) => handleUpload(e, "avatar_url")} />
                     </div>
                   </div>
 
@@ -700,8 +695,7 @@ export default function ProfileSettings() {
                           value={profile.username}
                           onChange={(e) => setProfile({ ...profile, username: e.target.value })}
                           className="w-full bg-gray-700 border border-gray-600 p-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Enter your username"
-                        />
+                          placeholder="Enter your username" />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Display Name</label>
@@ -709,8 +703,7 @@ export default function ProfileSettings() {
                           value={profile.display_name}
                           onChange={(e) => setProfile({ ...profile, display_name: e.target.value })}
                           className="w-full bg-gray-700 border border-gray-600 p-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Enter your display name"
-                        />
+                          placeholder="Enter your display name" />
                       </div>
                     </div>
                     <div>
@@ -720,8 +713,7 @@ export default function ProfileSettings() {
                         value={profile.bio}
                         onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
                         className="w-full bg-gray-700 border border-gray-600 p-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                        placeholder="Tell us about yourself..."
-                      />
+                        placeholder="Tell us about yourself..." />
                     </div>
                     <button
                       onClick={handleSave}
@@ -749,8 +741,7 @@ export default function ProfileSettings() {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           className="w-full bg-gray-700 border border-gray-600 pl-10 pr-4 py-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Enter your email"
-                        />
+                          placeholder="Enter your email" />
                       </div>
                     </div>
 
@@ -764,8 +755,7 @@ export default function ProfileSettings() {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full bg-gray-700 border border-gray-600 pl-10 pr-12 py-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="Enter new password"
-                          />
+                            placeholder="Enter new password" />
                           <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
@@ -784,8 +774,7 @@ export default function ProfileSettings() {
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             className="w-full bg-gray-700 border border-gray-600 pl-10 pr-12 py-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="Confirm new password"
-                          />
+                            placeholder="Confirm new password" />
                           <button
                             type="button"
                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -818,9 +807,7 @@ export default function ProfileSettings() {
                         <p className="text-gray-400 text-sm">Add an extra layer of security to your account</p>
                       </div>
                       <div
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          twoFactorEnabled ? "bg-green-600 text-white" : "bg-gray-600 text-gray-300"
-                        }`}
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${twoFactorEnabled ? "bg-green-600 text-white" : "bg-gray-600 text-gray-300"}`}
                       >
                         {twoFactorEnabled ? "Enabled" : "Disabled"}
                       </div>
@@ -896,8 +883,7 @@ export default function ProfileSettings() {
                           value={recoveryEmail}
                           onChange={(e) => setRecoveryEmail(e.target.value)}
                           className="w-full bg-gray-700 border border-gray-600 p-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Enter recovery email"
-                        />
+                          placeholder="Enter recovery email" />
                       </div>
 
                       <div className="space-y-3">
@@ -912,10 +898,9 @@ export default function ProfileSettings() {
                                 const newQuestions = [...securityQuestions]
                                 newQuestions[index].answer = e.target.value
                                 setSecurityQuestions(newQuestions)
-                              }}
+                              } }
                               className="w-full bg-gray-700 border border-gray-600 p-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              placeholder="Enter your answer"
-                            />
+                              placeholder="Enter your answer" />
                           </div>
                         ))}
                       </div>
@@ -1012,15 +997,10 @@ export default function ProfileSettings() {
                         </div>
                         <button
                           onClick={() => setEmailNotifications(!emailNotifications)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            emailNotifications ? "bg-blue-600" : "bg-gray-600"
-                          }`}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${emailNotifications ? "bg-blue-600" : "bg-gray-600"}`}
                         >
                           <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              emailNotifications ? "translate-x-6" : "translate-x-1"
-                            }`}
-                          />
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${emailNotifications ? "translate-x-6" : "translate-x-1"}`} />
                         </button>
                       </div>
 
@@ -1034,15 +1014,10 @@ export default function ProfileSettings() {
                         </div>
                         <button
                           onClick={() => setPushNotifications(!pushNotifications)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            pushNotifications ? "bg-blue-600" : "bg-gray-600"
-                          }`}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${pushNotifications ? "bg-blue-600" : "bg-gray-600"}`}
                         >
                           <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              pushNotifications ? "translate-x-6" : "translate-x-1"
-                            }`}
-                          />
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${pushNotifications ? "translate-x-6" : "translate-x-1"}`} />
                         </button>
                       </div>
                     </div>
@@ -1067,15 +1042,10 @@ export default function ProfileSettings() {
                         </div>
                         <button
                           onClick={() => setQuietHoursEnabled(!quietHoursEnabled)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            quietHoursEnabled ? "bg-purple-600" : "bg-gray-600"
-                          }`}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${quietHoursEnabled ? "bg-purple-600" : "bg-gray-600"}`}
                         >
                           <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              quietHoursEnabled ? "translate-x-6" : "translate-x-1"
-                            }`}
-                          />
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${quietHoursEnabled ? "translate-x-6" : "translate-x-1"}`} />
                         </button>
                       </div>
 
@@ -1087,8 +1057,7 @@ export default function ProfileSettings() {
                               type="time"
                               value={quietHoursStart}
                               onChange={(e) => setQuietHoursStart(e.target.value)}
-                              className="w-full bg-gray-700 border border-gray-600 p-3 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                            />
+                              className="w-full bg-gray-700 border border-gray-600 p-3 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">End Time</label>
@@ -1096,8 +1065,7 @@ export default function ProfileSettings() {
                               type="time"
                               value={quietHoursEnd}
                               onChange={(e) => setQuietHoursEnd(e.target.value)}
-                              className="w-full bg-gray-700 border border-gray-600 p-3 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                            />
+                              className="w-full bg-gray-700 border border-gray-600 p-3 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
                           </div>
                         </div>
                       )}
@@ -1132,9 +1100,7 @@ export default function ProfileSettings() {
                         {notifications.map((notification) => (
                           <div
                             key={notification.id}
-                            className={`p-4 rounded-lg border transition-colors ${
-                              notification.read ? "border-gray-600 bg-gray-700" : "border-blue-500 bg-blue-900/20"
-                            }`}
+                            className={`p-4 rounded-lg border transition-colors ${notification.read ? "border-gray-600 bg-gray-700" : "border-blue-500 bg-blue-900/20"}`}
                           >
                             <div className="flex items-start gap-3">
                               <div className={`mt-1 ${notification.read ? "text-gray-400" : "text-blue-400"}`}>
@@ -1173,11 +1139,9 @@ export default function ProfileSettings() {
                         <button
                           key={theme.id}
                           onClick={() => setSelectedTheme(theme.id)}
-                          className={`relative p-4 rounded-lg border-2 transition-all ${
-                            selectedTheme === theme.id
+                          className={`relative p-4 rounded-lg border-2 transition-all ${selectedTheme === theme.id
                               ? "border-blue-500 bg-blue-900/20"
-                              : "border-gray-600 hover:border-gray-500"
-                          }`}
+                              : "border-gray-600 hover:border-gray-500"}`}
                         >
                           <div className="w-full h-16 rounded-lg mb-3" style={{ background: theme.preview }} />
                           <p className="text-sm font-medium">{theme.name}</p>
@@ -1203,11 +1167,9 @@ export default function ProfileSettings() {
                         <button
                           key={language.code}
                           onClick={() => setSelectedLanguage(language.code)}
-                          className={`flex items-center gap-3 p-4 rounded-lg border transition-all ${
-                            selectedLanguage === language.code
+                          className={`flex items-center gap-3 p-4 rounded-lg border transition-all ${selectedLanguage === language.code
                               ? "border-green-500 bg-green-900/20"
-                              : "border-gray-600 hover:border-gray-500"
-                          }`}
+                              : "border-gray-600 hover:border-gray-500"}`}
                         >
                           <span className="text-2xl">{language.flag}</span>
                           <span className="font-medium">{language.name}</span>
@@ -1254,11 +1216,9 @@ export default function ProfileSettings() {
                         <button
                           key={option.value}
                           onClick={() => setProfileVisibility(option.value)}
-                          className={`w-full text-left p-4 rounded-lg border transition-all ${
-                            profileVisibility === option.value
+                          className={`w-full text-left p-4 rounded-lg border transition-all ${profileVisibility === option.value
                               ? "border-blue-500 bg-blue-900/20"
-                              : "border-gray-600 hover:border-gray-500"
-                          }`}
+                              : "border-gray-600 hover:border-gray-500"}`}
                         >
                           <div className="flex items-center justify-between">
                             <div>
@@ -1287,15 +1247,10 @@ export default function ProfileSettings() {
                         </div>
                         <button
                           onClick={() => setAllowFriendRequests(!allowFriendRequests)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            allowFriendRequests ? "bg-green-600" : "bg-gray-600"
-                          }`}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${allowFriendRequests ? "bg-green-600" : "bg-gray-600"}`}
                         >
                           <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              allowFriendRequests ? "translate-x-6" : "translate-x-1"
-                            }`}
-                          />
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${allowFriendRequests ? "translate-x-6" : "translate-x-1"}`} />
                         </button>
                       </div>
 
@@ -1306,15 +1261,10 @@ export default function ProfileSettings() {
                         </div>
                         <button
                           onClick={() => setShowOnlineStatus(!showOnlineStatus)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            showOnlineStatus ? "bg-green-600" : "bg-gray-600"
-                          }`}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showOnlineStatus ? "bg-green-600" : "bg-gray-600"}`}
                         >
                           <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              showOnlineStatus ? "translate-x-6" : "translate-x-1"
-                            }`}
-                          />
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showOnlineStatus ? "translate-x-6" : "translate-x-1"}`} />
                         </button>
                       </div>
                     </div>
@@ -1462,8 +1412,7 @@ export default function ProfileSettings() {
                           value={feedbackText}
                           onChange={(e) => setFeedbackText(e.target.value)}
                           className="w-full bg-gray-700 border border-gray-600 p-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                          placeholder="Tell us what you think or report any issues you've encountered..."
-                        />
+                          placeholder="Tell us what you think or report any issues you've encountered..." />
                       </div>
 
                       <button
@@ -1569,6 +1518,6 @@ export default function ProfileSettings() {
           </div>
         </main>
       </div>
-    </div>
+    </div><Footer /></>
   )
 }

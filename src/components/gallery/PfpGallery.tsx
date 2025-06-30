@@ -3,6 +3,7 @@ import { Download, Heart, Eye, Search, Clock, Tag, Grid3X3, List, Palette } from
 import { Dialog, Transition } from "@headlessui/react"
 import { useAuth } from "../../context/authContext"
 import { supabase } from "../../lib/supabase"
+import Footer from "../Footer"
 
 interface Profile {
   id: string
@@ -283,7 +284,7 @@ export default function PfpGallery() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12" data-gallery>
+    <><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12" data-gallery>
       {/* Enhanced Header */}
       <div className="mb-8">
         <h2 className="text-white text-4xl font-bold mb-2">Profile Pictures Gallery</h2>
@@ -304,8 +305,7 @@ export default function PfpGallery() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-12 pr-6 py-4 rounded-xl bg-slate-700/50 text-white placeholder-slate-400 border border-slate-600/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200 text-lg backdrop-blur-sm"
-              aria-label="Search profile pictures"
-            />
+              aria-label="Search profile pictures" />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
@@ -349,22 +349,18 @@ export default function PfpGallery() {
             <div className="flex rounded-lg bg-slate-700/50 border border-slate-600/50 p-1">
               <button
                 onClick={() => setViewMode("grid")}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                  viewMode === "grid"
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === "grid"
                     ? "bg-purple-600 text-white shadow-lg"
-                    : "text-slate-300 hover:bg-slate-600/50 hover:text-white"
-                }`}
+                    : "text-slate-300 hover:bg-slate-600/50 hover:text-white"}`}
               >
                 <Grid3X3 className="h-4 w-4" />
                 Grid
               </button>
               <button
                 onClick={() => setViewMode("list")}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                  viewMode === "list"
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === "list"
                     ? "bg-purple-600 text-white shadow-lg"
-                    : "text-slate-300 hover:bg-slate-600/50 hover:text-white"
-                }`}
+                    : "text-slate-300 hover:bg-slate-600/50 hover:text-white"}`}
               >
                 <List className="h-4 w-4" />
                 List
@@ -401,11 +397,9 @@ export default function PfpGallery() {
                 <button
                   key={tag}
                   onClick={() => toggleTag(tag)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border ${
-                    selectedTags.has(tag)
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border ${selectedTags.has(tag)
                       ? "bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-500/25 scale-105"
-                      : "bg-slate-700/50 text-slate-300 border-slate-600/50 hover:bg-slate-600/50 hover:border-slate-500/50 hover:text-white"
-                  }`}
+                      : "bg-slate-700/50 text-slate-300 border-slate-600/50 hover:bg-slate-600/50 hover:border-slate-500/50 hover:text-white"}`}
                 >
                   #{tag}
                 </button>
@@ -433,7 +427,7 @@ export default function PfpGallery() {
                   setSearchQuery("")
                   setSelectedTags(new Set())
                   setSelectedColor("all")
-                }}
+                } }
                 className="px-4 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200 border border-slate-600/50 hover:border-slate-500/50"
               >
                 Reset all filters
@@ -474,7 +468,7 @@ export default function PfpGallery() {
                   setSearchQuery("")
                   setSelectedTags(new Set())
                   setSelectedColor("all")
-                }}
+                } }
                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors"
               >
                 Clear Filters
@@ -485,29 +479,22 @@ export default function PfpGallery() {
       ) : (
         <>
           <div
-            className={
-              viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" : "space-y-4"
-            }
+            className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" : "space-y-4"}
           >
             {pagedProfiles.map((profile) => (
               <div
                 key={profile.id}
-                className={`relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 border border-slate-700 hover:border-slate-600 ${
-                  viewMode === "list" ? "flex" : ""
-                }`}
+                className={`relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 border border-slate-700 hover:border-slate-600 ${viewMode === "list" ? "flex" : ""}`}
               >
                 {/* Image Display */}
                 <div
-                  className={`relative overflow-hidden ${
-                    viewMode === "list" ? "w-32 h-32 flex-shrink-0" : "aspect-square"
-                  }`}
+                  className={`relative overflow-hidden ${viewMode === "list" ? "w-32 h-32 flex-shrink-0" : "aspect-square"}`}
                 >
                   <img
                     src={profile.image_url || "/placeholder.svg"}
                     alt={profile.title}
                     className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
-                    loading="lazy"
-                  />
+                    loading="lazy" />
 
                   {/* Stats Overlay */}
                   <div className="absolute top-3 right-3 flex gap-2">
@@ -561,17 +548,13 @@ export default function PfpGallery() {
                     {user && (
                       <button
                         onClick={() => handleFavorite(profile.id)}
-                        className={`p-2 rounded-lg transition-colors ${
-                          favorites.has(profile.id)
+                        className={`p-2 rounded-lg transition-colors ${favorites.has(profile.id)
                             ? "bg-red-600 text-white"
-                            : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                        }`}
+                            : "bg-slate-700 text-gray-300 hover:bg-slate-600"}`}
                         aria-pressed={favorites.has(profile.id)}
-                        aria-label={
-                          favorites.has(profile.id)
-                            ? `Remove ${profile.title} from favorites`
-                            : `Add ${profile.title} to favorites`
-                        }
+                        aria-label={favorites.has(profile.id)
+                          ? `Remove ${profile.title} from favorites`
+                          : `Add ${profile.title} to favorites`}
                         type="button"
                       >
                         <Heart size={16} fill={favorites.has(profile.id) ? "currentColor" : "none"} />
@@ -604,27 +587,23 @@ export default function PfpGallery() {
                       <button
                         key={pageNum}
                         onClick={() => setPage(pageNum)}
-                        className={`w-12 h-12 rounded-lg font-medium transition-colors ${
-                          page === pageNum
+                        className={`w-12 h-12 rounded-lg font-medium transition-colors ${page === pageNum
                             ? "bg-purple-600 text-white"
-                            : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                        }`}
+                            : "bg-slate-700 text-gray-300 hover:bg-slate-600"}`}
                       >
                         {pageNum}
                       </button>
                     )
-                  },
+                  }
                 )}
                 {Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE) > 5 && (
                   <>
                     <span className="text-gray-400">...</span>
                     <button
                       onClick={() => setPage(Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE))}
-                      className={`w-12 h-12 rounded-lg font-medium transition-colors ${
-                        page === Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)
+                      className={`w-12 h-12 rounded-lg font-medium transition-colors ${page === Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)
                           ? "bg-purple-600 text-white"
-                          : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                      }`}
+                          : "bg-slate-700 text-gray-300 hover:bg-slate-600"}`}
                     >
                       {Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)}
                     </button>
@@ -666,8 +645,7 @@ export default function PfpGallery() {
                       src={previewProfile.image_url || "/placeholder.svg"}
                       alt={previewProfile.title}
                       className="w-full h-96 object-contain bg-slate-800"
-                      loading="lazy"
-                    />
+                      loading="lazy" />
                   )}
 
                   {/* Close Button */}
@@ -735,6 +713,6 @@ export default function PfpGallery() {
           </div>
         </Dialog>
       </Transition>
-    </div>
+    </div><Footer /></>
   )
 }

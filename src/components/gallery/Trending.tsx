@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "../../context/authContext"
 import { supabase } from "../../lib/supabase"
+import Footer from "../Footer"
 
 interface TrendingItem {
   id: string
@@ -347,7 +348,7 @@ export default function TrendingPage() {
   ]
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-4">
@@ -368,11 +369,9 @@ export default function TrendingPage() {
               <button
                 key={option.value}
                 onClick={() => setTimeFilter(option.value as TimeFilter)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  timeFilter === option.value
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${timeFilter === option.value
                     ? "bg-orange-600 text-white shadow-lg"
-                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
-                }`}
+                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white"}`}
               >
                 {option.label}
               </button>
@@ -385,11 +384,9 @@ export default function TrendingPage() {
               <button
                 key={option.value}
                 onClick={() => setCategoryFilter(option.value as CategoryFilter)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  categoryFilter === option.value
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${categoryFilter === option.value
                     ? "bg-purple-600 text-white shadow-lg"
-                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
-                }`}
+                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white"}`}
               >
                 <option.icon className="h-4 w-4" />
                 {option.label}
@@ -406,22 +403,19 @@ export default function TrendingPage() {
           label="Total Downloads"
           value={stats.totalDownloads}
           change={12}
-          color="bg-green-600/20 text-green-400"
-        />
+          color="bg-green-600/20 text-green-400" />
         <StatCard
           icon={ImageIcon}
           label="Total Uploads"
           value={stats.totalUploads}
           change={8}
-          color="bg-blue-600/20 text-blue-400"
-        />
+          color="bg-blue-600/20 text-blue-400" />
         <StatCard
           icon={Users}
           label="Active Users"
           value={stats.activeUsers}
           change={15}
-          color="bg-purple-600/20 text-purple-400"
-        />
+          color="bg-purple-600/20 text-purple-400" />
         <StatCard icon={Zap} label="Trending Score" value="Hot" color="bg-orange-600/20 text-orange-400" />
       </div>
 
@@ -477,8 +471,7 @@ export default function TrendingPage() {
                     <div className="w-12 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"
-                        style={{ width: `${(tag.count / Math.max(...stats.trendingTags.map((t) => t.count))) * 100}%` }}
-                      />
+                        style={{ width: `${(tag.count / Math.max(...stats.trendingTags.map((t) => t.count))) * 100}%` }} />
                     </div>
                     <span className="text-xs text-gray-400 w-6">{tag.count}</span>
                   </div>
@@ -532,6 +525,6 @@ export default function TrendingPage() {
           </div>
         </div>
       </div>
-    </div>
+    </div><Footer /></>
   )
 }

@@ -15,6 +15,7 @@ import {
   Lock,
   BarChart3,
 } from "lucide-react"
+import Footer from "../Footer"
 
 const reportCategories = [
   {
@@ -195,7 +196,7 @@ export default function ReportContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <><div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20"></div>
@@ -401,36 +402,36 @@ export default function ReportContent() {
 
           {/* Emergency Contact */}
           {/* <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="bg-gradient-to-r from-red-900/50 to-orange-900/50 backdrop-blur-sm rounded-2xl border border-red-500/30 p-8 mb-12"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6 }}
+      className="bg-gradient-to-r from-red-900/50 to-orange-900/50 backdrop-blur-sm rounded-2xl border border-red-500/30 p-8 mb-12"
+    >
+      <div className="text-center">
+        <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+        <h2 className="text-2xl font-bold text-white mb-4">Emergency Situations</h2>
+        <p className="text-slate-300 mb-6 max-w-2xl mx-auto">
+          If you encounter content involving immediate threats, self-harm, or illegal activities, please contact
+          us immediately through these priority channels:
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <a
+            href="mailto:emergency@platform.com"
+            className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 justify-center"
           >
-            <div className="text-center">
-              <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-white mb-4">Emergency Situations</h2>
-              <p className="text-slate-300 mb-6 max-w-2xl mx-auto">
-                If you encounter content involving immediate threats, self-harm, or illegal activities, please contact
-                us immediately through these priority channels:
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <a
-                  href="mailto:emergency@platform.com"
-                  className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 justify-center"
-                >
-                  <Mail className="w-5 h-5" />
-                  Emergency Email
-                </a>
-                <a
-                  href="tel:+1-800-EMERGENCY"
-                  className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 justify-center"
-                >
-                  <Phone className="w-5 h-5" />
-                  Emergency Hotline
-                </a>
-              </div>
-            </div>
-          </motion.div> */}
+            <Mail className="w-5 h-5" />
+            Emergency Email
+          </a>
+          <a
+            href="tel:+1-800-EMERGENCY"
+            className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 justify-center"
+          >
+            <Phone className="w-5 h-5" />
+            Emergency Hotline
+          </a>
+        </div>
+      </div>
+    </motion.div> */}
         </section>
 
         {/* Sidebar */}
@@ -506,12 +507,12 @@ export default function ReportContent() {
                   Community Guidelines
                 </a>
                 {/* <a
-                  href="/contact"
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 justify-center"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Contact Support
-                </a> */}
+      href="/contact"
+      className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 justify-center"
+    >
+      <MessageSquare className="w-4 h-4" />
+      Contact Support
+    </a> */}
               </div>
             </div>
           </div>
@@ -566,8 +567,7 @@ export default function ReportContent() {
                     className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     rows={4}
                     placeholder="Please provide details about what you're reporting..."
-                    required
-                  />
+                    required />
                 </div>
 
                 <div>
@@ -579,8 +579,7 @@ export default function ReportContent() {
                     onChange={(e) => setReportForm({ ...reportForm, evidence: e.target.value })}
                     className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     rows={3}
-                    placeholder="Provide any additional evidence or context..."
-                  />
+                    placeholder="Provide any additional evidence or context..." />
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -589,8 +588,7 @@ export default function ReportContent() {
                     id="urgent"
                     checked={reportForm.urgent}
                     onChange={(e) => setReportForm({ ...reportForm, urgent: e.target.checked })}
-                    className="w-4 h-4 text-red-600 bg-slate-700 border-slate-600 rounded focus:ring-red-500"
-                  />
+                    className="w-4 h-4 text-red-600 bg-slate-700 border-slate-600 rounded focus:ring-red-500" />
                   <label htmlFor="urgent" className="text-sm text-slate-300">
                     This is an urgent safety concern
                   </label>
@@ -629,6 +627,6 @@ export default function ReportContent() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </div><Footer /></>
   )
 }

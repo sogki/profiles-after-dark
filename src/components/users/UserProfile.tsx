@@ -6,6 +6,7 @@ import { MoreHorizontal, Settings, Flag, Heart, Grid3X3, User, Calendar } from "
 import ReportModal from "./moderation/ReportModal"
 import { useAuth } from "../../context/authContext"
 import toast from "react-hot-toast"
+import Footer from "../Footer"
 
 interface Badge {
   name: string
@@ -213,7 +214,7 @@ export default function UserProfile() {
   const isOwnProfile = currentUserProfile?.user_id === profile.user_id
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
+    <><div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Profile Header */}
         <div className="relative mb-8">
@@ -223,8 +224,7 @@ export default function UserProfile() {
               <img
                 src={profile.banner_url || "/placeholder.svg"}
                 alt={`${profile.username}'s banner`}
-                className="w-full h-full object-cover"
-              />
+                className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
                 <div className="text-white/20 text-6xl">
@@ -238,8 +238,7 @@ export default function UserProfile() {
             <img
               src={profile.avatar_url || "/default-avatar.png"}
               alt={`${profile.username}'s avatar`}
-              className="w-32 h-32 rounded-full border-4 border-slate-800 absolute -bottom-20 left-1/2 transform -translate-x-1/2 border-solid bg-slate-900 shadow-xl object-cover"
-            />
+              className="w-32 h-32 rounded-full border-4 border-slate-800 absolute -bottom-20 left-1/2 transform -translate-x-1/2 border-solid bg-slate-900 shadow-xl object-cover" />
           </div>
 
           {/* Profile Info */}
@@ -274,9 +273,7 @@ export default function UserProfile() {
                         {({ active }) => (
                           <button
                             onClick={openReportModal}
-                            className={`${
-                              active ? "bg-white/50 text-purple-800" : "text-white-700"
-                            } flex items-center gap-3 w-full px-4 py-3 text-left text-sm rounded-xl`}
+                            className={`${active ? "bg-white/50 text-purple-800" : "text-white-700"} flex items-center gap-3 w-full px-4 py-3 text-left text-sm rounded-xl`}
                           >
                             <Flag className="h-4 w-4" />
                             Report User
@@ -328,18 +325,14 @@ export default function UserProfile() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                  activeTab === tab.id
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${activeTab === tab.id
                     ? "bg-white text-gray-900 shadow-lg"
-                    : "text-white/70 hover:text-white hover:bg-white/10"
-                }`}
+                    : "text-white/70 hover:text-white hover:bg-white/10"}`}
               >
                 <tab.icon className="h-4 w-4" />
                 {tab.label}
                 <span
-                  className={`text-xs px-2 py-1 rounded-full ${
-                    activeTab === tab.id ? "bg-gray-100 text-gray-600" : "bg-white/10 text-white/60"
-                  }`}
+                  className={`text-xs px-2 py-1 rounded-full ${activeTab === tab.id ? "bg-gray-100 text-gray-600" : "bg-white/10 text-white/60"}`}
                 >
                   {tab.count}
                 </span>
@@ -371,8 +364,7 @@ export default function UserProfile() {
                         <img
                           src={upload.image_url || "/placeholder.svg"}
                           alt={upload.title || "Upload image"}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                        />
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
                       </div>
                       <div className="p-4">
                         <h3 className="font-semibold text-white mb-1 truncate">{upload.title || "Untitled"}</h3>
@@ -408,8 +400,7 @@ export default function UserProfile() {
         reportedUserId={profile.user_id} // Use user_id instead of id
         reportedUsername={profile.username}
         reporterUserId={currentUserProfile?.user_id || ""}
-        onReportSubmitted={handleReportSubmitted}
-      />
-    </div>
+        onReportSubmitted={handleReportSubmitted} />
+    </div><Footer /></>
   )
 }

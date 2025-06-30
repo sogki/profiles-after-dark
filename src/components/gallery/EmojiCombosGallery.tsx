@@ -7,6 +7,7 @@ import { useAuth } from "../../context/authContext"
 import { supabase } from "../../lib/supabase"
 import type { Database } from "../../types/database"
 import { useEmojiCombos } from "../../hooks/useEmojiCombos"
+import Footer from "../Footer"
 
 type EmojiCombo = Database["public"]["Tables"]["emoji_combos"]["Row"]
 
@@ -305,7 +306,7 @@ export default function EmojiCombosGallery() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12" data-gallery>
+    <><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12" data-gallery>
       {/* Enhanced Header */}
       <div className="mb-8 text-center">
         <h2 className="text-white text-5xl font-bold mb-4 bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">
@@ -328,8 +329,7 @@ export default function EmojiCombosGallery() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-16 pr-6 py-5 rounded-2xl bg-slate-700/50 text-white placeholder-slate-400 border border-slate-600/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200 text-lg backdrop-blur-sm"
-              aria-label="Search emoji combos"
-            />
+              aria-label="Search emoji combos" />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
@@ -371,11 +371,9 @@ export default function EmojiCombosGallery() {
                 <button
                   key={tag}
                   onClick={() => toggleTag(tag)}
-                  className={`px-6 py-3 rounded-2xl text-sm font-medium transition-all duration-200 border ${
-                    selectedTags.has(tag)
+                  className={`px-6 py-3 rounded-2xl text-sm font-medium transition-all duration-200 border ${selectedTags.has(tag)
                       ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white border-purple-500 shadow-lg shadow-purple-500/25 scale-105"
-                      : "bg-slate-700/50 text-slate-300 border-slate-600/50 hover:bg-slate-600/50 hover:border-slate-500/50 hover:text-white hover:scale-105"
-                  }`}
+                      : "bg-slate-700/50 text-slate-300 border-slate-600/50 hover:bg-slate-600/50 hover:border-slate-500/50 hover:text-white hover:scale-105"}`}
                 >
                   #{tag}
                 </button>
@@ -402,7 +400,7 @@ export default function EmojiCombosGallery() {
                 onClick={() => {
                   setSearchQuery("")
                   setSelectedTags(new Set())
-                }}
+                } }
                 className="px-6 py-3 text-sm text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-xl transition-all duration-200 border border-slate-600/50 hover:border-slate-500/50"
               >
                 Reset all filters
@@ -442,7 +440,7 @@ export default function EmojiCombosGallery() {
                 onClick={() => {
                   setSearchQuery("")
                   setSelectedTags(new Set())
-                }}
+                } }
                 className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl text-white font-medium transition-all duration-200 transform hover:scale-105"
               >
                 Clear Filters
@@ -471,16 +469,14 @@ export default function EmojiCombosGallery() {
               return (
                 <div
                   key={combo.id}
-                  className={`relative group bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-300 border border-slate-700/50 hover:border-purple-500/50 transform hover:scale-[1.02] break-inside-avoid mb-4 ${
-                    needsWideLayout ? "w-full" : ""
-                  }`}
+                  className={`relative group bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-300 border border-slate-700/50 hover:border-purple-500/50 transform hover:scale-[1.02] break-inside-avoid mb-4 ${needsWideLayout ? "w-full" : ""}`}
                   style={{
                     // For very wide content, we might need to break out
                     ...(needsWideLayout && maxLineLength > 80
                       ? {
-                          width: "calc(200% + 1rem)",
-                          maxWidth: "600px",
-                        }
+                        width: "calc(200% + 1rem)",
+                        maxWidth: "600px",
+                      }
                       : {}),
                   }}
                 >
@@ -562,7 +558,7 @@ export default function EmojiCombosGallery() {
                           onClick={(e) => {
                             e.stopPropagation()
                             openPreview(combo)
-                          }}
+                          } }
                           className="flex items-center gap-1 px-2 py-1.5 bg-blue-600/80 hover:bg-blue-600 rounded-lg text-white text-xs font-medium transition-all duration-200 backdrop-blur-sm hover:scale-105"
                           aria-label={`Preview ${combo.name}`}
                           type="button"
@@ -575,7 +571,7 @@ export default function EmojiCombosGallery() {
                           onClick={(e) => {
                             e.stopPropagation()
                             copyToClipboard(combo.combo_text, combo.id)
-                          }}
+                          } }
                           className="flex items-center gap-1 px-2 py-1.5 bg-green-600/80 hover:bg-green-600 rounded-lg text-white text-xs font-medium transition-all duration-200 backdrop-blur-sm hover:scale-105"
                           aria-label={`Copy ${combo.name}`}
                           type="button"
@@ -590,18 +586,14 @@ export default function EmojiCombosGallery() {
                           onClick={(e) => {
                             e.stopPropagation()
                             handleFavorite(combo.id)
-                          }}
-                          className={`p-2 rounded-lg transition-all duration-200 hover:scale-110 ${
-                            favorites.has(combo.id)
+                          } }
+                          className={`p-2 rounded-lg transition-all duration-200 hover:scale-110 ${favorites.has(combo.id)
                               ? "bg-red-600/80 text-white hover:bg-red-600"
-                              : "bg-slate-700/50 text-gray-300 hover:bg-slate-600/50 hover:text-red-400"
-                          }`}
+                              : "bg-slate-700/50 text-gray-300 hover:bg-slate-600/50 hover:text-red-400"}`}
                           aria-pressed={favorites.has(combo.id)}
-                          aria-label={
-                            favorites.has(combo.id)
-                              ? `Remove ${combo.name} from favorites`
-                              : `Add ${combo.name} to favorites`
-                          }
+                          aria-label={favorites.has(combo.id)
+                            ? `Remove ${combo.name} from favorites`
+                            : `Add ${combo.name} to favorites`}
                           type="button"
                         >
                           <Heart size={14} fill={favorites.has(combo.id) ? "currentColor" : "none"} />
@@ -633,11 +625,9 @@ export default function EmojiCombosGallery() {
                     <button
                       key={pageNum}
                       onClick={() => setPage(pageNum)}
-                      className={`w-14 h-14 rounded-2xl font-medium transition-all duration-200 ${
-                        page === pageNum
+                      className={`w-14 h-14 rounded-2xl font-medium transition-all duration-200 ${page === pageNum
                           ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/25"
-                          : "bg-slate-700/50 text-gray-300 hover:bg-slate-600/50 border border-slate-600/50 hover:border-slate-500/50"
-                      }`}
+                          : "bg-slate-700/50 text-gray-300 hover:bg-slate-600/50 border border-slate-600/50 hover:border-slate-500/50"}`}
                     >
                       {pageNum}
                     </button>
@@ -648,11 +638,9 @@ export default function EmojiCombosGallery() {
                     <span className="text-gray-400 text-xl">...</span>
                     <button
                       onClick={() => setPage(Math.ceil(filteredCombos.length / ITEMS_PER_PAGE))}
-                      className={`w-14 h-14 rounded-2xl font-medium transition-all duration-200 ${
-                        page === Math.ceil(filteredCombos.length / ITEMS_PER_PAGE)
+                      className={`w-14 h-14 rounded-2xl font-medium transition-all duration-200 ${page === Math.ceil(filteredCombos.length / ITEMS_PER_PAGE)
                           ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/25"
-                          : "bg-slate-700/50 text-gray-300 hover:bg-slate-600/50 border border-slate-600/50 hover:border-slate-500/50"
-                      }`}
+                          : "bg-slate-700/50 text-gray-300 hover:bg-slate-600/50 border border-slate-600/50 hover:border-slate-500/50"}`}
                     >
                       {Math.ceil(filteredCombos.length / ITEMS_PER_PAGE)}
                     </button>
@@ -758,7 +746,7 @@ export default function EmojiCombosGallery() {
                         onClick={() => {
                           toggleTag(tag)
                           closePreview()
-                        }}
+                        } }
                       >
                         #{tag}
                       </span>
@@ -789,6 +777,6 @@ export default function EmojiCombosGallery() {
           </div>
         </Dialog>
       </Transition>
-    </div>
+    </div><Footer /></>
   )
 }

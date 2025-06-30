@@ -19,9 +19,9 @@ export default function Footer() {
         const { count: memberCount } = await supabase.from("user_profiles").select("*", { count: "exact", head: true })
 
         // Fetch total assets count (pfps + banners)
-        const { count: pfpCount } = await supabase.from("pfps").select("*", { count: "exact", head: true })
+        const { count: pfpCount } = await supabase.from("profiles").select("*", { count: "exact", head: true })
 
-        const { count: bannerCount } = await supabase.from("banners").select("*", { count: "exact", head: true })
+        const { count: bannerCount } = await supabase.from("emoji_combos").select("*", { count: "exact", head: true })
 
         setStats({
           members: memberCount || 0,

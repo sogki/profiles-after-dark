@@ -52,6 +52,8 @@ import { Toaster } from "react-hot-toast"
 
 import { supabase } from "./lib/supabase"
 
+import { Megaphone } from "lucide-react"
+
 function App() {
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -149,7 +151,7 @@ function App() {
         {/* Announcement banner */}
 
         {announcement && (
-          <div className="bg-blue-200/20 text-white px-4 py-2 text-center font-semibold">{announcement}</div>
+         <div className="flex justify-center bg-red-500/50 text-white px-4 py-2 text-center font-semibold"> <Megaphone className="mr-5"/> {announcement}</div>
         )}
 
         <div className="flex-grow">

@@ -978,53 +978,54 @@ export default function ProfileSettings() {
 
               {/* Notifications Tab */}
               {activeTab === "notifications" && (
-                <div className="space-y-8">
-                  {/* Notification Preferences */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <Bell className="h-5 w-5 text-blue-400" />
-                      Notification Preferences
-                    </h3>
+                  <div className="space-y-8">
+                    {/* Notification Preferences */}
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <Bell className="h-5 w-5 text-blue-400" />
+                        Notification Preferences
+                      </h3>
 
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Mail className="h-5 w-5 text-gray-400" />
-                          <div>
-                            <p className="font-medium">Email Notifications</p>
-                            <p className="text-sm text-gray-400">Receive notifications via email</p>
+                      {/* <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Mail className="h-5 w-5 text-gray-400" />
+                            <div>
+                              <p className="font-medium">Email Notifications</p>
+                              <p className="text-sm text-gray-400">Receive notifications via email</p>
+                            </div>
                           </div>
+                          <button
+                            onClick={() => setEmailNotifications(!emailNotifications)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${emailNotifications ? "bg-blue-600" : "bg-gray-600"}`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${emailNotifications ? "translate-x-6" : "translate-x-1"}`} />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => setEmailNotifications(!emailNotifications)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${emailNotifications ? "bg-blue-600" : "bg-gray-600"}`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${emailNotifications ? "translate-x-6" : "translate-x-1"}`} />
-                        </button>
-                      </div>
 
-                      <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Smartphone className="h-5 w-5 text-gray-400" />
-                          <div>
-                            <p className="font-medium">Push Notifications</p>
-                            <p className="text-sm text-gray-400">Receive push notifications on your devices</p>
+                        <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Smartphone className="h-5 w-5 text-gray-400" />
+                            <div>
+                              <p className="font-medium">Push Notifications</p>
+                              <p className="text-sm text-gray-400">Receive push notifications on your devices</p>
+                            </div>
                           </div>
+                          <button
+                            onClick={() => setPushNotifications(!pushNotifications)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${pushNotifications ? "bg-blue-600" : "bg-gray-600"}`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${pushNotifications ? "translate-x-6" : "translate-x-1"}`} />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => setPushNotifications(!pushNotifications)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${pushNotifications ? "bg-blue-600" : "bg-gray-600"}`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${pushNotifications ? "translate-x-6" : "translate-x-1"}`} />
-                        </button>
-                      </div>
-                    </div>
+                    </div> */}
+                    <p>Coming Soon</p>
                   </div>
 
                   {/* Quiet Hours */}
-                  <div className="border-t border-gray-700 pt-8">
+                  {/* <div className="border-t border-gray-700 pt-8">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                       {quietHoursEnabled ? (
                         <VolumeX className="h-5 w-5 text-purple-400" />
@@ -1070,17 +1071,17 @@ export default function ProfileSettings() {
                         </div>
                       )}
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Save Button */}
-                  <button
+                  {/* <button
                     onClick={saveNotificationSettings}
                     disabled={loading}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-medium transition-colors"
                   >
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                     Save Notification Settings
-                  </button>
+                  </button> */}
 
                   {/* Recent Notifications */}
                   <div className="border-t border-gray-700 pt-8">

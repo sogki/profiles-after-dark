@@ -2363,7 +2363,7 @@ const handleDismiss = async (id: string) => {
     { id: "users", label: "User Management", icon: UserCog },
     { id: "automation", label: "AI Moderation", icon: Bot },
     { id: "settings", label: "System Settings", icon: Settings },
-    { id: "monitoring", label: "System Monitor", icon: Monitor },
+    { id: "monitoring", label: "System Monitor (Mock Data)", icon: Monitor },
   ];
 
   return (

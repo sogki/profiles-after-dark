@@ -23,9 +23,11 @@ export default function Footer() {
 
         const { count: bannerCount } = await supabase.from("emoji_combos").select("*", { count: "exact", head: true })
 
+        const { count: pairsCount } = await supabase.from("profile_pairs").select("*", { count: "exact", head: true })
+
         setStats({
           members: memberCount || 0,
-          assets: (pfpCount || 0) + (bannerCount || 0),
+          assets: (pfpCount || 0) + (bannerCount || 0) + (pairsCount || 0),
           loading: false,
         })
       } catch (error) {

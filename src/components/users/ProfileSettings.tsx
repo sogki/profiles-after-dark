@@ -868,7 +868,7 @@ export default function ProfileSettings() {
                     )}
                   </div>
 
-                  {/* Account Recovery */}
+                  {/* Account Recovery
                   <div className="border-t border-gray-700 pt-8">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                       <Key className="h-5 w-5 text-blue-400" />
@@ -905,9 +905,9 @@ export default function ProfileSettings() {
                         ))}
                       </div>
                     </div>
-                  </div>
+                  </div> */}
 
-                  {/* Login Activity */}
+                  {/* Login Activity
                   <div className="border-t border-gray-700 pt-8">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                       <History className="h-5 w-5 text-green-400" />
@@ -951,7 +951,7 @@ export default function ProfileSettings() {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Danger Zone */}
                   <div className="border-t border-gray-700 pt-8">
@@ -1135,7 +1135,7 @@ export default function ProfileSettings() {
                     </h3>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {themes.map((theme) => (
+                      {/* {themes.map((theme) => (
                         <button
                           key={theme.id}
                           onClick={() => setSelectedTheme(theme.id)}
@@ -1151,7 +1151,8 @@ export default function ProfileSettings() {
                             </div>
                           )}
                         </button>
-                      ))}
+                      ))} */}
+                      <p>Coming Soon</p>
                     </div>
                   </div>
 
@@ -1163,7 +1164,7 @@ export default function ProfileSettings() {
                     </h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {languages.map((language) => (
+                      {/* {languages.map((language) => (
                         <button
                           key={language.code}
                           onClick={() => setSelectedLanguage(language.code)}
@@ -1177,19 +1178,20 @@ export default function ProfileSettings() {
                             <CheckCircle className="h-5 w-5 text-green-400 ml-auto" />
                           )}
                         </button>
-                      ))}
+                      ))} */}
+                      <p>Coming Soon</p>
                     </div>
                   </div>
 
                   {/* Save Button */}
-                  <button
+                  {/* <button
                     onClick={saveThemeSettings}
                     disabled={loading}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-medium transition-colors"
                   >
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                     Save Appearance Settings
-                  </button>
+                  </button> */}
                 </div>
               )}
 
@@ -1203,7 +1205,7 @@ export default function ProfileSettings() {
                       Profile Visibility
                     </h3>
 
-                    <div className="space-y-3">
+                    {/* <div className="space-y-3">
                       {[
                         { value: "public", label: "Public", description: "Anyone can see your profile" },
                         {
@@ -1229,7 +1231,8 @@ export default function ProfileSettings() {
                           </div>
                         </button>
                       ))}
-                    </div>
+                    </div> */}
+                    <p>Coming Soon</p>
                   </div>
 
                   {/* Social Settings */}
@@ -1239,7 +1242,7 @@ export default function ProfileSettings() {
                       Social Settings
                     </h3>
 
-                    <div className="space-y-4">
+                    {/* <div className="space-y-4">
                       <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
                         <div>
                           <p className="font-medium">Allow Friend Requests</p>
@@ -1267,18 +1270,19 @@ export default function ProfileSettings() {
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showOnlineStatus ? "translate-x-6" : "translate-x-1"}`} />
                         </button>
                       </div>
-                    </div>
+                    </div> */}
+                    <p>Coming Soon</p>
                   </div>
 
                   {/* Save Button */}
-                  <button
+                  {/* <button
                     onClick={savePrivacySettings}
                     disabled={loading}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-medium transition-colors"
                   >
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                     Save Privacy Settings
-                  </button>
+                  </button> */}
                 </div>
               )}
 
@@ -1296,14 +1300,15 @@ export default function ProfileSettings() {
                       <p className="text-gray-300 mb-4">
                         Download a copy of all your data including profile information, settings, and activity history.
                       </p>
-                      <button
+                      <p>Coming Soon</p>
+                      {/* <button
                         onClick={exportData}
                         disabled={loading}
                         className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-medium transition-colors"
                       >
                         {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
                         Export My Data
-                      </button>
+                      </button> */}
                     </div>
                   </div>
 
@@ -1314,7 +1319,7 @@ export default function ProfileSettings() {
                       Account Backup
                     </h3>
 
-                    <div className="bg-gray-700 p-6 rounded-lg">
+                    {/* <div className="bg-gray-700 p-6 rounded-lg">
                       <p className="text-gray-300 mb-4">
                         Create a backup of your account settings and preferences. This can be used to restore your
                         account configuration.
@@ -1335,7 +1340,8 @@ export default function ProfileSettings() {
                           Restore Backup
                         </button>
                       </div>
-                    </div>
+                    </div> */}
+                    <p>Coming Soon</p>
                   </div>
 
                   {/* Storage Usage */}
@@ -1345,7 +1351,7 @@ export default function ProfileSettings() {
                       Storage Usage
                     </h3>
 
-                    <div className="space-y-4">
+                    {/* <div className="space-y-4">
                       <div className="bg-gray-700 p-4 rounded-lg">
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-sm font-medium">Profile Data</span>
@@ -1375,7 +1381,8 @@ export default function ProfileSettings() {
                           <div className="bg-purple-600 h-2 rounded-full" style={{ width: "18%" }}></div>
                         </div>
                       </div>
-                    </div>
+                    </div> */}
+                    <p>Coming Soon</p>
                   </div>
                 </div>
               )}
@@ -1391,7 +1398,7 @@ export default function ProfileSettings() {
                     </h3>
 
                     <div className="space-y-4">
-                      <div>
+                      {/* <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Feedback Type</label>
                         <select
                           value={feedbackType}
@@ -1422,7 +1429,8 @@ export default function ProfileSettings() {
                       >
                         {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <MessageSquare className="h-5 w-5" />}
                         Send Feedback
-                      </button>
+                      </button> */}
+                      <p>Coming Soon</p>
                     </div>
                   </div>
 
@@ -1433,7 +1441,7 @@ export default function ProfileSettings() {
                       Help & Resources
                     </h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <a href="#" className="p-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-blue-600 rounded-lg">
@@ -1481,7 +1489,8 @@ export default function ProfileSettings() {
                           </div>
                         </div>
                       </a>
-                    </div>
+                    </div> */}
+                    <p>Coming Soon</p>
                   </div>
 
                   {/* System Information */}
@@ -1491,7 +1500,7 @@ export default function ProfileSettings() {
                       System Information
                     </h3>
 
-                    <div className="bg-gray-700 p-4 rounded-lg">
+                    {/* <div className="bg-gray-700 p-4 rounded-lg">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                         <div>
                           <p className="text-gray-400">App Version</p>
@@ -1510,7 +1519,8 @@ export default function ProfileSettings() {
                           <p className="font-medium">{new Date().toLocaleDateString()}</p>
                         </div>
                       </div>
-                    </div>
+                    </div> */}
+                    <p>Coming Soon</p>
                   </div>
                 </div>
               )}

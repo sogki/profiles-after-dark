@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom"
 import { supabase } from "../../lib/supabase"
 import { Dialog, Transition, Menu } from "@headlessui/react"
 import { X, MoreHorizontal, Settings, Flag, Heart, Grid3X3, User, Calendar, Tag } from "lucide-react"
+import { BsEmojiHeartEyes, BsFillEmojiHeartEyesFill } from "react-icons/bs"
 
 interface Badge {
   name: string
@@ -45,12 +46,23 @@ interface ProfilePair {
   created_at?: string
 }
 
+interface UserEmojiUpload {
+  id: string
+  user_id: string
+  name: string
+  combo_text: string | null
+  description: string | null
+  tags?: string[]
+  created_at?: string
+}
+
 export default function UserProfile() {
   const { username } = useParams<{ username: string }>()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [uploads, setUploads] = useState<UserUpload[]>([])
   const [favorites, setFavorites] = useState<UserUpload[]>([])
   const [profilePairs, setProfilePairs] = useState<ProfilePair[]>([])
+  const [emojicombos, setEmojiCombos] = useState<UserEmojiUpload[]>([])
   const [loading, setLoading] = useState(true)
   const [previewItem, setPreviewItem] = useState<UserUpload | ProfilePair | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -61,7 +73,7 @@ export default function UserProfile() {
   const [reportError, setReportError] = useState<string | null>(null)
   const [currentUserProfileId, setCurrentUserProfileId] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null)
-  const [activeTab, setActiveTab] = useState<"uploads" | "pairs" | "favorites">("uploads")
+  const [activeTab, setActiveTab] = useState<"uploads" | "pairs" | "favorites" | "emojicombos">("uploads")
   const [showAllBadges, setShowAllBadges] = useState(false)
 
   useEffect(() => {
@@ -128,6 +140,7 @@ export default function UserProfile() {
         setUploads([])
         setFavorites([])
         setProfilePairs([])
+        setEmojiCombos([])
         setLoading(false)
         return
       }
@@ -454,6 +467,7 @@ export default function UserProfile() {
               { id: "uploads", label: "Uploads", count: uploads.length, icon: Grid3X3 },
               { id: "pairs", label: "Profile Pairs", count: profilePairs.length, icon: User },
               { id: "favorites", label: "Favorites", count: favorites.length, icon: Heart },
+              { id: "emojicombos", label: "Emoji Combos", count: emojicombos.length, icon: BsFillEmojiHeartEyesFill },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -629,6 +643,26 @@ export default function UserProfile() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Emoji Combos Tab */}
+          {activeTab === "emojicombos" && (
+            <div>
+              {favorites.length === 0 ? (
+                <div className="text-center py-16">
+                  <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-white mb-2">Emoji Combos will be displayed here soon.</h3>
+                  <p className="text-gray-400">
+                    {isOwnProfile ? "You haven't uploaded Emoji Combos yet." : "This user hasn't uploaded Emoji Combos yet."}
+                  </p>
+                </div>
+              ) : (
+                // <div className="grid grid-cols-1 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div>
+                  <p className="text-center text-white text-lg">Emoji Combos will be displayed soon.</p>
                 </div>
               )}
             </div>

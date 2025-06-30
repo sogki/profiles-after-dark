@@ -10,6 +10,7 @@ import {
   type ModerationResult,
 } from "../../../lib/openai-moderation";
 import {
+  UserCheck,
   Users,
   FileText,
   BarChart3,

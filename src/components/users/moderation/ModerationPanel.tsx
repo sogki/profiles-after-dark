@@ -148,6 +148,7 @@ interface AnalyticsData {
     profileCount: number;
     bannerCount: number;
     pairCount: number;
+    emojiComboCount: number;
     categoriesBreakdown: Array<{ category: string; count: number }>;
     uploadTrends: Array<{ date: string; count: number }>;
     topTags: Array<{ tag: string; count: number }>;
@@ -623,6 +624,16 @@ const ModerationPanel = () => {
 
       queries.push(pairQuery);
 
+      // Fetch from profiles table
+      const emojiQuery = supabase
+        .from("emoji_combos")
+        .select("*")
+        .gte("updated_at", dateFilter.toISOString())
+        .order("download_count", { ascending: false })
+        .limit(20);
+
+      queries.push(emojiQuery);
+
       const results = await Promise.all(queries);
       const [profilesResult, pairsResult] = results;
 
@@ -668,6 +679,7 @@ const ModerationPanel = () => {
         }));
         allItems.push(...pairItems);
       }
+
 
       // Sort by trend score and download count
       allItems.sort((a, b) => {
@@ -942,7 +954,7 @@ const ModerationPanel = () => {
       >[] = [
         {
           key: "site_name",
-          value: "Profile Gallery",
+          value: "Profiles After Dark",
           description:
             "The name of the website displayed in headers and titles",
           type: "string",
@@ -3481,6 +3493,12 @@ const handleDismiss = async (id: string) => {
                                 <span>Pairs</span>
                                 <span>
                                   {analyticsData.contentStats.pairCount.toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span>Emoji Combos</span>
+                                <span>
+                                  {analyticsData.contentStats.emojiComboCount.toLocaleString()}
                                 </span>
                               </div>
                             </div>

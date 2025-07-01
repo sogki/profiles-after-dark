@@ -1,8 +1,8 @@
 export interface ProfileImage {
   id: string;
   title: string;
-  category: 'discord' | 'twitter' | 'instagram' | 'general';
-  type: 'profile' | 'banner';
+  category: "discord" | "twitter" | "instagram" | "general";
+  type: "profile" | "banner";
   imageUrl: string;
   downloadCount: number;
   uploadedAt: string;
@@ -11,8 +11,8 @@ export interface ProfileImage {
 
 export interface UploadFormData {
   title: string;
-  category: ProfileImage['category'];
-  type: ProfileImage['type'];
+  category: ProfileImage["category"];
+  type: ProfileImage["type"];
   tags: string[];
   file: File | null;
 }
@@ -22,3 +22,5 @@ export interface User {
   email: string;
   created_at: string;
 }
+
+export * from "./user-profiles";

@@ -1,32 +1,36 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
-import { Database } from '../types/database';
+import { useAuth } from "@/context/authContext";
+import { supabase } from "@/lib/supabase";
+import { Tables } from "@/types/database";
+import { useCallback, useEffect, useState } from "react";
 
-type Notification = Database['public']['Tables']['notifications']['Row'];
+type Notification = Tables<"notifications">;
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { user } = useAuth();
+
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const user = supabase.auth.user();
-      if (!user) throw new Error('Not authenticated');
+      if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .from("notifications")
+        .select("*")
+        .eq("user_id", `${user?.id}`)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
       setNotifications(data || []);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load notifications');
+      setError(
+        err instanceof Error ? err.message : "Failed to load notifications"
+      );
     } finally {
       setLoading(false);
     }
@@ -36,9 +40,9 @@ export function useNotifications() {
     try {
       const now = new Date().toISOString();
       const { error } = await supabase
-        .from('notifications')
-        .update({ read_at: now })
-        .eq('id', id);
+        .from("notifications")
+        .update({ read: true })
+        .eq("id", id);
 
       if (error) throw error;
 
@@ -46,37 +50,42 @@ export function useNotifications() {
         prev.map((n) => (n.id === id ? { ...n, read_at: now } : n))
       );
     } catch (err) {
-      console.error('Failed to mark notification as read:', err);
+      console.error("Failed to mark notification as read:", err);
     }
   }, []);
 
   useEffect(() => {
     fetchNotifications();
 
-    const user = supabase.auth.user();
-    if (!user) return;
+    if (!user?.id) return;
 
     // Subscribe to notifications for this user
     const subscription = supabase
-      .channel('public:notifications')
+      .channel("public:notifications")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user?.id}`,
         },
         (payload) => {
           // payload has eventType and new/old records
-          if (payload.eventType === 'INSERT') {
-            setNotifications((prev) => [payload.new, ...prev]);
-          } else if (payload.eventType === 'UPDATE') {
+          if (payload.eventType === "INSERT") {
+            setNotifications((prev) => [payload.new as Notification, ...prev]);
+          } else if (payload.eventType === "UPDATE") {
             setNotifications((prev) =>
-              prev.map((n) => (n.id === payload.new.id ? payload.new : n))
+              prev.map((n) =>
+                n.id === (payload.new as Notification).id
+                  ? (payload.new as Notification)
+                  : n
+              )
             );
-          } else if (payload.eventType === 'DELETE') {
-            setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id));
+          } else if (payload.eventType === "DELETE") {
+            setNotifications((prev) =>
+              prev.filter((n) => n.id !== payload.old.id)
+            );
           }
         }
       )
@@ -85,7 +94,7 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(subscription);
     };
-  }, [fetchNotifications]);
+  }, [fetchNotifications, user]);
 
   return {
     notifications,

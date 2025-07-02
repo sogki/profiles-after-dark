@@ -1,78 +1,23 @@
-"use client"
+"use client";
 
-import { Link } from "react-router-dom"
-import { Moon, Heart, Users, ImageIcon, Palette, Shield } from "lucide-react"
-import { useEffect, useState } from "react"
-import { supabase } from "../lib/supabase"
+import { Link } from "react-router-dom";
+import { Moon, Heart, Users, ImageIcon, Palette, Shield } from "lucide-react";
+import useFooterStats from "@/hooks/footer-stats/use-footer-stats";
+import useRealtimeFooterStats from "@/hooks/footer-stats/use-realtime-stats";
 
 export default function Footer() {
-  const [stats, setStats] = useState({
-    members: 0,
-    assets: 0,
-    loading: true,
-  })
+  const { data: stats, isLoading } = useFooterStats();
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        // Fetch member count
-        const { count: memberCount } = await supabase.from("user_profiles").select("*", { count: "exact", head: true })
-
-        // Fetch total assets count (pfps + banners)
-        const { count: pfpCount } = await supabase.from("profiles").select("*", { count: "exact", head: true })
-
-        const { count: bannerCount } = await supabase.from("emoji_combos").select("*", { count: "exact", head: true })
-
-        const { count: pairsCount } = await supabase.from("profile_pairs").select("*", { count: "exact", head: true })
-
-        setStats({
-          members: memberCount || 0,
-          assets: (pfpCount || 0) + (bannerCount || 0) + (pairsCount || 0),
-          loading: false,
-        })
-      } catch (error) {
-        console.error("Error fetching stats:", error)
-        setStats({
-          members: 0,
-          assets: 0,
-          loading: false,
-        })
-      }
-    }
-
-    fetchStats()
-
-    // Set up real-time subscriptions for live updates
-    const membersSubscription = supabase
-      .channel("members-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "user_profiles" }, () => fetchStats())
-      .subscribe()
-
-    const pfpsSubscription = supabase
-      .channel("pfps-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "pfps" }, () => fetchStats())
-      .subscribe()
-
-    const bannersSubscription = supabase
-      .channel("banners-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "banners" }, () => fetchStats())
-      .subscribe()
-
-    return () => {
-      membersSubscription.unsubscribe()
-      pfpsSubscription.unsubscribe()
-      bannersSubscription.unsubscribe()
-    }
-  }, [])
+  useRealtimeFooterStats();
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) {
-      return (num / 1000000).toFixed(1) + "M"
+      return (num / 1000000).toFixed(1) + "M";
     } else if (num >= 1000) {
-      return (num / 1000).toFixed(1) + "K"
+      return (num / 1000).toFixed(1) + "K";
     }
-    return num.toString()
-  }
+    return num.toString();
+  };
 
   return (
     <footer className="bg-gradient-to-b from-slate-900 to-slate-950 border-t border-slate-700/50">
@@ -88,11 +33,14 @@ export default function Footer() {
                 <h3 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
                   Profiles After Dark
                 </h3>
-                <p className="text-sm text-purple-400 font-medium">Aesthetic profiles for the night owls</p>
+                <p className="text-sm text-purple-400 font-medium">
+                  Aesthetic profiles for the night owls
+                </p>
               </div>
             </div>
             <p className="text-slate-300 mb-8 max-w-md leading-relaxed">
-              The ultimate destination for stunning profile pictures and banners. Join our passionate community who've discovered their
+              The ultimate destination for stunning profile pictures and
+              banners. Join our passionate community who've discovered their
               perfect aesthetic in our curated collection.
             </p>
 
@@ -101,23 +49,31 @@ export default function Footer() {
               <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-slate-700/50">
                 <div className="flex items-center gap-2 mb-1">
                   <Users className="h-4 w-4 text-blue-400" />
-                  <span className="text-xs text-slate-400 uppercase tracking-wide">Members</span>
+                  <span className="text-xs text-slate-400 uppercase tracking-wide">
+                    Members
+                  </span>
                 </div>
-                {stats.loading ? (
+                {isLoading ? (
                   <div className="h-7 bg-slate-700 rounded animate-pulse"></div>
                 ) : (
-                  <p className="text-xl font-bold text-white">{formatNumber(stats.members)}+</p>
+                  <p className="text-xl font-bold text-white">
+                    {formatNumber(stats?.members || 0)}+
+                  </p>
                 )}
               </div>
               <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-slate-700/50">
                 <div className="flex items-center gap-2 mb-1">
                   <ImageIcon className="h-4 w-4 text-purple-400" />
-                  <span className="text-xs text-slate-400 uppercase tracking-wide">Assets</span>
+                  <span className="text-xs text-slate-400 uppercase tracking-wide">
+                    Assets
+                  </span>
                 </div>
-                {stats.loading ? (
+                {isLoading ? (
                   <div className="h-7 bg-slate-700 rounded animate-pulse"></div>
                 ) : (
-                  <p className="text-xl font-bold text-white">{formatNumber(stats.assets)}+</p>
+                  <p className="text-xl font-bold text-white">
+                    {formatNumber(stats?.assets || 0)}+
+                  </p>
                 )}
               </div>
             </div>
@@ -257,7 +213,9 @@ export default function Footer() {
         <div className="border-t border-slate-700/50 mt-16 pt-8">
           <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
             <div className="flex flex-col sm:flex-row items-center gap-6">
-              <p className="text-slate-400 text-sm">© 2025 Profiles After Dark. All rights reserved.</p>
+              <p className="text-slate-400 text-sm">
+                © 2025 Profiles After Dark. All rights reserved.
+              </p>
               <div className="flex items-center gap-4 text-xs text-slate-500">
                 <span>v2.1.0</span>
                 <span>•</span>
@@ -278,5 +236,5 @@ export default function Footer() {
         </div>
       </div>
     </footer>
-  )
+  );
 }

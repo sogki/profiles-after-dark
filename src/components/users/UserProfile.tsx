@@ -91,7 +91,7 @@ export default function UserProfile() {
   const loading =
     profileLoading || uploadsLoading || profilePairsLoading || favoritesLoading;
 
-  const [emojicombos, setEmojiCombos] = useState<UserEmojiUpload[]>([]);
+  const [emojicombos] = useState<UserEmojiUpload[]>([]);
   const [previewItem, setPreviewItem] = useState<
     UserUpload | ProfilePair | null
   >(null);
@@ -474,7 +474,7 @@ export default function UserProfile() {
                       <div
                         key={upload.id}
                         className="group bg-white/5 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-white/10 transition-all cursor-pointer hover:scale-105"
-                        onClick={() => openPreview(upload)}
+                        onClick={() => openPreview(upload as UserUpload)}
                       >
                         <div className="aspect-square overflow-hidden">
                           <img
@@ -537,7 +537,7 @@ export default function UserProfile() {
                         key={pair.id}
                         className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 border border-slate-700 hover:border-slate-600 cursor-pointer"
                         style={{ minHeight: "280px" }}
-                        onClick={() => openPreview(pair)}
+                        onClick={() => openPreview(pair as ProfilePair)}
                       >
                         {pair.banner_url ? (
                           <img

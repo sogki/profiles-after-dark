@@ -568,6 +568,17 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
               <Sticker className="inline h-4 w-4 mr-1" />
               Emotes
             </Link>
+             <Link
+              to="/gallery/wallpapers"
+              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                isActive("/gallery/wallpapers")
+                  ? "bg-purple-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              }`}
+            >
+              <ImageIcon className="inline h-4 w-4 mr-1" />
+              Wallpapers
+            </Link>
             <Link
               to="/trending"
               className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${

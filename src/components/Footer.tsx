@@ -154,16 +154,16 @@ export default function Footer() {
                   className="text-slate-400 hover:text-purple-400 transition-colors duration-200 flex items-center gap-2 group"
                 >
                   <span className="w-1 h-1 bg-purple-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  Profile Combos
+                  Emoji Combos
                 </Link>
               </li>
               <li>
                 <Link
-                  to="/users"
+                  to="/gallery/wallpapers"
                   className="text-slate-400 hover:text-purple-400 transition-colors duration-200 flex items-center gap-2 group"
                 >
                   <span className="w-1 h-1 bg-purple-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  Members
+                  Wallpapers
                 </Link>
               </li>
             </ul>

@@ -10,11 +10,15 @@ import {
   User,
   X,
 } from "lucide-react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useState } from "react";
 import { BsFillEmojiHeartEyesFill } from "react-icons/bs";
-import { Link, useParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 
+import useRetrieveProfileFavorites from "@/hooks/users/profile-info/use-retrieve-profile-favorites";
+import useRetrieveProfilePairs from "@/hooks/users/profile-info/use-retrieve-profile-pairs";
+import useRetrieveProfileUploads from "@/hooks/users/profile-info/use-retrieve-profile-uploads";
+import useRetrieveUserProfile from "@/hooks/users/profile-info/use-retrieve-user-profile";
 import Footer from "../Footer";
 
 interface Badge {
@@ -69,13 +73,25 @@ interface UserEmojiUpload {
 }
 
 export default function UserProfile() {
-  const { username } = useParams<{ username: string }>();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [uploads, setUploads] = useState<UserUpload[]>([]);
-  const [favorites, setFavorites] = useState<UserUpload[]>([]);
-  const [profilePairs, setProfilePairs] = useState<ProfilePair[]>([]);
+  const {
+    data: profile,
+    isLoading: profileLoading,
+    currentUser: { id: currentUserProfileId },
+  } = useRetrieveUserProfile();
+
+  const { data: uploads, isLoading: uploadsLoading } =
+    useRetrieveProfileUploads();
+
+  const { data: profilePairs, isLoading: profilePairsLoading } =
+    useRetrieveProfilePairs();
+
+  const { data: favorites, isLoading: favoritesLoading } =
+    useRetrieveProfileFavorites();
+
+  const loading =
+    profileLoading || uploadsLoading || profilePairsLoading || favoritesLoading;
+
   const [emojicombos, setEmojiCombos] = useState<UserEmojiUpload[]>([]);
-  const [loading, setLoading] = useState(true);
   const [previewItem, setPreviewItem] = useState<
     UserUpload | ProfilePair | null
   >(null);
@@ -85,155 +101,11 @@ export default function UserProfile() {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
-  const [currentUserProfileId, setCurrentUserProfileId] = useState<
-    string | null
-  >(null);
-  const [currentUser, setCurrentUser] = useState<{
-    id: string;
-    username: string;
-  } | null>(null);
+
   const [activeTab, setActiveTab] = useState<
     "uploads" | "pairs" | "favorites" | "emojicombos"
   >("uploads");
   const [showAllBadges, setShowAllBadges] = useState(false);
-
-  useEffect(() => {
-    const getCurrentUserProfile = async () => {
-      const { data: authData, error: authError } =
-        await supabase.auth.getUser();
-      if (authError || !authData.user) {
-        setCurrentUser(null);
-        setCurrentUserProfileId(null);
-        return;
-      }
-
-      setCurrentUser({
-        id: authData.user.id,
-        username: authData.user.user_metadata?.username || "",
-      });
-
-      const { data: profileData, error: profileError } = await supabase
-        .from("user_profiles")
-        .select("id")
-        .eq("user_id", authData.user.id)
-        .single();
-
-      if (profileError || !profileData) {
-        setCurrentUserProfileId(null);
-        return;
-      }
-
-      setCurrentUserProfileId(profileData.id);
-    };
-
-    getCurrentUserProfile();
-  }, []);
-
-  useEffect(() => {
-    if (!username) return;
-
-    const fetchProfileAndUploads = async () => {
-      setLoading(true);
-
-      // Fetch profile by username
-      const { data: profileData, error: profileError } = await supabase
-        .from("user_profiles")
-        .select(
-          `
-          id,
-          user_id,
-          username,
-          avatar_url,
-          banner_url,
-          bio,
-          created_at,
-          user_badges (
-            badges (
-              name,
-              image_url
-            )
-          )
-        `
-        )
-        .eq("username", username)
-        .single();
-
-      if (profileError || !profileData) {
-        console.error("Error fetching profile:", profileError);
-        setProfile(null);
-        setUploads([]);
-        setFavorites([]);
-        setProfilePairs([]);
-        setEmojiCombos([]);
-        setLoading(false);
-        return;
-      }
-
-      setProfile(profileData);
-
-      // Fetch uploads
-      const { data: uploadsData, error: uploadsError } = await supabase
-        .from("profiles")
-        .select("id, title, image_url, tags, category, type, created_at")
-        .eq("user_id", profileData.user_id)
-        .order("created_at", { ascending: false });
-
-      if (uploadsError) {
-        console.error("Error fetching uploads:", uploadsError);
-        setUploads([]);
-      } else {
-        setUploads(uploadsData || []);
-      }
-
-      // Fetch profile pairs
-      const { data: pairsData, error: pairsError } = await supabase
-        .from("profile_pairs")
-        .select(
-          "id, user_id, pfp_url, banner_url, title, category, tags, created_at"
-        )
-        .eq("user_id", profileData.user_id)
-        .order("created_at", { ascending: false });
-
-      if (pairsError) {
-        console.error("Error fetching profile pairs:", pairsError);
-        setProfilePairs([]);
-      } else {
-        setProfilePairs(pairsData || []);
-      }
-
-      // Fetch favorites
-      const { data: favoritesData, error: favoritesError } = await supabase
-        .from("favorites")
-        .select(
-          `
-          id,
-          upload:profiles (
-            id,
-            title,
-            image_url,
-            tags,
-             category,
-            type,
-            created_at
-          )
-        `
-        )
-        .eq("user_id", profileData.user_id)
-        .order("created_at", { ascending: false });
-
-      if (favoritesError) {
-        console.error("Error fetching favorites:", favoritesError);
-        setFavorites([]);
-      } else {
-        const favs = favoritesData?.map((fav: any) => fav.upload) || [];
-        setFavorites(favs);
-      }
-
-      setLoading(false);
-    };
-
-    fetchProfileAndUploads();
-  }, [username]);
 
   const openPreview = (item: UserUpload | ProfilePair) => {
     setPreviewItem(item);
@@ -502,12 +374,14 @@ export default function UserProfile() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Grid3X3 className="h-4 w-4" />
-                    <span className="text-sm">{uploads.length} uploads</span>
+                    <span className="text-sm">
+                      {uploads?.length || 0} uploads
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Heart className="h-4 w-4" />
                     <span className="text-sm">
-                      {favorites.length} favorites
+                      {favorites?.length || 0} favorites
                     </span>
                   </div>
                 </div>
@@ -522,19 +396,19 @@ export default function UserProfile() {
                 {
                   id: "uploads",
                   label: "Uploads",
-                  count: uploads.length,
+                  count: uploads?.length || 0,
                   icon: Grid3X3,
                 },
                 {
                   id: "pairs",
                   label: "Profile Pairs",
-                  count: profilePairs.length,
+                  count: profilePairs?.length || 0,
                   icon: User,
                 },
                 {
                   id: "favorites",
                   label: "Favorites",
-                  count: favorites.length,
+                  count: favorites?.length ?? 0,
                   icon: Heart,
                 },
                 {
@@ -546,7 +420,15 @@ export default function UserProfile() {
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() =>
+                    setActiveTab(
+                      tab.id as
+                        | "uploads"
+                        | "pairs"
+                        | "favorites"
+                        | "emojicombos"
+                    )
+                  }
                   className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
                     activeTab === tab.id
                       ? "bg-white text-gray-900 shadow-lg"
@@ -574,7 +456,7 @@ export default function UserProfile() {
             {/* Uploads Tab */}
             {activeTab === "uploads" && (
               <div>
-                {uploads.length === 0 ? (
+                {uploads?.length === 0 ? (
                   <div className="text-center py-16">
                     <Grid3X3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-white mb-2">
@@ -588,7 +470,7 @@ export default function UserProfile() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {uploads.map((upload) => (
+                    {uploads?.map((upload) => (
                       <div
                         key={upload.id}
                         className="group bg-white/5 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-white/10 transition-all cursor-pointer hover:scale-105"
@@ -636,7 +518,7 @@ export default function UserProfile() {
             {/* Profile Pairs Tab - Using gallery.tsx style */}
             {activeTab === "pairs" && (
               <div>
-                {profilePairs.length === 0 ? (
+                {profilePairs?.length === 0 ? (
                   <div className="text-center py-16">
                     <User className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-white mb-2">
@@ -650,7 +532,7 @@ export default function UserProfile() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {profilePairs.map((pair) => (
+                    {profilePairs?.map((pair) => (
                       <div
                         key={pair.id}
                         className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 border border-slate-700 hover:border-slate-600 cursor-pointer"
@@ -705,7 +587,7 @@ export default function UserProfile() {
             {/* Favorites Tab */}
             {activeTab === "favorites" && (
               <div>
-                {favorites.length === 0 ? (
+                {favorites?.length === 0 ? (
                   <div className="text-center py-16">
                     <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-white mb-2">
@@ -719,16 +601,16 @@ export default function UserProfile() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {favorites.map((fav) => (
+                    {favorites?.map((fav) => (
                       <div
                         key={fav.id}
                         className="group bg-white/5 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-white/10 transition-all cursor-pointer hover:scale-105"
-                        onClick={() => openPreview(fav)}
+                        onClick={() => openPreview(fav?.upload as UserUpload)}
                       >
                         <div className="aspect-square overflow-hidden relative">
                           <img
-                            src={fav.image_url || "/placeholder.svg"}
-                            alt={fav.title || "Favorite image"}
+                            src={fav?.upload?.image_url || "/placeholder.svg"}
+                            alt={fav?.upload?.title || "Favorite image"}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                           />
                           <div className="absolute top-2 right-2">
@@ -737,10 +619,10 @@ export default function UserProfile() {
                         </div>
                         <div className="p-4">
                           <h3 className="font-semibold text-white mb-1 truncate">
-                            {fav.title || "Untitled"}
+                            {fav?.upload?.title || "Untitled"}
                           </h3>
                           <p className="text-sm text-gray-400">
-                            {fav.category || "No category"}
+                            {fav?.upload?.category || "No category"}
                           </p>
                         </div>
                       </div>
@@ -753,7 +635,7 @@ export default function UserProfile() {
             {/* Emoji Combos Tab */}
             {activeTab === "emojicombos" && (
               <div>
-                {favorites.length === 0 ? (
+                {favorites?.length === 0 ? (
                   <div className="text-center py-16">
                     <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-white mb-2">

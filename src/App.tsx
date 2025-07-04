@@ -46,6 +46,8 @@ import Guidelines from "./components/legal/Guidelines"
 
 import ReportContent from "./components/legal/ReportContent"
 
+import WallpaperGallery from "./components/gallery/WallpaperGallery"
+
 import { useAuth } from "./context/authContext"
 
 import { Toaster } from "react-hot-toast"
@@ -201,6 +203,8 @@ function App() {
             <Route path="/gallery/emotes" element={<EmotesGallery />} />
 
             <Route path="/gallery/emoji-combos" element={<EmojiCombosGallery />} />
+
+            <Route path="gallery/wallpapers" element={<WallpaperGallery/>} />
 
             {/* Trending route */}
 

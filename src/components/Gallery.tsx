@@ -1,41 +1,56 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useMemo, Fragment, useCallback } from "react"
-import { Download, Heart, Eye, Search, Clock, Tag } from "lucide-react"
-import { Dialog, Transition } from "@headlessui/react"
-import { useAuth } from "../context/authContext"
-import { supabase } from "../lib/supabase"
+import { useState, useEffect, useMemo, Fragment, useCallback } from "react";
+import { Download, Heart, Eye, Search, Clock, Tag, X } from "lucide-react";
+import { Dialog, Transition } from "@headlessui/react";
+import { useAuth } from "../context/authContext";
+import { supabase } from "../lib/supabase";
+import SearchNew from "./search-new";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "./ui/button";
+import { ScrollArea } from "./ui/scroll-area";
+import { Badge } from "./ui/badge";
+import { cn } from "@/lib/utils";
+import PaginationComponent from "./gallery/new-pagination";
 
 interface ProfilePair {
-  id: string
-  user_id: string
-  title: string
-  category: string
-  tags: string[]
-  pfp_url: string
-  banner_url: string
-  created_at: string
-  updated_at: string
-  type: "pair"
+  id: string;
+  user_id: string;
+  title: string;
+  category: string;
+  tags: string[];
+  pfp_url: string;
+  banner_url: string;
+  created_at: string;
+  updated_at: string;
+  type: "pair";
 }
 
 interface Profile {
-  id: string
-  user_id: string
-  title: string
-  category: string
-  type: string
-  image_url: string
-  download_count: number
-  tags: string[]
-  created_at: string
-  updated_at: string
-  text_data: string
+  id: string;
+  user_id: string;
+  title: string;
+  category: string;
+  type: string;
+  image_url: string;
+  download_count: number;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+  text_data: string;
 }
 
-type GalleryItem = ProfilePair | Profile
+type GalleryItem = ProfilePair | Profile;
 
-const FAVORITES_STORAGE_KEY = "profile_favorites"
+const FAVORITES_STORAGE_KEY = "profile_favorites";
 
 // Skeleton Loading Component
 const ProfileCardSkeleton = () => (
@@ -58,73 +73,78 @@ const ProfileCardSkeleton = () => (
       </div>
     </div>
   </div>
-)
+);
 
 export default function ProfilesGallery() {
-  const { user } = useAuth()
-  const [profiles, setProfiles] = useState<GalleryItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { user } = useAuth();
+  const [profiles, setProfiles] = useState<GalleryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Filters
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
 
   // Pagination
-  const [page, setPage] = useState(1)
-  const ITEMS_PER_PAGE = 20
+  const [page, setPage] = useState(1);
+  const ITEMS_PER_PAGE = 21;
 
   // Favorites
-  const [favorites, setFavorites] = useState<Set<string>>(new Set())
-  const [previewProfile, setPreviewProfile] = useState<GalleryItem | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [previewProfile, setPreviewProfile] = useState<GalleryItem | null>(
+    null
+  );
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
-      const saved = localStorage.getItem(`${FAVORITES_STORAGE_KEY}_${user.id}`)
+      const saved = localStorage.getItem(`${FAVORITES_STORAGE_KEY}_${user.id}`);
       if (saved) {
         try {
-          const favArray: string[] = JSON.parse(saved)
-          setFavorites(new Set(favArray))
+          const favArray: string[] = JSON.parse(saved);
+          setFavorites(new Set(favArray));
         } catch {
-          setFavorites(new Set())
+          setFavorites(new Set());
         }
       }
     } else {
-      setFavorites(new Set())
+      setFavorites(new Set());
     }
-  }, [user])
+  }, [user]);
 
   useEffect(() => {
     if (user?.id) {
-      localStorage.setItem(`${FAVORITES_STORAGE_KEY}_${user.id}`, JSON.stringify(Array.from(favorites)))
+      localStorage.setItem(
+        `${FAVORITES_STORAGE_KEY}_${user.id}`,
+        JSON.stringify(Array.from(favorites))
+      );
     }
-  }, [favorites, user])
+  }, [favorites, user]);
 
   useEffect(() => {
     async function fetchProfiles() {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
       try {
         // Fetch from profile_pairs table
         const { data: pairsData, error: pairsError } = await supabase
           .from("profile_pairs")
           .select("*")
-          .order("updated_at", { ascending: false })
+          .order("updated_at", { ascending: false });
 
         // Fetch from profiles table
         const { data: profilesData, error: profilesError } = await supabase
           .from("profiles")
           .select("*")
-          .order("updated_at", { ascending: false })
+          .order("updated_at", { ascending: false });
 
         if (pairsError || profilesError) {
-          setError("Failed to fetch profiles")
-          setLoading(false)
-          return
+          setError("Failed to fetch profiles");
+          setLoading(false);
+          return;
         }
 
-        const allProfiles: GalleryItem[] = []
+        const allProfiles: GalleryItem[] = [];
 
         // Process profile_pairs data
         if (pairsData) {
@@ -139,8 +159,8 @@ export default function ProfilesGallery() {
             created_at: item.created_at,
             updated_at: item.updated_at,
             type: "pair" as const,
-          }))
-          allProfiles.push(...processedPairs)
+          }));
+          allProfiles.push(...processedPairs);
         }
 
         // Process profiles data
@@ -157,35 +177,37 @@ export default function ProfilesGallery() {
             created_at: item.created_at,
             updated_at: item.updated_at,
             text_data: item.text_data || "",
-          }))
-          allProfiles.push(...processedProfiles)
+          }));
+          allProfiles.push(...processedProfiles);
         }
 
         // Sort all profiles by updated_at
         allProfiles.sort((a, b) => {
-          const dateA = new Date(a.updated_at).getTime()
-          const dateB = new Date(b.updated_at).getTime()
-          return dateB - dateA
-        })
+          const dateA = new Date(a.updated_at).getTime();
+          const dateB = new Date(b.updated_at).getTime();
+          return dateB - dateA;
+        });
 
-        setProfiles(allProfiles)
+        setProfiles(allProfiles);
       } catch (err) {
-        setError("Unexpected error loading profiles")
+        setError("Unexpected error loading profiles");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    fetchProfiles()
-  }, [])
+    fetchProfiles();
+  }, []);
 
   const allTags = useMemo(() => {
-    const tagsSet = new Set<string>()
-    profiles.forEach((p) => p.tags?.forEach((tag) => tagsSet.add(tag.toLowerCase().trim())))
+    const tagsSet = new Set<string>();
+    profiles.forEach((p) =>
+      p.tags?.forEach((tag) => tagsSet.add(tag.toLowerCase().trim()))
+    );
     return Array.from(tagsSet)
       .filter((tag) => tag.length > 0) // Remove empty tags
-      .sort((a, b) => a.localeCompare(b))
-  }, [profiles])
+      .sort((a, b) => a.localeCompare(b));
+  }, [profiles]);
 
   const filteredProfiles = useMemo(() => {
     return profiles.filter((profile) => {
@@ -193,40 +215,43 @@ export default function ProfilesGallery() {
         searchQuery === "" ||
         profile.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         profile.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        profile.tags?.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+        profile.tags?.some((tag) =>
+          tag.toLowerCase().includes(searchQuery.toLowerCase())
+        );
 
       const matchesTags =
-        selectedTags.size === 0 || profile.tags?.some((tag) => selectedTags.has(tag.toLowerCase().trim()))
+        selectedTags.size === 0 ||
+        profile.tags?.some((tag) => selectedTags.has(tag.toLowerCase().trim()));
 
-      return matchesSearch && matchesTags
-    })
-  }, [profiles, searchQuery, selectedTags])
+      return matchesSearch && matchesTags;
+    });
+  }, [profiles, searchQuery, selectedTags]);
 
   const pagedProfiles = useMemo(() => {
-    const start = (page - 1) * ITEMS_PER_PAGE
-    return filteredProfiles.slice(start, start + ITEMS_PER_PAGE)
-  }, [filteredProfiles, page])
+    const start = (page - 1) * ITEMS_PER_PAGE;
+    return filteredProfiles.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredProfiles, page]);
 
   useEffect(() => {
-    setPage(1)
-  }, [searchQuery, selectedTags])
+    setPage(1);
+  }, [searchQuery, selectedTags]);
 
   async function downloadImage(url: string, filename: string) {
     try {
-      const response = await fetch(url)
-      if (!response.ok) throw new Error("Network response not ok")
-      const blob = await response.blob()
-      const blobUrl = window.URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = blobUrl
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      window.URL.revokeObjectURL(blobUrl)
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Network response not ok");
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
-      console.error("Error downloading image:", error)
-      alert("Failed to download image.")
+      console.error("Error downloading image:", error);
+      alert("Failed to download image.");
     }
   }
 
@@ -234,69 +259,78 @@ export default function ProfilesGallery() {
     if ("pfp_url" in profile && profile.type === "pair") {
       // Handle profile pair downloads
       if (profile.pfp_url) {
-        const extPfp = profile.pfp_url.split(".").pop()?.split(/[#?]/)[0] || "png"
-        const sanitizedTitle = profile.title.replace(/\s+/g, "_").toLowerCase()
-        const pfpFilename = `pfp_${sanitizedTitle}.${extPfp}`
-        await downloadImage(profile.pfp_url, pfpFilename)
+        const extPfp =
+          profile.pfp_url.split(".").pop()?.split(/[#?]/)[0] || "png";
+        const sanitizedTitle = profile.title.replace(/\s+/g, "_").toLowerCase();
+        const pfpFilename = `pfp_${sanitizedTitle}.${extPfp}`;
+        await downloadImage(profile.pfp_url, pfpFilename);
       }
       if (profile.banner_url) {
-        const extBanner = profile.banner_url.split(".").pop()?.split(/[#?]/)[0] || "png"
-        const sanitizedTitle = profile.title.replace(/\s+/g, "_").toLowerCase()
-        const bannerFilename = `banner_${sanitizedTitle}.${extBanner}`
-        await downloadImage(profile.banner_url, bannerFilename)
+        const extBanner =
+          profile.banner_url.split(".").pop()?.split(/[#?]/)[0] || "png";
+        const sanitizedTitle = profile.title.replace(/\s+/g, "_").toLowerCase();
+        const bannerFilename = `banner_${sanitizedTitle}.${extBanner}`;
+        await downloadImage(profile.banner_url, bannerFilename);
       }
     } else if ("image_url" in profile) {
       // Handle single profile downloads and update download count
       if (profile.image_url) {
-        const ext = profile.image_url.split(".").pop()?.split(/[#?]/)[0] || "png"
-        const sanitizedTitle = profile.title.replace(/\s+/g, "_").toLowerCase()
-        const filename = `${sanitizedTitle}.${ext}`
-        await downloadImage(profile.image_url, filename)
+        const ext =
+          profile.image_url.split(".").pop()?.split(/[#?]/)[0] || "png";
+        const sanitizedTitle = profile.title.replace(/\s+/g, "_").toLowerCase();
+        const filename = `${sanitizedTitle}.${ext}`;
+        await downloadImage(profile.image_url, filename);
 
         // Update download count in database
         try {
           const { error } = await supabase
             .from("profiles")
             .update({ download_count: profile.download_count + 1 })
-            .eq("id", profile.id)
+            .eq("id", profile.id);
 
           if (!error) {
             // Update local state
             setProfiles((prev) =>
               prev.map((p) =>
-                p.id === profile.id && "download_count" in p ? { ...p, download_count: p.download_count + 1 } : p,
-              ),
-            )
+                p.id === profile.id && "download_count" in p
+                  ? { ...p, download_count: p.download_count + 1 }
+                  : p
+              )
+            );
           }
         } catch (error) {
-          console.error("Failed to update download count:", error)
+          console.error("Failed to update download count:", error);
         }
       }
     }
-  }, [])
+  }, []);
 
   const handleFavorite = async (profileId: string) => {
-    if (!user) return
+    if (!user) return;
 
-    const isCurrentlyFavorited = favorites.has(profileId)
+    const isCurrentlyFavorited = favorites.has(profileId);
 
     // Update local state immediately for better UX
     setFavorites((prev) => {
-      const newFavorites = new Set(prev)
+      const newFavorites = new Set(prev);
       if (newFavorites.has(profileId)) {
-        newFavorites.delete(profileId)
+        newFavorites.delete(profileId);
       } else {
-        newFavorites.add(profileId)
+        newFavorites.add(profileId);
       }
-      return newFavorites
-    })
+      return newFavorites;
+    });
 
     try {
       if (isCurrentlyFavorited) {
         // Remove from favorites
-        const { error } = await supabase.from("favorites").delete().eq("user_id", user.id).eq("profile_id", profileId)
+        const { error } = await supabase
+          .from("favorites")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("profile_id", profileId);
 
-        if (error) throw error
+        if (error) throw error;
       } else {
         // Add to favorites
         const { error } = await supabase.from("favorites").insert([
@@ -304,47 +338,47 @@ export default function ProfilesGallery() {
             user_id: user.id,
             profile_id: profileId,
           },
-        ])
+        ]);
 
-        if (error) throw error
+        if (error) throw error;
       }
     } catch (error) {
-      console.error("Failed to update favorites:", error)
+      console.error("Failed to update favorites:", error);
       // Revert local state on error
       setFavorites((prev) => {
-        const newFavorites = new Set(prev)
+        const newFavorites = new Set(prev);
         if (isCurrentlyFavorited) {
-          newFavorites.add(profileId)
+          newFavorites.add(profileId);
         } else {
-          newFavorites.delete(profileId)
+          newFavorites.delete(profileId);
         }
-        return newFavorites
-      })
+        return newFavorites;
+      });
     }
-  }
+  };
 
   const openPreview = (profile: GalleryItem) => {
-    setPreviewProfile(profile)
-    setIsModalOpen(true)
-  }
+    setPreviewProfile(profile);
+    setIsModalOpen(true);
+  };
 
   const closePreview = () => {
-    setIsModalOpen(false)
-    setPreviewProfile(null)
-  }
+    setIsModalOpen(false);
+    setPreviewProfile(null);
+  };
 
   const toggleTag = (tag: string) => {
-    const normalizedTag = tag.toLowerCase().trim()
+    const normalizedTag = tag.toLowerCase().trim();
     setSelectedTags((prev) => {
-      const newTags = new Set(prev)
+      const newTags = new Set(prev);
       if (newTags.has(normalizedTag)) {
-        newTags.delete(normalizedTag)
+        newTags.delete(normalizedTag);
       } else {
-        newTags.add(normalizedTag)
+        newTags.add(normalizedTag);
       }
-      return newTags
-    })
-  }
+      return newTags;
+    });
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12" data-gallery>
@@ -352,50 +386,47 @@ export default function ProfilesGallery() {
       <div className="mb-8">
         <h2 className="text-white text-4xl font-bold mb-2">Profiles Gallery</h2>
         <p className="text-gray-400 text-lg">
-          Discover and download amazing profile combinations • {filteredProfiles.length} items available
+          Discover and download amazing profile combinations •{" "}
+          {filteredProfiles.length} items available
         </p>
       </div>
 
       {/* Enhanced Filters */}
       <div className="bg-card backdrop-blur-sm rounded-2xl p-8 mb-8 border shadow-2xl">
         {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search titles, categories, or tags..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-6 py-4 rounded-xl bg-slate-700/50 text-white placeholder-slate-400 border border-slate-600/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200 text-lg backdrop-blur-sm"
-              aria-label="Search profiles"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 p-1 hover:bg-slate-600 rounded-full transition-colors"
-              >
-                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
-        </div>
+        <SearchNew
+          inputClassName="h-15 px-4 text-lg pe-5 pr-6 pl-12 mb-6"
+          searchIconClassName="ps-3"
+          leftIcon={{
+            className: "pe-3",
+            icon: <X size={25} />,
+            onLeftIconClick: () => setSearchQuery(""),
+            showLeftIcon: !!searchQuery,
+          }}
+          value={searchQuery}
+          searchIconSize={25}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          submitIconSize={25}
+          searchPlaceholder="Search titles, categories, or tags..."
+        />
 
         {/* Tags Filter */}
         {allTags.length > 0 && (
           <div>
             <div className="flex items-center gap-3 mb-4">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-purple-600/20 rounded-lg">
-                  <Tag className="h-4 w-4 text-purple-400" />
+                <div className="p-2 bg-primary rounded-lg">
+                  <Tag className="h-4 w-4 text-primary-foreground" />
                 </div>
-                <span className="text-lg font-semibold text-white">Filter by tags</span>
+                <span className="text-lg font-semibold text-white">
+                  Filter by tags
+                </span>
               </div>
               {selectedTags.size > 0 && (
                 <div className="flex items-center gap-2 ml-auto">
-                  <span className="text-sm text-slate-400">{selectedTags.size} selected</span>
+                  <span className="text-sm text-slate-400">
+                    {selectedTags.size} selected
+                  </span>
                   <button
                     onClick={() => setSelectedTags(new Set())}
                     className="px-3 py-1.5 text-sm text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-lg transition-all duration-200 font-medium"
@@ -408,20 +439,22 @@ export default function ProfilesGallery() {
 
             <div className="flex flex-wrap gap-2">
               {allTags.slice(0, 20).map((tag) => (
-                <button
+                <Button
                   key={tag}
                   onClick={() => toggleTag(tag)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border ${
-                    selectedTags.has(tag)
-                      ? "bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-500/25 scale-105"
-                      : "bg-slate-700/50 text-slate-300 border-slate-600/50 hover:bg-slate-600/50 hover:border-slate-500/50 hover:text-white"
-                  }`}
+                  className="rounded-xl"
+                  variant={selectedTags.has(tag) ? "default" : "outline"}
+                  // className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border ${
+                  //   selectedTags.has(tag)
+                  //     ? "bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-500/25 scale-105"
+                  //     : "bg-slate-700/50 text-slate-300 border-slate-600/50 hover:bg-slate-600/50 hover:border-slate-500/50 hover:text-white"
+                  // }`}
                 >
                   #{tag}
-                </button>
+                </Button>
               ))}
               {allTags.length > 20 && (
-                <div className="px-4 py-2 text-sm text-slate-400 bg-slate-700/30 rounded-xl border border-slate-600/30">
+                <div className="px-4 py-2 text-sm bg-muted rounded-xl border-border">
                   +{allTags.length - 20} more tags
                 </div>
               )}
@@ -431,22 +464,22 @@ export default function ProfilesGallery() {
 
         {/* Active Filters Summary */}
         {(searchQuery || selectedTags.size > 0) && (
-          <div className="mt-6 pt-6 border-t border-slate-600/50">
+          <div className="mt-6 pt-6 border-t  border-border">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-slate-400">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground font-semibold">
                 <span>
-                  Showing {filteredProfiles.length} of {profiles.length} profiles
+                  Showing {filteredProfiles.length} of {profiles.length}{" "}
+                  profiles
                 </span>
               </div>
-              <button
+              <Button
                 onClick={() => {
-                  setSearchQuery("")
-                  setSelectedTags(new Set())
+                  setSearchQuery("");
+                  setSelectedTags(new Set());
                 }}
-                className="px-4 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200 border border-slate-600/50 hover:border-slate-500/50"
               >
                 Reset all filters
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -475,13 +508,17 @@ export default function ProfilesGallery() {
         <div className="text-center py-12">
           <div className="bg-slate-800 rounded-lg p-8 max-w-md mx-auto">
             <Search className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-xl font-semibold mb-2 text-white">No profiles found</h3>
-            <p className="text-gray-400 mb-4">Try adjusting your search or filter criteria</p>
+            <h3 className="text-xl font-semibold mb-2 text-white">
+              No profiles found
+            </h3>
+            <p className="text-gray-400 mb-4">
+              Try adjusting your search or filter criteria
+            </p>
             {(searchQuery || selectedTags.size > 0) && (
               <button
                 onClick={() => {
-                  setSearchQuery("")
-                  setSelectedTags(new Set())
+                  setSearchQuery("");
+                  setSelectedTags(new Set());
                 }}
                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors"
               >
@@ -492,189 +529,206 @@ export default function ProfilesGallery() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
             {pagedProfiles.map((profile) => (
-              <div
+              <Card
                 key={profile.id}
-                className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 border border-slate-700 hover:border-slate-600"
-                style={{ minHeight: "280px" }}
+                className="relative group rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 pt-0"
               >
-                {/* Banner/Image Display */}
-                {"pfp_url" in profile && profile.type === "pair" ? (
-                  // Profile Pair Display
-                  <>
-                    {profile.banner_url ? (
-                      <img
-                        src={profile.banner_url || "/placeholder.svg"}
-                        alt={`${profile.title} banner`}
-                        className="w-full h-40 object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-40 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-gray-400">
-                        No Banner
-                      </div>
-                    )}
+                <CardHeader className="p-0 m-0">
+                  {/* Banner/Image Display */}
+                  {"pfp_url" in profile && profile.type === "pair" ? (
+                    // Profile Pair Display
+                    <>
+                      {profile.banner_url ? (
+                        <img
+                          src={profile.banner_url || "/placeholder.svg"}
+                          alt={`${profile.title} banner`}
+                          className="w-full h-40 object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-40 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-gray-400">
+                          No Banner
+                        </div>
+                      )}
 
-                    {profile.pfp_url && (
-                      <img
-                        src={profile.pfp_url || "/placeholder.svg"}
-                        alt={`${profile.title} profile`}
-                        className="w-24 h-24 rounded-full border-4 border-purple-500 absolute top-28 left-1/2 transform -translate-x-1/2 border-solid bg-slate-900 group-hover:border-purple-400 transition-colors"
-                        loading="lazy"
-                      />
-                    )}
-                  </>
-                ) : (
-                  // Single Profile Display
-                  <>
-                    {"image_url" in profile && profile.image_url ? (
-                      <img
-                        src={profile.image_url || "/placeholder.svg"}
-                        alt={profile.title}
-                        className="w-full h-40 object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-40 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-gray-400">
-                        No Image
-                      </div>
-                    )}
-                    {/* Remove the type indicator circle completely for single profiles */}
-                  </>
-                )}
-
-                {/* Stats Overlay */}
-                <div className="absolute top-3 right-3 flex gap-2">
-                  {"download_count" in profile && (
-                    <div className="bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                      <Download className="h-3 w-3 text-green-400" />
-                      <span className="text-xs text-gray-300">{profile.download_count}</span>
-                    </div>
+                      {profile.pfp_url && (
+                        <img
+                          src={profile.pfp_url || "/placeholder.svg"}
+                          alt={`${profile.title} profile`}
+                          className="w-24 h-24 rounded-full border-4 border-purple-500 absolute top-28 left-1/2 transform -translate-x-1/2 border-solid bg-slate-900 group-hover:border-purple-400 transition-colors"
+                          loading="lazy"
+                        />
+                      )}
+                    </>
+                  ) : (
+                    // Single Profile Display
+                    <>
+                      {"image_url" in profile && profile.image_url ? (
+                        <img
+                          src={profile.image_url || "/placeholder.svg"}
+                          alt={profile.title}
+                          className="w-full h-40 object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-40 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-gray-400">
+                          No Image
+                        </div>
+                      )}
+                      {/* Remove the type indicator circle completely for single profiles */}
+                    </>
                   )}
-                  <div className="bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                    <span className="text-xs text-purple-300 font-medium">{profile.category}</span>
-                  </div>
-                </div>
-
-                <div className={`text-center ${profile.type === "pair" ? "pt-20" : "pt-6"} pb-6 px-6`}>
-                  <h3 className="text-white font-semibold text-xl truncate mb-3">{profile.title}</h3>
-
-                  <div className="flex flex-wrap justify-center gap-1 mb-4 max-h-16 overflow-auto px-2">
-                    {(profile.tags || []).map((tag) => (
-                      <span
-                        key={tag}
-                        className="bg-purple-700/30 text-purple-200 text-xs px-2 py-0.5 rounded-full select-none whitespace-nowrap border border-purple-600/30"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="flex justify-center gap-3">
-                    <button
-                      onClick={() => openPreview(profile)}
-                      className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm font-medium transition-colors"
-                      aria-label={`Preview ${profile.title}`}
-                      type="button"
-                    >
-                      <Eye size={16} />
-                      Preview
-                    </button>
-
-                    <button
-                      onClick={() => handleDownloadBoth(profile)}
-                      className="flex items-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium transition-colors"
-                      aria-label={`Download ${profile.title}`}
-                      type="button"
-                    >
-                      <Download size={16} />
-                      Download
-                    </button>
-
-                    {user && (
-                      <button
-                        onClick={() => handleFavorite(profile.id)}
-                        className={`p-2 rounded-lg transition-colors ${
-                          favorites.has(profile.id)
-                            ? "bg-red-600 text-white"
-                            : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                        }`}
-                        aria-pressed={favorites.has(profile.id)}
-                        aria-label={
-                          favorites.has(profile.id)
-                            ? `Remove ${profile.title} from favorites`
-                            : `Add ${profile.title} to favorites`
-                        }
-                        type="button"
-                      >
-                        <Heart size={16} fill={favorites.has(profile.id) ? "currentColor" : "none"} />
-                      </button>
+                  {/* Stats Overlay */}
+                  <div className="absolute top-3 right-3 flex gap-2">
+                    {"download_count" in profile && (
+                      <div className="bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
+                        <Download className="h-3 w-3 text-green-400" />
+                        <span className="text-xs text-gray-300">
+                          {profile.download_count}
+                        </span>
+                      </div>
                     )}
+                    <div className="bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
+                      <span className="text-xs text-foreground font-medium">
+                        {profile.category}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </CardHeader>
+                <CardContent className="h-full">
+                  <div
+                    className={cn(
+                      "text-center",
+                      profile.type === "pair" ? "pt-11" : "pt-6"
+                    )}
+                  >
+                    <h3 className="text-white font-semibold text-xl truncate mb-3">
+                      {profile.title}
+                    </h3>
+
+                    <div className="flex flex-wrap justify-center gap-2 mb-4 px-2">
+                      {(profile.tags || []).map((tag) => (
+                        <Badge key={tag}>#{tag}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex justify-center gap-2 px-4">
+                  <Button
+                    onClick={() => openPreview(profile)}
+                    variant="outline"
+                    aria-label={`Preview ${profile.title}`}
+                    type="button"
+                  >
+                    <Eye size={16} />
+                    Preview
+                  </Button>
+                  <Button
+                    onClick={() => handleDownloadBoth(profile)}
+                    aria-label={`Download ${profile.title}`}
+                    type="button"
+                  >
+                    <Download size={16} />
+                    Download
+                  </Button>
+                  <Button
+                    onClick={() => handleFavorite(profile.id)}
+                    variant={
+                      favorites.has(profile.id) ? "destructive" : "outline"
+                    }
+                    aria-pressed={favorites.has(profile.id)}
+                    aria-label={
+                      favorites.has(profile.id)
+                        ? `Remove ${profile.title} from favorites`
+                        : `Add ${profile.title} to favorites`
+                    }
+                    size="icon"
+                    type="button"
+                  >
+                    <Heart
+                      size={16}
+                      fill={favorites.has(profile.id) ? "currentColor" : "none"}
+                    />
+                  </Button>
+                </CardFooter>
+              </Card>
             ))}
           </div>
 
           {/* Enhanced Pagination */}
           {filteredProfiles.length > ITEMS_PER_PAGE && (
             <div className="flex items-center justify-center gap-4 mt-12">
-              <button
+              <Button
                 onClick={() => setPage((p) => Math.max(p - 1, 1))}
                 disabled={page === 1}
-                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-colors"
+                size="lg"
+                className="h-12"
                 aria-label="Previous page"
                 type="button"
               >
                 Previous
-              </button>
+              </Button>
 
-              <div className="flex items-center gap-2">
-                {Array.from({ length: Math.min(5, Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)) }).map(
-                  (_, i) => {
-                    const pageNum = i + 1
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setPage(pageNum)}
-                        className={`w-12 h-12 rounded-lg font-medium transition-colors ${
-                          page === pageNum
-                            ? "bg-purple-600 text-white"
-                            : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    )
-                  },
-                )}
+              <div className="flex items-center gap-2 py-1">
+                {Array.from({
+                  length: Math.min(
+                    5,
+                    Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)
+                  ),
+                }).map((_, i) => {
+                  const pageNum = i + 1;
+                  return (
+                    <Button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      size="lg"
+                      variant={page === pageNum ? "default" : "outline"}
+                      className={`w-12 h-12 rounded-lg font-medium transition-colors}`}
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
                 {Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE) > 5 && (
                   <>
                     <span className="text-gray-400">...</span>
-                    <button
-                      onClick={() => setPage(Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE))}
-                      className={`w-12 h-12 rounded-lg font-medium transition-colors ${
-                        page === Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)
-                          ? "bg-purple-600 text-white"
-                          : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                      }`}
+                    <Button
+                      onClick={() =>
+                        setPage(
+                          Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)
+                        )
+                      }
+                      size="lg"
+                      variant={page === pageNum ? "default" : "outline"}
+                      className={`w-12 h-12 rounded-lg font-medium transition-colors}`}
                     >
                       {Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)}
-                    </button>
+                    </Button>
                   </>
                 )}
               </div>
 
-              <button
-                onClick={() => setPage((p) => Math.min(p + 1, Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)))}
-                disabled={page === Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)}
-                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-colors"
+              <Button
+                onClick={() =>
+                  setPage((p) =>
+                    Math.min(
+                      p + 1,
+                      Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)
+                    )
+                  )
+                }
+                size="lg"
+                disabled={
+                  page === Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)
+                }
+                className="h-12"
                 aria-label="Next page"
                 type="button"
               >
                 Next
-              </button>
+              </Button>
             </div>
           )}
         </>
@@ -682,7 +736,11 @@ export default function ProfilesGallery() {
 
       {/* Enhanced Preview Modal */}
       <Transition appear show={isModalOpen} as={Fragment}>
-        <Dialog as="div" className="fixed inset-0 z-50 overflow-y-auto" onClose={closePreview}>
+        <Dialog
+          as="div"
+          className="fixed inset-0 z-50 overflow-y-auto"
+          onClose={closePreview}
+        >
           <div className="min-h-screen px-4 text-center bg-black bg-opacity-80 backdrop-blur-sm">
             <Transition.Child
               as={Fragment}
@@ -695,7 +753,9 @@ export default function ProfilesGallery() {
             >
               <Dialog.Panel className="inline-block w-full max-w-4xl my-20 overflow-hidden text-left align-middle transition-all transform bg-slate-900 shadow-2xl rounded-2xl border border-slate-700">
                 <div className="relative">
-                  {previewProfile && "pfp_url" in previewProfile && previewProfile.type === "pair" ? (
+                  {previewProfile &&
+                  "pfp_url" in previewProfile &&
+                  previewProfile.type === "pair" ? (
                     // Profile Pair Preview
                     <>
                       {previewProfile.banner_url && (
@@ -733,21 +793,36 @@ export default function ProfilesGallery() {
                     onClick={closePreview}
                     className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="w-6 h-6"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>
 
                 <div className="pt-20 pb-8 px-8">
-                  <Dialog.Title as="h3" className="text-3xl font-bold leading-12 text-white mb-5">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-3xl font-bold leading-12 text-white mb-5"
+                  >
                     {previewProfile?.title}
                   </Dialog.Title>
 
                   {/* Replace the stats section in the modal (around line 710) */}
                   <div className="flex items-center gap-4 text-sm text-gray-400 mb-6">
                     <div className="flex items-center gap-1">
-                      <span className="text-purple-300 font-medium">{previewProfile?.category}</span>
+                      <span className="text-purple-300 font-medium">
+                        {previewProfile?.category}
+                      </span>
                     </div>
                     {previewProfile && "download_count" in previewProfile && (
                       <div className="flex items-center gap-1">
@@ -757,7 +832,12 @@ export default function ProfilesGallery() {
                     )}
                     <div className="flex items-center gap-1">
                       <Clock className="h-4 w-4" />
-                      <span>Updated {new Date(previewProfile?.updated_at || "").toLocaleDateString()}</span>
+                      <span>
+                        Updated{" "}
+                        {new Date(
+                          previewProfile?.updated_at || ""
+                        ).toLocaleDateString()}
+                      </span>
                     </div>
                   </div>
 
@@ -773,22 +853,33 @@ export default function ProfilesGallery() {
                   </div>
 
                   {/* Also fix the text_data section */}
-                  {previewProfile && "text_data" in previewProfile && previewProfile.text_data && (
-                    <div className="mb-6 p-4 bg-slate-800 rounded-lg">
-                      <h4 className="text-lg font-semibold text-white mb-2">Description</h4>
-                      <p className="text-gray-300">{previewProfile.text_data}</p>
-                    </div>
-                  )}
+                  {previewProfile &&
+                    "text_data" in previewProfile &&
+                    previewProfile.text_data && (
+                      <div className="mb-6 p-4 bg-slate-800 rounded-lg">
+                        <h4 className="text-lg font-semibold text-white mb-2">
+                          Description
+                        </h4>
+                        <p className="text-gray-300">
+                          {previewProfile.text_data}
+                        </p>
+                      </div>
+                    )}
 
                   <div className="flex justify-center gap-6">
-                    <button
-                      onClick={() => previewProfile && handleDownloadBoth(previewProfile)}
+                    <Button
+                      onClick={() =>
+                        previewProfile && handleDownloadBoth(previewProfile)
+                      }
                       className="inline-flex justify-center items-center gap-2 px-8 py-3 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
                       type="button"
                     >
                       <Download className="h-5 w-5" />
-                      Download {previewProfile && "pfp_url" in previewProfile ? "Profile Combo" : "Profile"}
-                    </button>
+                      Download{" "}
+                      {previewProfile && "pfp_url" in previewProfile
+                        ? "Profile Combo"
+                        : "Profile"}
+                    </Button>
 
                     <button
                       type="button"
@@ -805,5 +896,5 @@ export default function ProfilesGallery() {
         </Dialog>
       </Transition>
     </div>
-  )
+  );
 }

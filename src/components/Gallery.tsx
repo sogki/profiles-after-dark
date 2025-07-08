@@ -1,25 +1,20 @@
 "use client";
 
-import { useState, useEffect, useMemo, Fragment, useCallback } from "react";
-import { Download, Heart, Eye, Search, Clock, Tag, X } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { Dialog, Transition } from "@headlessui/react";
+import { Clock, Download, Eye, Heart, Search, Tag, X } from "lucide-react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/authContext";
 import { supabase } from "../lib/supabase";
 import SearchNew from "./search-new";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "./ui/button";
-import { ScrollArea } from "./ui/scroll-area";
 import { Badge } from "./ui/badge";
-import { cn } from "@/lib/utils";
-import PaginationComponent from "./gallery/new-pagination";
+import { Button } from "./ui/button";
 
 interface ProfilePair {
   id: string;
@@ -427,12 +422,13 @@ export default function ProfilesGallery() {
                   <span className="text-sm text-slate-400">
                     {selectedTags.size} selected
                   </span>
-                  <button
+                  <Button
                     onClick={() => setSelectedTags(new Set())}
-                    className="px-3 py-1.5 text-sm text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-lg transition-all duration-200 font-medium"
+                    variant="outline"
+                    size="sm"
                   >
                     Clear all
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -454,7 +450,7 @@ export default function ProfilesGallery() {
                 </Button>
               ))}
               {allTags.length > 20 && (
-                <div className="px-4 py-2 text-sm bg-muted rounded-xl border-border">
+                <div className="px-4 py-2 text-sm bg-popover rounded-xl border border-input">
                   +{allTags.length - 20} more tags
                 </div>
               )}

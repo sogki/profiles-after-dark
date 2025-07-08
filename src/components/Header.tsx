@@ -11,7 +11,6 @@ import {
   LogOut,
   Settings,
   ShieldCheck,
-  Bell,
   TrendingUp,
   ChevronDown,
   Users,

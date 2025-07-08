@@ -15,6 +15,7 @@ import { supabase } from "../lib/supabase";
 import SearchNew from "./search-new";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import PaginationOld from "./pagination-old";
 
 interface ProfilePair {
   id: string;
@@ -606,7 +607,9 @@ export default function ProfilesGallery() {
 
                     <div className="flex flex-wrap justify-center gap-2 mb-4 px-2">
                       {(profile.tags || []).map((tag) => (
-                        <Badge key={tag}>#{tag}</Badge>
+                        <Badge variant="gradient" key={tag}>
+                          #{tag}
+                        </Badge>
                       ))}
                     </div>
                   </div>
@@ -653,80 +656,12 @@ export default function ProfilesGallery() {
             ))}
           </div>
 
-          {/* Enhanced Pagination */}
-          {filteredProfiles.length > ITEMS_PER_PAGE && (
-            <div className="flex items-center justify-center gap-4 mt-12">
-              <Button
-                onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                disabled={page === 1}
-                size="lg"
-                className="h-12"
-                aria-label="Previous page"
-                type="button"
-              >
-                Previous
-              </Button>
-
-              <div className="flex items-center gap-2 py-1">
-                {Array.from({
-                  length: Math.min(
-                    5,
-                    Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)
-                  ),
-                }).map((_, i) => {
-                  const pageNum = i + 1;
-                  return (
-                    <Button
-                      key={pageNum}
-                      onClick={() => setPage(pageNum)}
-                      size="lg"
-                      variant={page === pageNum ? "default" : "outline"}
-                      className={`w-12 h-12 rounded-lg font-medium transition-colors}`}
-                    >
-                      {pageNum}
-                    </Button>
-                  );
-                })}
-                {Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE) > 5 && (
-                  <>
-                    <span className="text-gray-400">...</span>
-                    <Button
-                      onClick={() =>
-                        setPage(
-                          Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)
-                        )
-                      }
-                      size="lg"
-                      variant={page === pageNum ? "default" : "outline"}
-                      className={`w-12 h-12 rounded-lg font-medium transition-colors}`}
-                    >
-                      {Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)}
-                    </Button>
-                  </>
-                )}
-              </div>
-
-              <Button
-                onClick={() =>
-                  setPage((p) =>
-                    Math.min(
-                      p + 1,
-                      Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)
-                    )
-                  )
-                }
-                size="lg"
-                disabled={
-                  page === Math.ceil(filteredProfiles.length / ITEMS_PER_PAGE)
-                }
-                className="h-12"
-                aria-label="Next page"
-                type="button"
-              >
-                Next
-              </Button>
-            </div>
-          )}
+          <PaginationOld
+            currentPage={page}
+            totalPages={filteredProfiles.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            setPage={setPage}
+          />
         </>
       )}
 

@@ -22,12 +22,16 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         gradient:
           "bg-gradient-to-r from-purple-900 to-blue-900 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-purple-500/25",
+        tagGradient:
+          "bg-gradient-to-r from-primary to-accent/30 :hover:from-primary/20 hover:to-accent/50 transition-all",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",
         sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
         lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
         icon: "size-9",
+        iconSm: "size-7",
+        xs: "h-7 px-2 py-1 text-xs",
       },
     },
     defaultVariants: {

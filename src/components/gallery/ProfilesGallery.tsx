@@ -1,42 +1,14 @@
-import { useState, useEffect, useMemo, Fragment, useCallback } from "react";
-import {
-  Download,
-  Heart,
-  Eye,
-  Search,
-  Clock,
-  Tag,
-  Grid3X3,
-  List,
-  Palette,
-  Layout,
-  X,
-} from "lucide-react";
 import { Dialog, Transition } from "@headlessui/react";
+import { Clock, Download, Layout } from "lucide-react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/authContext";
 import { supabase } from "../../lib/supabase";
 
+import { ProfilePair } from "@/types";
 import Footer from "../Footer";
-import SearchNew from "../search-new";
-import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
-import { Label } from "../ui/label";
+import SearchFilter from "../search-filter";
 import { Button } from "../ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "../ui/card";
-import { Badge } from "../ui/badge";
-
-interface ProfilePair {
-  id: string;
-  user_id?: string;
-  title: string;
-  category?: string;
-  tags?: string[];
-  pfp_url: string;
-  banner_url: string;
-  download_count?: number;
-  created_at?: string;
-  updated_at?: string;
-  color?: string;
-}
+import GalleryItemView from "./grid-list-individual-view";
 
 const FAVORITES_STORAGE_KEY = "profile_favorites";
 
@@ -128,16 +100,18 @@ export default function ProfilesGallery() {
           return;
         }
 
-        const profilesData: ProfilePair[] = (data || []).map((item) => {
+        const profilesData: ProfilePair[] = data?.map((item) => {
           let tags: string[] = [];
           try {
             if (Array.isArray(item.tags)) {
               tags = item.tags;
             } else if (item.tags) {
-              if (item.tags.includes("[")) {
-                tags = JSON.parse(item.tags);
+              if ((item.tags as string).includes("[")) {
+                tags = JSON.parse(item.tags as string);
               } else {
-                tags = item.tags.split(",").map((t: string) => t.trim());
+                tags = (item.tags as string)
+                  .split(",")
+                  .map((t: string) => t.trim());
               }
             }
           } catch (e) {
@@ -150,16 +124,19 @@ export default function ProfilesGallery() {
             title: item.title || "Untitled Profile Combo",
             category: item.category || "General",
             tags,
-            pfp_url: item.pfp_url,
-            banner_url: item.banner_url,
-            download_count: item.download_count || 0,
-            created_at: item.created_at,
-            updated_at: item.updated_at,
-            color: item.color || undefined,
+            pfp_url: item.pfp_url ?? "", // Ensure string, never null
+            banner_url: item.banner_url ?? "", // Ensure string, never null
+            // TODO: implement download count
+            download_count: 0,
+            created_at: item?.created_at ?? "",
+            updated_at: item?.updated_at ?? "",
+            //TODO: implement colours
+            // color: item?.color || undefined,
           };
         });
 
         setProfiles(profilesData);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         setError("Unexpected error loading profile combos");
       } finally {
@@ -256,21 +233,21 @@ export default function ProfilesGallery() {
 
     // Update download count in database
     try {
-      const { error } = await supabase
-        .from("profile_pairs")
-        .update({ download_count: (profile.download_count || 0) + 1 })
-        .eq("id", profile.id);
-
-      if (!error) {
-        // Update local state
-        setProfiles((prev) =>
-          prev.map((p) =>
-            p.id === profile.id
-              ? { ...p, download_count: (p.download_count || 0) + 1 }
-              : p
-          )
-        );
-      }
+      // TODO: implement download count
+      // const { error } = await supabase
+      //   .from("profile_pairs")
+      //   .update({ download_count: (profile.download_count || 0) + 1 })
+      //   .eq("id", profile.id);
+      // if (!error) {
+      //   // Update local state
+      //   setProfiles((prev) =>
+      //     prev.map((p) =>
+      //       p.id === profile.id
+      //         ? { ...p, download_count: (p.download_count || 0) + 1 }
+      //         : p
+      //     )
+      //   );
+      // }
     } catch (error) {
       console.error("Failed to update download count:", error);
     }
@@ -349,48 +326,6 @@ export default function ProfilesGallery() {
     });
   };
 
-  const clearSearch = () => {
-    setSearchQuery("");
-  };
-
-  const clearAllFilters = () => {
-    setSearchQuery("");
-    setSelectedTags(new Set());
-  };
-
-  const retryFetch = () => {
-    setError(null);
-    setLoading(true);
-    // Trigger re-fetch by updating a dependency
-    window.location.reload();
-  };
-
-  const renderSkeletonCards = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div
-          key={i}
-          className="bg-slate-800 rounded-2xl overflow-hidden shadow-xl animate-pulse"
-        >
-          <div className="w-full h-40 bg-slate-700" />
-          <div className="w-24 h-24 rounded-full bg-slate-700 absolute top-28 left-1/2 transform -translate-x-1/2 border-4 border-slate-600" />
-          <div className="pt-20 pb-6 px-6 text-center space-y-3">
-            <div className="h-6 bg-slate-700 rounded mx-auto w-3/4" />
-            <div className="flex justify-center gap-2">
-              <div className="h-5 bg-slate-700 rounded-full w-16" />
-              <div className="h-5 bg-slate-700 rounded-full w-20" />
-            </div>
-            <div className="flex justify-center gap-5 pt-2">
-              <div className="w-8 h-8 bg-slate-700 rounded" />
-              <div className="w-8 h-8 bg-slate-700 rounded" />
-              <div className="w-8 h-8 bg-slate-700 rounded" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
   return (
     <>
       <div
@@ -409,151 +344,22 @@ export default function ProfilesGallery() {
         </div>
 
         {/* Enhanced Filters */}
-        <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-slate-600/50 shadow-2xl">
-          {/* Search Bar */}
-          <div className="mb-6">
-            <div className="relative">
-              <SearchNew
-                inputClassName="h-15 px-4 text-lg pe-5 pr-6 pl-12 mb-6"
-                searchIconClassName="ps-3"
-                leftIcon={{
-                  className: "pe-3",
-                  icon: <X size={25} />,
-                  onLeftIconClick: () => setSearchQuery(""),
-                  showLeftIcon: !!searchQuery,
-                }}
-                value={searchQuery}
-                searchIconSize={25}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                submitIconSize={25}
-                searchPlaceholder="Search Profile Combos..."
-              />
-            </div>
-          </div>
-
-          {/* Filter Controls */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            {/* Color Filter */}
-            {allColors.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  <Palette className="inline h-4 w-4 mr-1" />
-                  Color
-                </label>
-                <select
-                  value={selectedColor}
-                  onChange={(e) => setSelectedColor(e.target.value)}
-                  className="w-full bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
-                >
-                  <option value="all">All Colors</option>
-                  {allColors.map((color) => (
-                    <option key={color} value={color}>
-                      {color}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* View Mode */}
-
-            <div>
-              <Label className="block text-sm font-medium text-muted-foreground mb-2">
-                View Mode
-              </Label>{" "}
-              <ToggleGroup
-                className="inline-flex bg-muted border gap-3"
-                type="single"
-                value={viewMode}
-                onValueChange={(value) => setViewMode(value as "grid" | "list")}
-              >
-                <ToggleGroupItem value="grid">
-                  <Grid3X3 className="h-4 w-4" />
-                  Grid
-                </ToggleGroupItem>
-                <ToggleGroupItem value="list">
-                  {" "}
-                  <List className="h-4 w-4" />
-                  List
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-          </div>
-
-          {/* Tags Filter */}
-          {allTags.length > 0 && (
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-primary rounded-lg">
-                    <Tag className="h-4 w-4 bg-primary/40" />
-                  </div>
-                  <span className="text-lg font-semibold text-white">
-                    Filter by tags
-                  </span>
-                </div>
-                {selectedTags.size > 0 && (
-                  <div className="flex items-center gap-2 ml-auto">
-                    <span className="text-sm text-slate-400">
-                      {selectedTags.size} selected
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedTags(new Set())}
-                    >
-                      Clear all
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {allTags.slice(0, 20).map((tag) => (
-                  <Button
-                    key={tag}
-                    onClick={() => toggleTag(tag)}
-                    className="rounded-xl"
-                    variant={selectedTags.has(tag) ? "default" : "outline"}
-                  >
-                    #{tag}
-                  </Button>
-                ))}
-                {allTags.length > 20 && (
-                  <div className="px-4 py-2 text-sm bg-popover rounded-xl border border-input">
-                    +{allTags.length - 20} more tags
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Active Filters Summary */}
-          {(searchQuery ||
-            selectedTags.size > 0 ||
-            selectedColor !== "all") && (
-            <div className="mt-6 pt-6 border-t border-slate-600/50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-slate-400">
-                  <span>
-                    Showing {filteredProfiles.length} of {profiles.length}{" "}
-                    profile combos
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedTags(new Set());
-                    setSelectedColor("all");
-                  }}
-                  className="px-4 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200 border border-slate-600/50 hover:border-slate-500/50"
-                >
-                  Reset all filters
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <SearchFilter
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          selectedTags={selectedTags}
+          setSelectedTags={setSelectedTags}
+          placeholder="Search Profile Combos..."
+          selectedColor={selectedColor}
+          setSelectedColor={setSelectedColor}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          allTags={allTags}
+          allColors={allColors}
+          filteredAmount={filteredProfiles?.length ?? 0}
+          totalAmount={profiles?.length ?? 0}
+          toggleTag={toggleTag}
+        />
 
         {/* Profile combos grid/list */}
         {loading ? (
@@ -609,123 +415,29 @@ export default function ProfilesGallery() {
               }
             >
               {pagedProfiles.map((profile) => (
-                <Card
+                <GalleryItemView
                   key={profile.id}
-                  className={`relative rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 border pt-0 ${
-                    viewMode === "list" ? "flex" : ""
-                  }`}
-                  style={viewMode === "grid" ? { minHeight: "280px" } : {}}
-                >
-                  <CardHeader className="p-0">
-                    {/* Banner Display */}
-                    <div
-                      className={`relative overflow-hidden ${
-                        viewMode === "list"
-                          ? "w-48 h-32 flex-shrink-0"
-                          : "w-full h-40"
-                      }`}
-                    >
-                      <img
-                        src={profile.banner_url || "/placeholder.svg"}
-                        alt={`${profile.title} banner`}
-                        className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
-                        loading="lazy"
-                      />
-
-                      {/* Stats Overlay */}
-                      <div className="absolute top-3 right-3 flex gap-2">
-                        <div className="bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                          <Download className="h-3 w-3 text-green-400" />
-                          <span className="text-xs text-gray-300">
-                            {profile.download_count || 0}
-                          </span>
-                        </div>
-                        {profile.category && (
-                          <div className="bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                            <span className="text-xs text-purple-300 font-medium">
-                              {profile.category}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Profile Picture - Only show in grid mode */}
-                    {viewMode === "grid" && profile.pfp_url && (
-                      <img
-                        src={profile.pfp_url || "/placeholder.svg"}
-                        alt={`${profile.title} profile`}
-                        className="w-24 h-24 rounded-full border-4 border-purple-500 absolute top-28 left-1/2 transform -translate-x-1/2 bg-slate-900 shadow-lg group-hover:border-purple-400 transition-colors duration-300"
-                        loading="lazy"
-                      />
-                    )}
-                  </CardHeader>
-
-                  <CardContent
-                    className={`text-center  h-full ${
-                      viewMode === "list"
-                        ? "flex-1 p-4 flex flex-col justify-center"
-                        : "pt-11  px-6"
-                    }`}
-                  >
-                    <div>
-                      <h3 className="text-white font-semibold text-xl truncate mb-3">
-                        {profile.title}
-                      </h3>
-
-                      <div className="flex flex-wrap justify-center gap-1 mb-4 max-h-16 overflow-auto px-2">
-                        {(profile.tags || []).map((tag) => (
-                          <Badge key={tag}>#{tag}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
-
-                  <CardFooter className="flex justify-center gap-3">
-                    <Button
-                      onClick={() => openPreview(profile)}
-                      variant="outline"
-                      aria-label={`Preview ${profile.title}`}
-                      type="button"
-                    >
-                      <Eye size={16} />
-                      Preview
-                    </Button>
-
-                    <Button
-                      onClick={() => handleDownloadBoth(profile)}
-                      aria-label={`Download ${profile.title} combo`}
-                      type="button"
-                    >
-                      <Download size={16} />
-                      Download
-                    </Button>
-
-                    {user && (
-                      <Button
-                        onClick={() => handleFavorite(profile.id)}
-                        variant={
-                          favorites.has(profile.id) ? "destructive" : "outline"
-                        }
-                        size="icon"
-                        aria-pressed={favorites.has(profile.id)}
-                        aria-label={
-                          favorites.has(profile.id)
-                            ? `Remove ${profile.title} from favorites`
-                            : `Add ${profile.title} to favorites`
-                        }
-                        type="button"
-                      >
-                        <Heart
-                          size={16}
-                          fill={
-                            favorites.has(profile.id) ? "currentColor" : "none"
-                          }
-                        />
-                      </Button>
-                    )}
-                  </CardFooter>
-                </Card>
+                  item={{
+                    id: profile.id,
+                    title: profile.title,
+                    image_url: profile.banner_url,
+                    download_count: profile.download_count || 0,
+                    category: profile?.category,
+                    tags: profile.tags || [],
+                    created_at: profile.created_at,
+                    updated_at: profile.updated_at,
+                    type: "pair",
+                    favorites,
+                    pfp_url: profile.pfp_url,
+                    banner_url: profile.banner_url,
+                    user,
+                  }}
+                  rawData={profile}
+                  handleFavorite={handleFavorite}
+                  openPreview={openPreview}
+                  handleDownloadBoth={handleDownloadBoth}
+                  viewMode={viewMode}
+                />
               ))}
             </div>
 

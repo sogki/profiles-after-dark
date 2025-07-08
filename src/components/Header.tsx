@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react"
-import { Link, useNavigate, useLocation } from "react-router-dom"
+import { useState, useEffect, useRef } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Moon,
   Search,
@@ -18,174 +18,204 @@ import {
   Layout,
   Smile,
   Sticker,
-} from "lucide-react"
-import { useAuth } from "../context/authContext"
-import { supabase } from "../lib/supabase"
+} from "lucide-react";
+import { useAuth } from "../context/authContext";
+import { supabase } from "../lib/supabase";
+import SearchNew from "./search-new";
+import { Button } from "./ui/button";
+import { cn } from "@/lib/utils";
+import SubHeader from "./header/sub-header";
 
 interface HeaderProps {
-  onUploadClick: () => void
-  onAuthClick: () => void
-  searchQuery: string
-  onSearchChange: (query: string) => void
+  onUploadClick: () => void;
+  onAuthClick: () => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
 }
 
 interface Notification {
-  id: string
-  message: string
-  read: boolean
-  created_at: string
-  type: "info" | "success" | "warning"
+  id: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+  type: "info" | "success" | "warning";
 }
 
-export default function Header({ onUploadClick, onAuthClick, searchQuery, onSearchChange }: HeaderProps) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const { user, userProfile, signOut } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [showSubNav, setShowSubNav] = useState(true)
-  const lastScrollY = useRef(0)
+export default function Header({
+  onUploadClick,
+  onAuthClick,
+  searchQuery,
+  onSearchChange,
+}: HeaderProps) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, userProfile, signOut } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [showSubNav, setShowSubNav] = useState(true);
+  const lastScrollY = useRef(0);
 
   // Enhanced notifications state
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [isNotifOpen, setIsNotifOpen] = useState(false)
-  const [loadingNotifications, setLoadingNotifications] = useState(false)
-  const notifRef = useRef<HTMLDivElement>(null)
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   // User dropdown state
-  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
-  const userDropdownRef = useRef<HTMLDivElement>(null)
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
 
   // Search suggestions
-  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([])
-  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
-  const searchRef = useRef<HTMLDivElement>(null)
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
-      const currentScrollY = window.scrollY
+      const currentScrollY = window.scrollY;
       if (currentScrollY < 100) {
-        setShowSubNav(true)
+        setShowSubNav(true);
       } else if (currentScrollY > lastScrollY.current) {
-        setShowSubNav(false)
+        setShowSubNav(false);
       } else {
-        setShowSubNav(true)
+        setShowSubNav(true);
       }
-      lastScrollY.current = currentScrollY
-    }
+      lastScrollY.current = currentScrollY;
+    };
 
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // Fetch real notifications
   useEffect(() => {
     if (user) {
-      fetchNotifications()
+      fetchNotifications();
     }
-  }, [user])
+  }, [user]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
-        setIsNotifOpen(false)
+      if (
+        notifRef.current &&
+        !notifRef.current.contains(event.target as Node)
+      ) {
+        setIsNotifOpen(false);
       }
-      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
-        setIsUserDropdownOpen(false)
+      if (
+        userDropdownRef.current &&
+        !userDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsUserDropdownOpen(false);
       }
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setShowSearchSuggestions(false)
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target as Node)
+      ) {
+        setShowSearchSuggestions(false);
       }
-    }
+    };
 
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Fetch search suggestions
   useEffect(() => {
     if (searchQuery.length > 1) {
-      fetchSearchSuggestions(searchQuery)
+      fetchSearchSuggestions(searchQuery);
     } else {
-      setSearchSuggestions([])
-      setShowSearchSuggestions(false)
+      setSearchSuggestions([]);
+      setShowSearchSuggestions(false);
     }
-  }, [searchQuery])
+  }, [searchQuery]);
 
   const fetchNotifications = async () => {
-    if (!user) return
-    setLoadingNotifications(true)
+    if (!user) return;
+    setLoadingNotifications(true);
     try {
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(10)
+        .limit(10);
 
-      if (error) throw error
-      setNotifications(data || [])
+      if (error) throw error;
+      setNotifications(data || []);
     } catch (error) {
-      console.error("Failed to fetch notifications:", error)
+      console.error("Failed to fetch notifications:", error);
     } finally {
-      setLoadingNotifications(false)
+      setLoadingNotifications(false);
     }
-  }
+  };
 
   const fetchSearchSuggestions = async (query: string) => {
     try {
-      const { data, error } = await supabase.from("profiles").select("title").ilike("title", `%${query}%`).limit(5)
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("title")
+        .ilike("title", `%${query}%`)
+        .limit(5);
 
-      if (error) throw error
-      const suggestions = data?.map((item) => item.title) || []
-      setSearchSuggestions(suggestions)
-      setShowSearchSuggestions(suggestions.length > 0)
+      if (error) throw error;
+      const suggestions = data?.map((item) => item.title) || [];
+      setSearchSuggestions(suggestions);
+      setShowSearchSuggestions(suggestions.length > 0);
     } catch (error) {
-      console.error("Failed to fetch search suggestions:", error)
+      console.error("Failed to fetch search suggestions:", error);
     }
-  }
+  };
 
   const handleSignOut = async () => {
-    await signOut()
-    navigate("/")
-    setIsMobileMenuOpen(false)
-    setIsUserDropdownOpen(false)
-  }
+    await signOut();
+    navigate("/");
+    setIsMobileMenuOpen(false);
+    setIsUserDropdownOpen(false);
+  };
 
-  const isActive = (path: string) => location.pathname === path
+  const isActive = (path: string) => location.pathname === path;
 
-  const unreadCount = notifications.filter((n) => !n.read).length
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAsRead = async (id: string) => {
     try {
-      await supabase.from("notifications").update({ read: true }).eq("id", id)
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+      await supabase.from("notifications").update({ read: true }).eq("id", id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      );
     } catch (error) {
-      console.error("Failed to mark notification as read:", error)
+      console.error("Failed to mark notification as read:", error);
     }
-  }
+  };
 
   const markAllAsRead = async () => {
     try {
-      await supabase.from("notifications").update({ read: true }).eq("user_id", user?.id)
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+      await supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("user_id", user?.id);
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     } catch (error) {
-      console.error("Failed to mark all notifications as read:", error)
+      console.error("Failed to mark all notifications as read:", error);
     }
-  }
+  };
 
   const handleSearchSuggestionClick = (suggestion: string) => {
-    onSearchChange(suggestion)
-    setShowSearchSuggestions(false)
-  }
+    onSearchChange(suggestion);
+    setShowSearchSuggestions(false);
+  };
 
   return (
     <>
-      <header className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-50">
+      <header className="bg-background/80 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Enhanced Logo */}
-            <Link to="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity group">
+            <Link
+              to="/"
+              className="flex items-center space-x-3 hover:opacity-80 transition-opacity group"
+            >
               <div className="relative">
                 <div className="absolute -inset-2 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-full blur-lg group-hover:blur-xl transition-all duration-300 opacity-0 group-hover:opacity-100"></div>
                 <Moon className="h-8 w-8 text-white relative z-10 group-hover:text-purple-300 transition-colors" />
@@ -206,44 +236,19 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-6">
               {/* Enhanced Search */}
-              <div className="relative" ref={searchRef}>
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search profiles, users, tags..."
-                  value={searchQuery}
-                  onChange={(e) => onSearchChange(e.target.value)}
-                  onFocus={() => searchQuery.length > 1 && setShowSearchSuggestions(true)}
-                  className="pl-10 pr-4 py-2 w-80 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
-                />
-
-                {/* Search Suggestions */}
-                {showSearchSuggestions && searchSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50">
-                    {searchSuggestions.map((suggestion, index) => (
-                      <button
-                        key={index}
-                        onClick={() => handleSearchSuggestionClick(suggestion)}
-                        className="w-full text-left px-4 py-2 text-white hover:bg-slate-700 transition-colors first:rounded-t-lg last:rounded-b-lg"
-                      >
-                        <Search className="inline h-3 w-3 mr-2 text-slate-400" />
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <SearchNew />
 
               {user ? (
                 <div className="flex items-center space-x-4">
                   {/* Upload Button */}
-                  <button
+                  <Button
                     onClick={onUploadClick}
-                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-purple-500/25"
+                    variant="gradient"
+                    // className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-purple-500/25"
                   >
                     <Upload className="h-4 w-4" />
                     <span>Upload</span>
-                  </button>
+                  </Button>
 
                   {/* Enhanced Notifications */}
                   <div className="relative" ref={notifRef}>
@@ -263,9 +268,14 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                       <div className="absolute right-0 mt-2 w-80 bg-slate-800 rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 z-50 border border-slate-700">
                         <div className="p-4 border-b border-slate-700">
                           <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-semibold text-white">Notifications</h3>
+                            <h3 className="text-lg font-semibold text-white">
+                              Notifications
+                            </h3>
                             {unreadCount > 0 && (
-                              <button onClick={markAllAsRead} className="text-sm text-purple-400 hover:text-purple-300">
+                              <button
+                                onClick={markAllAsRead}
+                                className="text-sm text-purple-400 hover:text-purple-300"
+                              >
                                 Mark all read
                               </button>
                             )}
@@ -273,9 +283,13 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                         </div>
                         <div className="max-h-80 overflow-y-auto">
                           {loadingNotifications ? (
-                            <div className="p-4 text-center text-slate-400">Loading...</div>
+                            <div className="p-4 text-center text-slate-400">
+                              Loading...
+                            </div>
                           ) : notifications.length === 0 ? (
-                            <div className="p-4 text-center text-slate-400">No notifications</div>
+                            <div className="p-4 text-center text-slate-400">
+                              No notifications
+                            </div>
                           ) : (
                             notifications.map((notification) => (
                               <div
@@ -285,9 +299,13 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                                 }`}
                                 onClick={() => markAsRead(notification.id)}
                               >
-                                <p className="text-white text-sm">{notification.message}</p>
+                                <p className="text-white text-sm">
+                                  {notification.message}
+                                </p>
                                 <p className="text-slate-400 text-xs mt-1">
-                                  {new Date(notification.created_at).toLocaleDateString()}
+                                  {new Date(
+                                    notification.created_at
+                                  ).toLocaleDateString()}
                                 </p>
                               </div>
                             ))
@@ -326,7 +344,9 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                             <div className="w-10 h-10 rounded-full overflow-hidden">
                               {userProfile?.avatar_url ? (
                                 <img
-                                  src={userProfile.avatar_url || "/placeholder.svg"}
+                                  src={
+                                    userProfile.avatar_url || "/placeholder.svg"
+                                  }
                                   alt="User avatar"
                                   className="w-full h-full object-cover"
                                 />
@@ -338,9 +358,13 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-white truncate">
-                                {userProfile?.display_name || userProfile?.username || "User"}
+                                {userProfile?.display_name ||
+                                  userProfile?.username ||
+                                  "User"}
                               </p>
-                              <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                              <p className="text-xs text-slate-400 truncate">
+                                {user.email}
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -403,7 +427,11 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="md:hidden text-white hover:text-purple-400 transition-colors p-2 rounded-lg hover:bg-slate-800"
             >
-              {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {isMobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
             </button>
           </div>
 
@@ -426,8 +454,8 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                   <div className="flex flex-col space-y-2">
                     <button
                       onClick={() => {
-                        onUploadClick()
-                        setIsMobileMenuOpen(false)
+                        onUploadClick();
+                        setIsMobileMenuOpen(false);
                       }}
                       className="flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all"
                     >
@@ -477,8 +505,8 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                 ) : (
                   <button
                     onClick={() => {
-                      onAuthClick()
-                      setIsMobileMenuOpen(false)
+                      onAuthClick();
+                      setIsMobileMenuOpen(false);
                     }}
                     className="flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all"
                   >
@@ -493,106 +521,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
       </header>
 
       {/* Enhanced Sub Navigation */}
-      <nav
-        className={`
-          bg-slate-800/90 backdrop-blur-sm border-b border-slate-700/50 sticky top-16 z-40
-          transition-transform duration-300 ease-in-out
-          ${showSubNav ? "translate-y-0" : "-translate-y-full"}
-        `}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-6 overflow-x-auto no-scrollbar py-2">
-            <Link
-              to="/users"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                isActive("/users")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <Users className="inline h-4 w-4 mr-1" />
-              Members
-            </Link>
-            <Link
-              to="/gallery/profiles"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                isActive("/gallery/profiles")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <UserIcon className="inline h-4 w-4 mr-1" />
-              Profiles
-            </Link>
-            <Link
-              to="/gallery/pfps"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                isActive("/gallery/pfps")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <ImageIcon className="inline h-4 w-4 mr-1" />
-              PFPs
-            </Link>
-            <Link
-              to="/gallery/banners"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                isActive("/gallery/banners")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <Layout className="inline h-4 w-4 mr-1" />
-              Banners
-            </Link>
-            <Link
-              to="/gallery/emoji-combos"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                isActive("/gallery/emoji-combos")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <Smile className="inline h-4 w-4 mr-1" />
-              Emoji Combos
-            </Link>
-            <Link
-              to="/gallery/emotes"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                isActive("/gallery/emotes")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <Sticker className="inline h-4 w-4 mr-1" />
-              Emotes
-            </Link>
-             <Link
-              to="/gallery/wallpapers"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                isActive("/gallery/wallpapers")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <ImageIcon className="inline h-4 w-4 mr-1" />
-              Wallpapers
-            </Link>
-            <Link
-              to="/trending"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                isActive("/trending")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <TrendingUp className="inline h-4 w-4 mr-1" />
-              Trending
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <SubHeader showSubNav={showSubNav} />
     </>
-  )
+  );
 }

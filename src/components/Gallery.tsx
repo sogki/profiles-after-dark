@@ -357,7 +357,7 @@ export default function ProfilesGallery() {
       </div>
 
       {/* Enhanced Filters */}
-      <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-slate-600/50 shadow-2xl">
+      <div className="bg-card backdrop-blur-sm rounded-2xl p-8 mb-8 border shadow-2xl">
         {/* Search Bar */}
         <div className="mb-6">
           <div className="relative">

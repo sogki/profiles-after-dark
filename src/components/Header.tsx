@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import {
+  Bell,
   Moon,
   Search,
   Upload,
@@ -21,20 +22,14 @@ import {
 } from "lucide-react"
 import { useAuth } from "../context/authContext"
 import { supabase } from "../lib/supabase"
+import { useNotifications } from "../hooks/useNotifications"
+import NotificationCenter from "./NotificationCenter"
 
 interface HeaderProps {
   onUploadClick: () => void
   onAuthClick: () => void
   searchQuery: string
   onSearchChange: (query: string) => void
-}
-
-interface Notification {
-  id: string
-  message: string
-  read: boolean
-  created_at: string
-  type: "info" | "success" | "warning"
 }
 
 export default function Header({ onUploadClick, onAuthClick, searchQuery, onSearchChange }: HeaderProps) {
@@ -45,11 +40,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
   const [showSubNav, setShowSubNav] = useState(true)
   const lastScrollY = useRef(0)
 
-  // Enhanced notifications state
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [isNotifOpen, setIsNotifOpen] = useState(false)
-  const [loadingNotifications, setLoadingNotifications] = useState(false)
-  const notifRef = useRef<HTMLDivElement>(null)
+  const { unreadCount } = useNotifications()
 
   // User dropdown state
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
@@ -59,6 +50,9 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([])
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
+  
+  // Notification center state
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -76,13 +70,6 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
     window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
-
-  // Fetch real notifications
-  useEffect(() => {
-    if (user) {
-      fetchNotifications()
-    }
-  }, [user])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -112,26 +99,6 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
     }
   }, [searchQuery])
 
-  const fetchNotifications = async () => {
-    if (!user) return
-    setLoadingNotifications(true)
-    try {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(10)
-
-      if (error) throw error
-      setNotifications(data || [])
-    } catch (error) {
-      console.error("Failed to fetch notifications:", error)
-    } finally {
-      setLoadingNotifications(false)
-    }
-  }
-
   const fetchSearchSuggestions = async (query: string) => {
     try {
       const { data, error } = await supabase.from("profiles").select("title").ilike("title", `%${query}%`).limit(5)
@@ -154,26 +121,6 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
 
   const isActive = (path: string) => location.pathname === path
 
-  const unreadCount = notifications.filter((n) => !n.read).length
-
-  const markAsRead = async (id: string) => {
-    try {
-      await supabase.from("notifications").update({ read: true }).eq("id", id)
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
-    } catch (error) {
-      console.error("Failed to mark notification as read:", error)
-    }
-  }
-
-  const markAllAsRead = async () => {
-    try {
-      await supabase.from("notifications").update({ read: true }).eq("user_id", user?.id)
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-    } catch (error) {
-      console.error("Failed to mark all notifications as read:", error)
-    }
-  }
-
   const handleSearchSuggestionClick = (suggestion: string) => {
     onSearchChange(suggestion)
     setShowSearchSuggestions(false)
@@ -181,6 +128,12 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
 
   return (
     <>
+      {/* Notification Center */}
+      <NotificationCenter
+        isOpen={isNotificationCenterOpen}
+        onClose={() => setIsNotificationCenterOpen(false)}
+      />
+      
       <header className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -246,9 +199,9 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                   </button>
 
                   {/* Enhanced Notifications */}
-                  <div className="relative" ref={notifRef}>
+                  <div className="relative">
                     <button
-                      onClick={() => setIsNotifOpen(!isNotifOpen)}
+                      onClick={() => setIsNotificationCenterOpen(true)}
                       className="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
                     >
                       <Bell className="h-5 w-5" />
@@ -258,43 +211,6 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                         </span>
                       )}
                     </button>
-
-                    {isNotifOpen && (
-                      <div className="absolute right-0 mt-2 w-80 bg-slate-800 rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 z-50 border border-slate-700">
-                        <div className="p-4 border-b border-slate-700">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-semibold text-white">Notifications</h3>
-                            {unreadCount > 0 && (
-                              <button onClick={markAllAsRead} className="text-sm text-purple-400 hover:text-purple-300">
-                                Mark all read
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="max-h-80 overflow-y-auto">
-                          {loadingNotifications ? (
-                            <div className="p-4 text-center text-slate-400">Loading...</div>
-                          ) : notifications.length === 0 ? (
-                            <div className="p-4 text-center text-slate-400">No notifications</div>
-                          ) : (
-                            notifications.map((notification) => (
-                              <div
-                                key={notification.id}
-                                className={`p-4 border-b border-slate-700 last:border-b-0 hover:bg-slate-700/50 transition-colors cursor-pointer ${
-                                  !notification.read ? "bg-purple-900/20" : ""
-                                }`}
-                                onClick={() => markAsRead(notification.id)}
-                              >
-                                <p className="text-white text-sm">{notification.message}</p>
-                                <p className="text-slate-400 text-xs mt-1">
-                                  {new Date(notification.created_at).toLocaleDateString()}
-                                </p>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   {/* Enhanced User Dropdown */}

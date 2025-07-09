@@ -184,6 +184,13 @@ export default function Footer() {
                   <span className="w-1 h-1 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
                   Account Settings
                 </Link>
+                <Link
+                  to="/appeals"
+                  className="text-slate-400 hover:text-blue-400 transition-colors duration-200 flex items-center gap-2 group"
+                >
+                  <span className="w-1 h-1 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                  Appeals
+                </Link>
               </li>
               {/* <li>
                 <Link

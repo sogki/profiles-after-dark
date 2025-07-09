@@ -184,6 +184,40 @@ export interface Database {
       };
     };
 
+      appeals: {
+        Row: {
+          id: string;
+          reason: string;
+          ban_type: 'discord' | 'website';
+          discord_tag: string | null;
+          email: string | null;
+          username: string | null;
+          explanation: string;
+          submitted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          reason: string;
+          ban_type: 'discord' | 'website';
+          discord_tag?: string | null;
+          email?: string | null;
+          username?: string | null;
+          explanation: string;
+          submitted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          reason?: string;
+          ban_type?: 'discord' | 'website';
+          discord_tag?: string | null;
+          email?: string | null;
+          username?: string | null;
+          explanation?: string;
+          submitted_at?: string | null;
+        };
+      };
+    };
+
     Views: {
       [_ in never]: never;
     };
@@ -199,5 +233,4 @@ export interface Database {
     CompositeTypes: {
       [_ in never]: never;
     };
-  };
-}
+  }

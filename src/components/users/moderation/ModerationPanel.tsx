@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../../../context/authContext";
 import { supabase } from "../../../lib/supabase";
 import { Navigate } from "react-router-dom";
@@ -60,8 +60,33 @@ import {
   Sparkles,
   BotIcon as Robot,
   TrendingDown,
+  Paperclip,
 } from "lucide-react";
 import Footer from "../../Footer";
+
+interface ModCase {
+  id: string;
+  banType: "discord" | "website" | "";
+  status: "open" | "resolved" | "denied";
+}
+
+interface Appeal {
+  id: string; // unique appeal ID
+  appeal_reason: string;
+  banType: "discord" | "website" | "";
+  discordTag?: string;
+  email?: string;
+  username?: string;
+  explanation: string;
+  status: "pending" | "approved" | "denied"; // current appeal status
+  appeal_date: string;
+  reviewed_by?: string;
+  resolved_at?: string;
+
+  // New: Nested mod_cases from Supabase join
+  mod_cases?: ModCase | null;
+  reviewer_name?: string; // add this optional property
+}
 
 interface ReportedUser {
   id: string;
@@ -260,6 +285,10 @@ interface SpamPattern {
   updated_at?: string;
 }
 
+const { data: moderators } = await supabase
+  .from("user_profiles")
+  .select("id, username");
+
 const guildId = "1386840977188061194";
 
 const ModerationPanel = () => {
@@ -272,6 +301,13 @@ const ModerationPanel = () => {
   const [fetchingLogs, setFetchingLogs] = useState(false);
   const [usersMap, setUsersMap] = useState<Record<string, UserSummary>>({});
   const { cases, loading: loadingCases } = useModCases(guildId);
+  // Appeals
+  const [appeals, setAppeals] = React.useState<Appeal[]>([]);
+  const { user: currentMod, loading: modLoading } = useAuth();
+  const [loadingAppeals, setLoadingAppeals] = useState(false);
+  const [processingAppealId, setProcessingAppealId] = useState<string | null>(
+    null
+  );
 
   // Report modal states
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -378,8 +414,6 @@ const ModerationPanel = () => {
     confidenceThreshold: 70,
   });
 
-
-  
   // Announcement states
   const [isEditingAnnouncement, setIsEditingAnnouncement] = useState(false);
   const [announcementDraft, setAnnouncementDraft] = useState("");
@@ -1252,7 +1286,86 @@ const ModerationPanel = () => {
     }
   };
 
-  
+  async function fetchAppeals() {
+    setLoadingAppeals(true);
+    try {
+      // Fetch appeals
+      const { data: appealsData, error: appealsError } = await supabase
+        .from("appeals")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (appealsError) throw appealsError;
+
+      // Fetch moderators for mapping usernames
+      const { data: moderatorsData, error: moderatorsError } = await supabase
+        .from("user_profiles")
+        .select("id, username");
+
+      if (moderatorsError) throw moderatorsError;
+
+      // Map readable reviewer_name
+      const appealsWithReviewer = (appealsData || []).map((appeal) => {
+        const reviewer = moderatorsData?.find(
+          (mod) => mod.id === appeal.reviewed_by
+        );
+        return {
+          ...appeal,
+          reviewer_name: reviewer ? reviewer.username : "Unknown",
+        };
+      });
+
+      setAppeals(appealsWithReviewer);
+    } catch (e) {
+      console.error("Error fetching appeals:", e);
+    } finally {
+      setLoadingAppeals(false);
+    }
+  }
+
+  async function handleAppealDecision(
+    appealId: string,
+    action: "approved" | "denied"
+  ) {
+    if (!currentMod?.id) {
+      console.error("Moderator not logged in");
+      return;
+    }
+
+    setProcessingAppealId(appealId);
+
+    try {
+      // 1️⃣ Update appeal status and reviewer
+      const { error: updateError } = await supabase
+        .from("appeals")
+        .update({
+          status: action,
+          reviewed_by: currentMod.id,
+          resolved_at: new Date().toISOString(),
+        })
+        .eq("id", appealId);
+
+      if (updateError) throw updateError;
+
+      // 2️⃣ Insert a mod_case for audit trail
+      const { error: insertError } = await supabase.from("mod_cases").insert({
+        appeal_id: appealId,
+        moderator_id: currentMod.id,
+        action,
+        reason: `Appeal was ${action}`,
+        timestamp: new Date().toISOString(),
+      });
+
+      if (insertError) throw insertError;
+
+      // 3️⃣ Refresh appeals list
+      await fetchAppeals();
+    } catch (e) {
+      console.error("Error processing appeal decision:", e);
+    }
+
+    setProcessingAppealId(null);
+  }
 
   // Auto Moderation Functions - Now using real OpenAI integration
   const fetchModerationRules = async () => {
@@ -2350,6 +2463,8 @@ const ModerationPanel = () => {
         fetchModerationRules();
         fetchRecentScans();
         fetchSpamPatterns();
+      } else if (activeTab === "appeals") {
+        fetchAppeals();
       }
     }
   }, [userProfile, activeTab, analyticsTimeRange]);
@@ -2371,6 +2486,7 @@ const ModerationPanel = () => {
     { id: "content", label: "Content Management", icon: ImageIcon },
     { id: "logs", label: "Moderation Logs", icon: FileText },
     { id: "modcases", label: "Discord Mod Cases", icon: Shield },
+    { id: "appeals", label: "Punishment Appeals", icon: Paperclip },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "users", label: "User Management", icon: UserCog },
     { id: "automation", label: "AI Moderation", icon: Bot },
@@ -4118,7 +4234,6 @@ const ModerationPanel = () => {
 
                 {activeTab === "modcases" &&
                   (() => {
-
                     if (loading) {
                       return (
                         <div className="flex items-center justify-center py-12">
@@ -4183,6 +4298,151 @@ const ModerationPanel = () => {
                                     {c.reason || "No reason provided."}
                                   </span>
                                 </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                {activeTab === "appeals" &&
+                  (() => {
+                    if (loading) {
+                      return (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="h-8 w-8 animate-spin text-green-400" />
+                        </div>
+                      );
+                    }
+
+                    if (!appeals || appeals.length === 0) {
+                      return (
+                        <div className="text-center py-12">
+                          <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                          <h3 className="text-lg font-medium mb-2">
+                            No appeals found
+                          </h3>
+                          <p className="text-gray-400">
+                            No appeals have been submitted yet.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-4">
+                        {appeals.map((appeal) => (
+                          <div
+                            key={appeal.id}
+                            className="bg-gray-700 rounded-lg p-6"
+                          >
+                            <div className="flex items-start gap-4">
+                              <div>
+                                <User className="h-8 w-8 text-gray-400" />
+                              </div>
+                              <div className="flex-1 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-semibold text-lg">
+                                    {appeal.discordTag ??
+                                      appeal.username ??
+                                      appeal.email ??
+                                      "Unknown User"}
+                                  </h3>
+                                  <span
+                                    className={`px-2 py-1 rounded text-xs font-medium ${
+                                      appeal.status === "pending"
+                                        ? "bg-yellow-500 text-white"
+                                        : appeal.status === "approved"
+                                        ? "bg-green-600 text-white"
+                                        : "bg-red-600 text-white"
+                                    }`}
+                                  >
+                                    {appeal.status.toUpperCase()}
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
+                                  <div className="flex items-center gap-2">
+                                    <User className="h-4 w-4 text-gray-400" />
+                                    <span>
+                                      Ban Type:{" "}
+                                      {appeal.mod_cases?.banType || "N/A"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-gray-400" />
+                                    <span>
+                                      {new Date(
+                                        appeal.appeal_date
+                                      ).toLocaleString()}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-start gap-2">
+                                  <MessageSquare className="h-4 w-4 text-gray-400 mt-0.5" />
+                                  <span className="text-sm text-gray-300">
+                                    {appeal.explanation ||
+                                      "No explanation provided."}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-start gap-2">
+                                  <MessageSquare className="h-4 w-4 text-gray-400 mt-0.5" />
+                                  <span className="text-sm text-gray-300">
+                                    <strong>Reason:</strong>{" "}
+                                    {appeal.appeal_reason ||
+                                      "No reason provided."}
+                                  </span>
+                                </div>
+
+                                {appeal.status === "pending" && (
+                                  <div className="flex gap-4 mt-4">
+                                    <button
+                                      onClick={() =>
+                                        handleAppealDecision(
+                                          appeal.id,
+                                          "approved"
+                                        )
+                                      }
+                                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+                                      disabled={
+                                        processingAppealId === appeal.id
+                                      }
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleAppealDecision(
+                                          appeal.id,
+                                          "denied"
+                                        )
+                                      }
+                                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+                                      disabled={
+                                        processingAppealId === appeal.id
+                                      }
+                                    >
+                                      Deny
+                                    </button>
+                                  </div>
+                                )}
+
+                                {(appeal.status === "approved" ||
+                                  appeal.status === "denied") && (
+                                  <div className="mt-2 text-sm text-gray-400">
+                                    Reviewed by:{" "}
+                                    {appeal.reviewer_name ?? "Unknown"} <br />
+                                    Reviewed at:{" "}
+                                    {appeal.resolved_at
+                                      ? new Date(
+                                          appeal.resolved_at
+                                        ).toLocaleString()
+                                      : "Unknown"}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>

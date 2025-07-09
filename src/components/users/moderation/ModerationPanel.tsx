@@ -3,6 +3,7 @@ import { useAuth } from "../../../context/authContext";
 import { supabase } from "../../../lib/supabase";
 import { Navigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { useModCases } from "../../../hooks/useBackend";
 import {
   moderateContent,
   generateContentTags,
@@ -259,6 +260,8 @@ interface SpamPattern {
   updated_at?: string;
 }
 
+const guildId = "1386840977188061194";
+
 const ModerationPanel = () => {
   const { userProfile, loading } = useAuth();
   const [announcement, setAnnouncement] = useState<string | null>(null);
@@ -268,6 +271,7 @@ const ModerationPanel = () => {
   const [logs, setLogs] = useState<Log[]>([]);
   const [fetchingLogs, setFetchingLogs] = useState(false);
   const [usersMap, setUsersMap] = useState<Record<string, UserSummary>>({});
+  const { cases, loading: loadingCases } = useModCases(guildId);
 
   // Report modal states
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -374,6 +378,8 @@ const ModerationPanel = () => {
     confidenceThreshold: 70,
   });
 
+
+  
   // Announcement states
   const [isEditingAnnouncement, setIsEditingAnnouncement] = useState(false);
   const [announcementDraft, setAnnouncementDraft] = useState("");
@@ -1246,6 +1252,8 @@ const ModerationPanel = () => {
     }
   };
 
+  
+
   // Auto Moderation Functions - Now using real OpenAI integration
   const fetchModerationRules = async () => {
     setFetchingRules(true);
@@ -1983,20 +1991,23 @@ const ModerationPanel = () => {
       console.error(error);
     }
   };
-const handleDismiss = async (id: string) => {
-  try {
-    console.log("Attempting to delete report id:", id);
-    const { data, error } = await supabase.from("reports").delete().eq("id", id);
-    console.log("Delete result:", { data, error });
-    if (error) throw error;
+  const handleDismiss = async (id: string) => {
+    try {
+      console.log("Attempting to delete report id:", id);
+      const { data, error } = await supabase
+        .from("reports")
+        .delete()
+        .eq("id", id);
+      console.log("Delete result:", { data, error });
+      if (error) throw error;
 
-    setReports((prev) => prev.filter((r) => r.id !== id));
-    toast.success("Report dismissed");
-  } catch (error) {
-    toast.error("Failed to dismiss report");
-    console.error(error);
-  }
-};
+      setReports((prev) => prev.filter((r) => r.id !== id));
+      toast.success("Report dismissed");
+    } catch (error) {
+      toast.error("Failed to dismiss report");
+      console.error(error);
+    }
+  };
 
   const openActionModal = (
     action: "warn" | "restrict" | "terminate",
@@ -2359,6 +2370,7 @@ const handleDismiss = async (id: string) => {
     { id: "reports", label: "Reported Users", icon: Users },
     { id: "content", label: "Content Management", icon: ImageIcon },
     { id: "logs", label: "Moderation Logs", icon: FileText },
+    { id: "modcases", label: "Discord Mod Cases", icon: Shield },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "users", label: "User Management", icon: UserCog },
     { id: "automation", label: "AI Moderation", icon: Bot },
@@ -2367,844 +2379,556 @@ const handleDismiss = async (id: string) => {
   ];
 
   return (
-    <><div className="min-h-screen bg-gray-900 text-white p-4 md:p-6">
-      <div className="max-w-8xl mx-auto grid grid-cols-12 gap-6 md:gap-8">
-        {/* Sidebar */}
-        <aside className="col-span-12 md:col-span-3 bg-gray-800 rounded-lg border border-gray-700 p-6 flex flex-col space-y-6 self-start">
-          {/* Header */}
-          <div className="border-b border-gray-700 pb-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Shield className="h-6 w-6 text-blue-400" />
-              <h2 className="text-2xl font-bold">Moderation Panel</h2>
+    <>
+      <div className="min-h-screen bg-gray-900 text-white p-4 md:p-6">
+        <div className="max-w-8xl mx-auto grid grid-cols-12 gap-6 md:gap-8">
+          {/* Sidebar */}
+          <aside className="col-span-12 md:col-span-3 bg-gray-800 rounded-lg border border-gray-700 p-6 flex flex-col space-y-6 self-start">
+            {/* Header */}
+            <div className="border-b border-gray-700 pb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Shield className="h-6 w-6 text-blue-400" />
+                <h2 className="text-2xl font-bold">Moderation Panel</h2>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <div className="h-2 w-2 bg-green-400 rounded-full"></div>
+                <span>AI Integration Active</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-400">
-              <div className="h-2 w-2 bg-green-400 rounded-full"></div>
-              <span>AI Integration Active</span>
-            </div>
-          </div>
 
-          {/* Navigation */}
-          <section>
-            <h3 className="text-lg font-semibold text-gray-300 mb-4 uppercase tracking-wide text-sm">
-              Moderation Tools
-            </h3>
-            <nav className="flex flex-col space-y-2">
-              {navigationItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center space-x-3 transition-all duration-200 rounded-lg px-4 py-3 text-left ${activeTab === item.id
-                      ? "bg-blue-600 text-white font-semibold shadow-lg"
-                      : "text-gray-300 hover:bg-gray-700 hover:text-white"}`}
-                >
-                  <item.icon size={20} />
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </nav>
-          </section>
-
-          {/* Announcements Section */}
-          <section className="mt-auto">
-            <h3 className="text-lg font-semibold text-gray-300 mb-4 uppercase tracking-wide text-sm flex items-center space-x-2">
-              <Megaphone size={18} />
-              <span>Announcements</span>
-            </h3>
-
-            {isEditingAnnouncement ? (
-              <div className="space-y-4">
-                <textarea
-                  value={announcementDraft}
-                  onChange={(e) => setAnnouncementDraft(e.target.value)}
-                  className="w-full min-h-[100px] p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-                  rows={4}
-                  placeholder="Write your announcement here..." />
-
-                <div className="flex justify-center space-x-2">
+            {/* Navigation */}
+            <section>
+              <h3 className="text-lg font-semibold text-gray-300 mb-4 uppercase tracking-wide text-sm">
+                Moderation Tools
+              </h3>
+              <nav className="flex flex-col space-y-2">
+                {navigationItems.map((item) => (
                   <button
-                    onClick={saveAnnouncement}
-                    className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 px-3 py-2 rounded-lg transition-colors"
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`flex items-center space-x-3 transition-all duration-200 rounded-lg px-4 py-3 text-left ${
+                      activeTab === item.id
+                        ? "bg-blue-600 text-white font-semibold shadow-lg"
+                        : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                    }`}
                   >
-                    <Save size={16} />
+                    <item.icon size={20} />
+                    <span>{item.label}</span>
                   </button>
-                  <button
-                    onClick={() => setIsEditingAnnouncement(false)}
-                    className="flex items-center space-x-1 bg-gray-600 hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors"
-                  >
-                    <X size={16} />
-                  </button>
-                  {announcement && (
+                ))}
+              </nav>
+            </section>
+
+            {/* Announcements Section */}
+            <section className="mt-auto">
+              <h3 className="text-lg font-semibold text-gray-300 mb-4 uppercase tracking-wide text-sm flex items-center space-x-2">
+                <Megaphone size={18} />
+                <span>Announcements</span>
+              </h3>
+
+              {isEditingAnnouncement ? (
+                <div className="space-y-4">
+                  <textarea
+                    value={announcementDraft}
+                    onChange={(e) => setAnnouncementDraft(e.target.value)}
+                    className="w-full min-h-[100px] p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                    rows={4}
+                    placeholder="Write your announcement here..."
+                  />
+
+                  <div className="flex justify-center space-x-2">
                     <button
-                      onClick={deleteAnnouncement}
-                      className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg transition-colors"
+                      onClick={saveAnnouncement}
+                      className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 px-3 py-2 rounded-lg transition-colors"
                     >
-                      <Trash2 size={16} />
+                      <Save size={16} />
                     </button>
-                  )}
+                    <button
+                      onClick={() => setIsEditingAnnouncement(false)}
+                      className="flex items-center space-x-1 bg-gray-600 hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                    {announcement && (
+                      <button
+                        onClick={deleteAnnouncement}
+                        className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="bg-gray-700 rounded-lg p-3 min-h-[80px]">
-                  <p className="text-sm leading-relaxed text-gray-300 whitespace-pre-wrap">
-                    {announcement || "No active announcements."}
-                  </p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-gray-700 rounded-lg p-3 min-h-[80px]">
+                    <p className="text-sm leading-relaxed text-gray-300 whitespace-pre-wrap">
+                      {announcement || "No active announcements."}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setAnnouncementDraft(announcement || "");
+                      setIsEditingAnnouncement(true);
+                    }}
+                    className="w-full flex items-center justify-center space-x-2 bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-lg transition-colors text-sm"
+                  >
+                    <Edit3 size={16} />
+                    <span>Edit Announcement</span>
+                  </button>
                 </div>
-                <button
-                  onClick={() => {
-                    setAnnouncementDraft(announcement || "");
-                    setIsEditingAnnouncement(true);
-                  } }
-                  className="w-full flex items-center justify-center space-x-2 bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-lg transition-colors text-sm"
-                >
-                  <Edit3 size={16} />
-                  <span>Edit Announcement</span>
-                </button>
+              )}
+            </section>
+          </aside>
+
+          {/* Main Content */}
+          <main className="col-span-12 md:col-span-9 space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">
+                  {navigationItems.find((item) => item.id === activeTab)
+                    ?.label || "Dashboard"}
+                </h1>
+                <p className="text-gray-400 mt-1">
+                  {activeTab === "reports" &&
+                    "Review and take action on user reports"}
+                  {activeTab === "content" &&
+                    "Manage uploaded profiles and banners with AI assistance"}
+                  {activeTab === "logs" &&
+                    "View recent moderation actions and system events"}
+                  {activeTab === "analytics" &&
+                    "Platform statistics and insights"}
+                  {activeTab === "users" &&
+                    "Manage user accounts and permissions"}
+                  {activeTab === "automation" &&
+                    "Configure AI-powered moderation rules and OpenAI scanning"}
+                  {activeTab === "settings" &&
+                    "Configure platform-wide settings including AI moderation"}
+                  {activeTab === "monitoring" &&
+                    "Monitor system performance and health"}
+                </p>
               </div>
-            )}
-          </section>
-        </aside>
 
-        {/* Main Content */}
-        <main className="col-span-12 md:col-span-9 space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">
-                {navigationItems.find((item) => item.id === activeTab)?.label ||
-                  "Dashboard"}
-              </h1>
-              <p className="text-gray-400 mt-1">
-                {activeTab === "reports" &&
-                  "Review and take action on user reports"}
-                {activeTab === "content" &&
-                  "Manage uploaded profiles and banners with AI assistance"}
-                {activeTab === "logs" &&
-                  "View recent moderation actions and system events"}
-                {activeTab === "analytics" &&
-                  "Platform statistics and insights"}
-                {activeTab === "users" &&
-                  "Manage user accounts and permissions"}
-                {activeTab === "automation" &&
-                  "Configure AI-powered moderation rules and OpenAI scanning"}
-                {activeTab === "settings" &&
-                  "Configure platform-wide settings including AI moderation"}
-                {activeTab === "monitoring" &&
-                  "Monitor system performance and health"}
-              </p>
-            </div>
+              {activeTab === "analytics" && (
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-gray-400" />
+                  <select
+                    value={analyticsTimeRange}
+                    onChange={(e) =>
+                      setAnalyticsTimeRange(
+                        e.target.value as "week" | "month" | "quarter" | "year"
+                      )
+                    }
+                    className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="week">Last Week</option>
+                    <option value="month">Last Month</option>
+                    <option value="quarter">Last Quarter</option>
+                    <option value="year">Last Year</option>
+                  </select>
+                </div>
+              )}
 
-            {activeTab === "analytics" && (
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-gray-400" />
-                <select
-                  value={analyticsTimeRange}
-                  onChange={(e) => setAnalyticsTimeRange(
-                    e.target.value as "week" | "month" | "quarter" | "year"
-                  )}
-                  className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="week">Last Week</option>
-                  <option value="month">Last Month</option>
-                  <option value="quarter">Last Quarter</option>
-                  <option value="year">Last Year</option>
-                </select>
-              </div>
-            )}
+              {activeTab === "settings" && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={resetSystemSettings}
+                    className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Reset All
+                  </button>
+                </div>
+              )}
 
-            {activeTab === "settings" && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={resetSystemSettings}
-                  className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Reset All
-                </button>
-              </div>
-            )}
+              {activeTab === "automation" && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={runContentScan}
+                    disabled={aiScanInProgress}
+                    className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-lg transition-colors text-sm"
+                  >
+                    {aiScanInProgress ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Scan className="h-4 w-4" />
+                    )}
+                    AI Scan
+                  </button>
 
-            {activeTab === "automation" && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={runContentScan}
-                  disabled={aiScanInProgress}
-                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-lg transition-colors text-sm"
-                >
-                  {aiScanInProgress ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Scan className="h-4 w-4" />
-                  )}
-                  AI Scan
-                </button>
+                  <button
+                    onClick={runBulkAiScan}
+                    disabled={bulkScanInProgress}
+                    className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 rounded-lg transition-colors text-sm"
+                  >
+                    {bulkScanInProgress ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Robot className="h-4 w-4" />
+                    )}
+                    Bulk Scan
+                  </button>
 
-                <button
-                  onClick={runBulkAiScan}
-                  disabled={bulkScanInProgress}
-                  className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 rounded-lg transition-colors text-sm"
-                >
-                  {bulkScanInProgress ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Robot className="h-4 w-4" />
-                  )}
-                  Bulk Scan
-                </button>
+                  <button
+                    onClick={() =>
+                      setRuleModal({ open: true, rule: null, isEditing: false })
+                    }
+                    className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors text-sm"
+                  >
+                    <Plus className="h-4 w-4" />
+                    New Rule
+                  </button>
+                </div>
+              )}
 
-                <button
-                  onClick={() => setRuleModal({ open: true, rule: null, isEditing: false })}
-                  className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors text-sm"
-                >
-                  <Plus className="h-4 w-4" />
-                  New Rule
-                </button>
-              </div>
-            )}
-
-            {activeTab === "reports" && (
-              <div className="flex items-center gap-2">
-                {/* <button
+              {activeTab === "reports" && (
+                <div className="flex items-center gap-2">
+                  {/* <button
                   onClick={() => openReportModal({})}
                   className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm"
                 >
                   <Plus className="h-4 w-4" />
                   New Report
                 </button> */}
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
 
-          {/* Content */}
-          <div className="bg-gray-800 rounded-lg border border-gray-700">
-            <div className="p-6">
-              {/* Reports Tab - Enhanced with report button */}
-              {activeTab === "reports" && (
-                <div>
-                  {fetchingReports ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-                    </div>
-                  ) : reports.length === 0 ? (
-                    <div className="text-center py-12">
-                      <CheckCircle className="h-16 w-16 mx-auto text-green-400 mb-4" />
-                      <h3 className="text-lg font-medium mb-2">
-                        No pending reports
-                      </h3>
-                      <p className="text-gray-400">
-                        All reports have been reviewed
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {reports.map((report) => (
-                        <div
-                          key={report.id}
-                          className="bg-gray-700 rounded-lg border-l-4 border-l-orange-500 p-6"
-                        >
-                          <div className="flex items-start gap-4">
-                            <div className="relative">
-                              <img
-                                src={report.reported_user?.avatar_url ||
-                                  "/placeholder.svg?height=48&width=48"}
-                                alt={report.reported_user?.username || "User"}
-                                className="h-12 w-12 rounded-full object-cover" />
-                              <div className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full flex items-center justify-center">
-                                <AlertTriangle className="h-2.5 w-2.5 text-white" />
+            {/* Content */}
+            <div className="bg-gray-800 rounded-lg border border-gray-700">
+              <div className="p-6">
+                {/* Reports Tab - Enhanced with report button */}
+                {activeTab === "reports" && (
+                  <div>
+                    {fetchingReports ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                      </div>
+                    ) : reports.length === 0 ? (
+                      <div className="text-center py-12">
+                        <CheckCircle className="h-16 w-16 mx-auto text-green-400 mb-4" />
+                        <h3 className="text-lg font-medium mb-2">
+                          No pending reports
+                        </h3>
+                        <p className="text-gray-400">
+                          All reports have been reviewed
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {reports.map((report) => (
+                          <div
+                            key={report.id}
+                            className="bg-gray-700 rounded-lg border-l-4 border-l-orange-500 p-6"
+                          >
+                            <div className="flex items-start gap-4">
+                              <div className="relative">
+                                <img
+                                  src={
+                                    report.reported_user?.avatar_url ||
+                                    "/placeholder.svg?height=48&width=48"
+                                  }
+                                  alt={report.reported_user?.username || "User"}
+                                  className="h-12 w-12 rounded-full object-cover"
+                                />
+                                <div className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full flex items-center justify-center">
+                                  <AlertTriangle className="h-2.5 w-2.5 text-white" />
+                                </div>
                               </div>
-                            </div>
 
-                            <div className="flex-1 space-y-2">
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-semibold text-lg">
-                                  {report.reported_user?.username ||
-                                    "Unknown User"}
-                                </h3>
-                                <span className="bg-red-600 text-white px-2 py-1 rounded text-xs font-medium">
-                                  REPORTED
-                                </span>
-                                {report.content_id && (
-                                  <span className="bg-purple-600 text-white px-2 py-1 rounded text-xs font-medium">
-                                    CONTENT
+                              <div className="flex-1 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-semibold text-lg">
+                                    {report.reported_user?.username ||
+                                      "Unknown User"}
+                                  </h3>
+                                  <span className="bg-red-600 text-white px-2 py-1 rounded text-xs font-medium">
+                                    REPORTED
                                   </span>
+                                  {report.content_id && (
+                                    <span className="bg-purple-600 text-white px-2 py-1 rounded text-xs font-medium">
+                                      CONTENT
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
+                                  <div className="flex items-center gap-2">
+                                    <User className="h-4 w-4 text-gray-400" />
+                                    <span>
+                                      Reported by:{" "}
+                                      {report.reporter_user?.username ||
+                                        "Unknown"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-gray-400" />
+                                    <span>
+                                      {new Date(
+                                        report.created_at
+                                      ).toLocaleString()}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-start gap-2">
+                                  <MessageSquare className="h-4 w-4 text-gray-400 mt-0.5" />
+                                  <div className="text-sm text-gray-300">
+                                    <div className="font-medium">
+                                      {report.reason}
+                                    </div>
+                                    {report.description && (
+                                      <div className="text-gray-400 mt-1">
+                                        {report.description}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {report.content_id && (
+                                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                                    <Database className="h-4 w-4" />
+                                    <span>Content ID: {report.content_id}</span>
+                                    {report.content_type && (
+                                      <span className="bg-gray-600 px-2 py-1 rounded text-xs">
+                                        {report.content_type}
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
                               </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
+                              <div className="flex flex-col gap-2">
+                                {report.reported_user_id && (
+                                  <>
+                                    <button
+                                      onClick={() =>
+                                        openActionModal(
+                                          "warn",
+                                          report.reported_user_id!,
+                                          report.reported_user?.username || ""
+                                        )
+                                      }
+                                      className="flex items-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors text-sm"
+                                    >
+                                      <AlertTriangle className="h-4 w-4" />
+                                      Warn
+                                    </button>
+
+                                    <button
+                                      onClick={() =>
+                                        openActionModal(
+                                          "restrict",
+                                          report.reported_user_id!,
+                                          report.reported_user?.username || ""
+                                        )
+                                      }
+                                      className="flex items-center gap-2 px-3 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors text-sm"
+                                    >
+                                      <Ban className="h-4 w-4" />
+                                      Restrict
+                                    </button>
+
+                                    <button
+                                      onClick={() =>
+                                        openActionModal(
+                                          "terminate",
+                                          report.reported_user_id!,
+                                          report.reported_user?.username || ""
+                                        )
+                                      }
+                                      className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm"
+                                    >
+                                      <XCircle className="h-4 w-4" />
+                                      Terminate
+                                    </button>
+
+                                    <div className="border-t border-gray-600 my-1"></div>
+                                  </>
+                                )}
+
+                                <button
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        "Are you sure you want to dismiss this report?"
+                                      )
+                                    ) {
+                                      handleDismiss(report.id);
+                                    }
+                                  }}
+                                  className="flex items-center gap-2 px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors text-sm"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                  Dismiss
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Content Management Tab - Enhanced with report buttons */}
+                {activeTab === "content" && (
+                  <div>
+                    {/* Search and Filter Controls */}
+                    <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search by title, username, or tags..."
+                          value={contentSearch}
+                          onChange={(e) => setContentSearch(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-gray-400" />
+                        <select
+                          value={contentFilter}
+                          onChange={(e) =>
+                            setContentFilter(
+                              e.target.value as "all" | "profile" | "banner"
+                            )
+                          }
+                          className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="all">All Content</option>
+                          <option value="profile">Profiles Only</option>
+                          <option value="banner">Banners Only</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {fetchingContent ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                      </div>
+                    ) : filteredContent.length === 0 ? (
+                      <div className="text-center py-12">
+                        <ImageIcon className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium mb-2">
+                          No content found
+                        </h3>
+                        <p className="text-gray-400">
+                          {contentSearch || contentFilter !== "all"
+                            ? "Try adjusting your search or filter"
+                            : "No content has been uploaded yet"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredContent.map((item) => (
+                          <div
+                            key={item.id}
+                            className="bg-gray-700 rounded-lg overflow-hidden"
+                          >
+                            <div className="aspect-square relative">
+                              <img
+                                src={item.image_url || "/placeholder.svg"}
+                                alt={item.title}
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute top-2 right-2">
+                                <span
+                                  className={`px-2 py-1 rounded text-xs font-medium ${
+                                    item.type === "profile"
+                                      ? "bg-blue-600 text-white"
+                                      : "bg-purple-600 text-white"
+                                  }`}
+                                >
+                                  {item.type.toUpperCase()}
+                                </span>
+                              </div>
+                              {/* Add report button overlay */}
+                              <div className="absolute top-2 left-2">
+                                <button
+                                  onClick={() =>
+                                    openReportModal({
+                                      contentId: item.id,
+                                      contentType: item.type,
+                                    })
+                                  }
+                                  className="bg-black/50 backdrop-blur-sm hover:bg-black/70 p-2 rounded-lg transition-colors"
+                                  title="Report Content"
+                                >
+                                  <AlertTriangle className="h-4 w-4 text-red-400" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="p-4">
+                              <h3 className="font-semibold text-lg mb-2 truncate">
+                                {item.title}
+                              </h3>
+
+                              <div className="space-y-2 text-sm text-gray-300">
                                 <div className="flex items-center gap-2">
                                   <User className="h-4 w-4 text-gray-400" />
-                                  <span>
-                                    Reported by:{" "}
-                                    {report.reporter_user?.username ||
-                                      "Unknown"}
-                                  </span>
+                                  <span>{item.username}</span>
                                 </div>
+
+                                <div className="flex items-center gap-2">
+                                  <Download className="h-4 w-4 text-gray-400" />
+                                  <span>{item.download_count} downloads</span>
+                                </div>
+
                                 <div className="flex items-center gap-2">
                                   <Clock className="h-4 w-4 text-gray-400" />
                                   <span>
                                     {new Date(
-                                      report.created_at
-                                    ).toLocaleString()}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex items-start gap-2">
-                                <MessageSquare className="h-4 w-4 text-gray-400 mt-0.5" />
-                                <div className="text-sm text-gray-300">
-                                  <div className="font-medium">
-                                    {report.reason}
-                                  </div>
-                                  {report.description && (
-                                    <div className="text-gray-400 mt-1">
-                                      {report.description}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {report.content_id && (
-                                <div className="flex items-center gap-2 text-sm text-gray-400">
-                                  <Database className="h-4 w-4" />
-                                  <span>Content ID: {report.content_id}</span>
-                                  {report.content_type && (
-                                    <span className="bg-gray-600 px-2 py-1 rounded text-xs">
-                                      {report.content_type}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="flex flex-col gap-2">
-                              {report.reported_user_id && (
-                                <>
-                                  <button
-                                    onClick={() => openActionModal(
-                                      "warn",
-                                      report.reported_user_id!,
-                                      report.reported_user?.username || ""
-                                    )}
-                                    className="flex items-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors text-sm"
-                                  >
-                                    <AlertTriangle className="h-4 w-4" />
-                                    Warn
-                                  </button>
-
-                                  <button
-                                    onClick={() => openActionModal(
-                                      "restrict",
-                                      report.reported_user_id!,
-                                      report.reported_user?.username || ""
-                                    )}
-                                    className="flex items-center gap-2 px-3 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors text-sm"
-                                  >
-                                    <Ban className="h-4 w-4" />
-                                    Restrict
-                                  </button>
-
-                                  <button
-                                    onClick={() => openActionModal(
-                                      "terminate",
-                                      report.reported_user_id!,
-                                      report.reported_user?.username || ""
-                                    )}
-                                    className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm"
-                                  >
-                                    <XCircle className="h-4 w-4" />
-                                    Terminate
-                                  </button>
-
-                                  <div className="border-t border-gray-600 my-1"></div>
-                                </>
-                              )}
-
-                              <button
-                                onClick={() => {
-                                  if (window.confirm(
-                                    "Are you sure you want to dismiss this report?"
-                                  )) {
-                                    handleDismiss(report.id);
-                                  }
-                                } }
-                                className="flex items-center gap-2 px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors text-sm"
-                              >
-                                <Eye className="h-4 w-4" />
-                                Dismiss
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Content Management Tab - Enhanced with report buttons */}
-              {activeTab === "content" && (
-                <div>
-                  {/* Search and Filter Controls */}
-                  <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Search by title, username, or tags..."
-                        value={contentSearch}
-                        onChange={(e) => setContentSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4 text-gray-400" />
-                      <select
-                        value={contentFilter}
-                        onChange={(e) => setContentFilter(
-                          e.target.value as "all" | "profile" | "banner"
-                        )}
-                        className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="all">All Content</option>
-                        <option value="profile">Profiles Only</option>
-                        <option value="banner">Banners Only</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {fetchingContent ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-                    </div>
-                  ) : filteredContent.length === 0 ? (
-                    <div className="text-center py-12">
-                      <ImageIcon className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium mb-2">
-                        No content found
-                      </h3>
-                      <p className="text-gray-400">
-                        {contentSearch || contentFilter !== "all"
-                          ? "Try adjusting your search or filter"
-                          : "No content has been uploaded yet"}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredContent.map((item) => (
-                        <div
-                          key={item.id}
-                          className="bg-gray-700 rounded-lg overflow-hidden"
-                        >
-                          <div className="aspect-square relative">
-                            <img
-                              src={item.image_url || "/placeholder.svg"}
-                              alt={item.title}
-                              className="w-full h-full object-cover" />
-                            <div className="absolute top-2 right-2">
-                              <span
-                                className={`px-2 py-1 rounded text-xs font-medium ${item.type === "profile"
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-purple-600 text-white"}`}
-                              >
-                                {item.type.toUpperCase()}
-                              </span>
-                            </div>
-                            {/* Add report button overlay */}
-                            <div className="absolute top-2 left-2">
-                              <button
-                                onClick={() => openReportModal({
-                                  contentId: item.id,
-                                  contentType: item.type,
-                                })}
-                                className="bg-black/50 backdrop-blur-sm hover:bg-black/70 p-2 rounded-lg transition-colors"
-                                title="Report Content"
-                              >
-                                <AlertTriangle className="h-4 w-4 text-red-400" />
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="p-4">
-                            <h3 className="font-semibold text-lg mb-2 truncate">
-                              {item.title}
-                            </h3>
-
-                            <div className="space-y-2 text-sm text-gray-300">
-                              <div className="flex items-center gap-2">
-                                <User className="h-4 w-4 text-gray-400" />
-                                <span>{item.username}</span>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <Download className="h-4 w-4 text-gray-400" />
-                                <span>{item.download_count} downloads</span>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <Clock className="h-4 w-4 text-gray-400" />
-                                <span>
-                                  {new Date(
-                                    item.created_at
-                                  ).toLocaleDateString()}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <Database className="h-4 w-4 text-gray-400" />
-                                <span className="text-xs bg-gray-600 px-2 py-1 rounded">
-                                  {item.source_table}
-                                </span>
-                              </div>
-                            </div>
-
-                            {item.tags.length > 0 && (
-                              <div className="mt-3">
-                                <div className="flex flex-wrap gap-1">
-                                  {item.tags.slice(0, 3).map((tag) => (
-                                    <span
-                                      key={tag}
-                                      className="bg-gray-600 text-gray-300 px-2 py-1 rounded text-xs"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                  {item.tags.length > 3 && (
-                                    <span className="bg-gray-600 text-gray-300 px-2 py-1 rounded text-xs">
-                                      +{item.tags.length - 3}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="flex gap-2 mt-4">
-                              <button
-                                onClick={() => openEditModal(item)}
-                                className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm flex-1 justify-center"
-                              >
-                                <Edit3 className="h-4 w-4" />
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => deleteContent(item)}
-                                className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm flex-1 justify-center"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* AI Moderation Tab */}
-              {activeTab === "automation" && (
-                <div className="space-y-8">
-                  {/* AI Moderation Stats */}
-                  <section>
-                    <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                      <Brain className="h-5 w-5 text-purple-400" />
-                      OpenAI Moderation Overview
-                    </h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-                      <div className="bg-gray-700 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-gray-400 text-sm">Total Scans</p>
-                            <p className="text-2xl font-bold">
-                              {autoModerationStats.totalScans.toLocaleString()}
-                            </p>
-                          </div>
-                          <Scan className="h-8 w-8 text-blue-400" />
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-700 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-gray-400 text-sm">
-                              AI Scans Today
-                            </p>
-                            <p className="text-2xl font-bold">
-                              {autoModerationStats.aiScansToday}
-                            </p>
-                          </div>
-                          <Robot className="h-8 w-8 text-purple-400" />
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-700 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-gray-400 text-sm">
-                              Flagged Content
-                            </p>
-                            <p className="text-2xl font-bold">
-                              {autoModerationStats.flaggedContent}
-                            </p>
-                          </div>
-                          <AlertOctagon className="h-8 w-8 text-orange-400" />
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-700 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-gray-400 text-sm">
-                              Auto Actions
-                            </p>
-                            <p className="text-2xl font-bold">
-                              {autoModerationStats.autoActions}
-                            </p>
-                          </div>
-                          <Zap className="h-8 w-8 text-green-400" />
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-700 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-gray-400 text-sm">AI Accuracy</p>
-                            <p className="text-2xl font-bold">
-                              {autoModerationStats.aiAccuracy}%
-                            </p>
-                          </div>
-                          <Target className="h-8 w-8 text-purple-400" />
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-700 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-gray-400 text-sm">
-                              Active Rules
-                            </p>
-                            <p className="text-2xl font-bold">
-                              {autoModerationStats.activeRules}
-                            </p>
-                          </div>
-                          <Shield className="h-8 w-8 text-red-400" />
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* AI Insights */}
-                  {aiInsights && (
-                    <section>
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-semibold flex items-center gap-2">
-                          <Sparkles className="h-5 w-5 text-yellow-400" />
-                          AI Insights
-                        </h3>
-                        <button
-                          onClick={generateAiInsights}
-                          className="flex items-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors text-sm"
-                        >
-                          <Sparkles className="h-4 w-4" />
-                          Refresh Insights
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="bg-gray-700 rounded-lg p-4">
-                          <h4 className="font-semibold mb-3 flex items-center gap-2">
-                            <TrendingDown className="h-4 w-4 text-red-400" />
-                            Risk Users
-                          </h4>
-                          <div className="space-y-2">
-                            {aiInsights.riskUsers
-                              .slice(0, 5)
-                              .map((user, index) => (
-                                <div
-                                  key={index}
-                                  className="flex items-center justify-between text-sm"
-                                >
-                                  <span>{user.username}</span>
-                                  <span
-                                    className={`px-2 py-1 rounded text-xs ${user.riskLevel === "high"
-                                        ? "bg-red-600"
-                                        : "bg-orange-600"}`}
-                                  >
-                                    {user.riskLevel}
-                                  </span>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-
-                        <div className="bg-gray-700 rounded-lg p-4">
-                          <h4 className="font-semibold mb-3 flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4 text-green-400" />
-                            Content Trends
-                          </h4>
-                          <div className="space-y-2">
-                            {aiInsights.contentTrends.map((trend, index) => (
-                              <div key={index} className="text-sm">
-                                <div className="font-medium">{trend.trend}</div>
-                                <div className="text-gray-400">
-                                  {trend.impact}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="bg-gray-700 rounded-lg p-4">
-                          <h4 className="font-semibold mb-3 flex items-center gap-2">
-                            <Brain className="h-4 w-4 text-blue-400" />
-                            AI Recommendations
-                          </h4>
-                          <div className="space-y-2">
-                            {aiInsights.recommendations.map((rec, index) => (
-                              <div
-                                key={index}
-                                className="text-sm text-gray-300"
-                              >
-                                • {rec}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </section>
-                  )}
-
-                  {/* Moderation Rules */}
-                  <section>
-                    <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                      <Settings className="h-5 w-5 text-blue-400" />
-                      AI Moderation Rules
-                    </h3>
-
-                    {fetchingRules ? (
-                      <div className="flex items-center justify-center py-12">
-                        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {moderationRules.map((rule) => (
-                          <div
-                            key={rule.id}
-                            className="bg-gray-700 rounded-lg p-4"
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <h4 className="font-semibold text-lg">
-                                    {rule.name}
-                                  </h4>
-                                  <span
-                                    className={`px-2 py-1 rounded text-xs font-medium ${rule.enabled
-                                        ? "bg-green-600 text-white"
-                                        : "bg-gray-600 text-gray-300"}`}
-                                  >
-                                    {rule.enabled ? "ACTIVE" : "DISABLED"}
-                                  </span>
-                                  <span
-                                    className={`px-2 py-1 rounded text-xs font-medium ${rule.severity === "critical"
-                                        ? "bg-red-600 text-white"
-                                        : rule.severity === "high"
-                                          ? "bg-orange-600 text-white"
-                                          : rule.severity === "medium"
-                                            ? "bg-yellow-600 text-white"
-                                            : "bg-blue-600 text-white"}`}
-                                  >
-                                    {rule.severity.toUpperCase()}
-                                  </span>
-                                  <span className="bg-purple-600 text-white px-2 py-1 rounded text-xs font-medium">
-                                    {rule.type.replace("_", " ").toUpperCase()}
-                                  </span>
-                                  {rule.conditions.aiEnabled && (
-                                    <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
-                                      <Robot className="h-3 w-3" />
-                                      AI
-                                    </span>
-                                  )}
-                                </div>
-
-                                <p className="text-gray-300 text-sm mb-3">
-                                  {rule.description}
-                                </p>
-
-                                <div className="flex items-center gap-4 text-sm text-gray-400">
-                                  <span>
-                                    Action: {rule.action.replace("_", " ")}
-                                  </span>
-                                  <span>
-                                    Created:{" "}
-                                    {new Date(
-                                      rule.created_at
+                                      item.created_at
                                     ).toLocaleDateString()}
                                   </span>
-                                  {rule.conditions.keywords && (
-                                    <span>
-                                      Keywords:{" "}
-                                      {rule.conditions.keywords.length}
-                                    </span>
-                                  )}
-                                  {rule.conditions.confidenceThreshold && (
-                                    <span>
-                                      AI Threshold:{" "}
-                                      {rule.conditions.confidenceThreshold}%
-                                    </span>
-                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <Database className="h-4 w-4 text-gray-400" />
+                                  <span className="text-xs bg-gray-600 px-2 py-1 rounded">
+                                    {item.source_table}
+                                  </span>
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => toggleModerationRule(rule.id, !rule.enabled)}
-                                  className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-colors text-sm ${rule.enabled
-                                      ? "bg-orange-600 hover:bg-orange-700"
-                                      : "bg-green-600 hover:bg-green-700"}`}
-                                >
-                                  {rule.enabled ? (
-                                    <PauseCircle className="h-4 w-4" />
-                                  ) : (
-                                    <PlayCircle className="h-4 w-4" />
-                                  )}
-                                  {rule.enabled ? "Disable" : "Enable"}
-                                </button>
+                              {item.tags.length > 0 && (
+                                <div className="mt-3">
+                                  <div className="flex flex-wrap gap-1">
+                                    {item.tags.slice(0, 3).map((tag) => (
+                                      <span
+                                        key={tag}
+                                        className="bg-gray-600 text-gray-300 px-2 py-1 rounded text-xs"
+                                      >
+                                        {tag}
+                                      </span>
+                                    ))}
+                                    {item.tags.length > 3 && (
+                                      <span className="bg-gray-600 text-gray-300 px-2 py-1 rounded text-xs">
+                                        +{item.tags.length - 3}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
 
+                              <div className="flex gap-2 mt-4">
                                 <button
-                                  onClick={() => {
-                                    setRuleModal({
-                                      open: true,
-                                      rule,
-                                      isEditing: true,
-                                    });
-                                    setNewRule({
-                                      name: rule.name,
-                                      description: rule.description,
-                                      type: rule.type,
-                                      severity: rule.severity,
-                                      action: rule.action,
-                                      keywords: rule.conditions.keywords?.join(", ") ||
-                                        "",
-                                      patterns: rule.conditions.patterns?.join(", ") ||
-                                        "",
-                                      aiEnabled: rule.conditions.aiEnabled || false,
-                                      confidenceThreshold: rule.conditions.confidenceThreshold ||
-                                        70,
-                                    });
-                                  } }
-                                  className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm"
+                                  onClick={() => openEditModal(item)}
+                                  className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm flex-1 justify-center"
                                 >
-                                  <Edit className="h-4 w-4" />
+                                  <Edit3 className="h-4 w-4" />
                                   Edit
                                 </button>
-
                                 <button
-                                  onClick={() => deleteModerationRule(rule.id)}
-                                  className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm"
+                                  onClick={() => deleteContent(item)}
+                                  className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm flex-1 justify-center"
                                 >
-                                  <Trash className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4" />
                                   Delete
                                 </button>
                               </div>
@@ -3213,1155 +2937,1662 @@ const handleDismiss = async (id: string) => {
                         ))}
                       </div>
                     )}
-                  </section>
+                  </div>
+                )}
 
-                  {/* Recent AI Scans */}
-                  <section>
-                    <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                      <Activity className="h-5 w-5 text-green-400" />
-                      Recent AI Scans
-                    </h3>
+                {/* AI Moderation Tab */}
+                {activeTab === "automation" && (
+                  <div className="space-y-8">
+                    {/* AI Moderation Stats */}
+                    <section>
+                      <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <Brain className="h-5 w-5 text-purple-400" />
+                        OpenAI Moderation Overview
+                      </h3>
 
-                    {fetchingScans ? (
-                      <div className="flex items-center justify-center py-12">
-                        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                        <div className="bg-gray-700 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-gray-400 text-sm">
+                                Total Scans
+                              </p>
+                              <p className="text-2xl font-bold">
+                                {autoModerationStats.totalScans.toLocaleString()}
+                              </p>
+                            </div>
+                            <Scan className="h-8 w-8 text-blue-400" />
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-700 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-gray-400 text-sm">
+                                AI Scans Today
+                              </p>
+                              <p className="text-2xl font-bold">
+                                {autoModerationStats.aiScansToday}
+                              </p>
+                            </div>
+                            <Robot className="h-8 w-8 text-purple-400" />
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-700 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-gray-400 text-sm">
+                                Flagged Content
+                              </p>
+                              <p className="text-2xl font-bold">
+                                {autoModerationStats.flaggedContent}
+                              </p>
+                            </div>
+                            <AlertOctagon className="h-8 w-8 text-orange-400" />
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-700 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-gray-400 text-sm">
+                                Auto Actions
+                              </p>
+                              <p className="text-2xl font-bold">
+                                {autoModerationStats.autoActions}
+                              </p>
+                            </div>
+                            <Zap className="h-8 w-8 text-green-400" />
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-700 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-gray-400 text-sm">
+                                AI Accuracy
+                              </p>
+                              <p className="text-2xl font-bold">
+                                {autoModerationStats.aiAccuracy}%
+                              </p>
+                            </div>
+                            <Target className="h-8 w-8 text-purple-400" />
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-700 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-gray-400 text-sm">
+                                Active Rules
+                              </p>
+                              <p className="text-2xl font-bold">
+                                {autoModerationStats.activeRules}
+                              </p>
+                            </div>
+                            <Shield className="h-8 w-8 text-red-400" />
+                          </div>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {recentScans.slice(0, 10).map((scan) => (
-                          <div
-                            key={scan.id}
-                            className="bg-gray-700 rounded-lg p-4"
+                    </section>
+
+                    {/* AI Insights */}
+                    {aiInsights && (
+                      <section>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-xl font-semibold flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-yellow-400" />
+                            AI Insights
+                          </h3>
+                          <button
+                            onClick={generateAiInsights}
+                            className="flex items-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors text-sm"
                           >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
+                            <Sparkles className="h-4 w-4" />
+                            Refresh Insights
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                          <div className="bg-gray-700 rounded-lg p-4">
+                            <h4 className="font-semibold mb-3 flex items-center gap-2">
+                              <TrendingDown className="h-4 w-4 text-red-400" />
+                              Risk Users
+                            </h4>
+                            <div className="space-y-2">
+                              {aiInsights.riskUsers
+                                .slice(0, 5)
+                                .map((user, index) => (
+                                  <div
+                                    key={index}
+                                    className="flex items-center justify-between text-sm"
+                                  >
+                                    <span>{user.username}</span>
+                                    <span
+                                      className={`px-2 py-1 rounded text-xs ${
+                                        user.riskLevel === "high"
+                                          ? "bg-red-600"
+                                          : "bg-orange-600"
+                                      }`}
+                                    >
+                                      {user.riskLevel}
+                                    </span>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+
+                          <div className="bg-gray-700 rounded-lg p-4">
+                            <h4 className="font-semibold mb-3 flex items-center gap-2">
+                              <TrendingUp className="h-4 w-4 text-green-400" />
+                              Content Trends
+                            </h4>
+                            <div className="space-y-2">
+                              {aiInsights.contentTrends.map((trend, index) => (
+                                <div key={index} className="text-sm">
+                                  <div className="font-medium">
+                                    {trend.trend}
+                                  </div>
+                                  <div className="text-gray-400">
+                                    {trend.impact}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="bg-gray-700 rounded-lg p-4">
+                            <h4 className="font-semibold mb-3 flex items-center gap-2">
+                              <Brain className="h-4 w-4 text-blue-400" />
+                              AI Recommendations
+                            </h4>
+                            <div className="space-y-2">
+                              {aiInsights.recommendations.map((rec, index) => (
                                 <div
-                                  className={`h-3 w-3 rounded-full ${scan.status === "completed"
-                                      ? "bg-green-400"
-                                      : scan.status === "pending"
-                                        ? "bg-yellow-400"
-                                        : "bg-red-400"}`} />
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium">
-                                      {scan.content_type}
+                                  key={index}
+                                  className="text-sm text-gray-300"
+                                >
+                                  • {rec}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Moderation Rules */}
+                    <section>
+                      <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <Settings className="h-5 w-5 text-blue-400" />
+                        AI Moderation Rules
+                      </h3>
+
+                      {fetchingRules ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {moderationRules.map((rule) => (
+                            <div
+                              key={rule.id}
+                              className="bg-gray-700 rounded-lg p-4"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <h4 className="font-semibold text-lg">
+                                      {rule.name}
+                                    </h4>
+                                    <span
+                                      className={`px-2 py-1 rounded text-xs font-medium ${
+                                        rule.enabled
+                                          ? "bg-green-600 text-white"
+                                          : "bg-gray-600 text-gray-300"
+                                      }`}
+                                    >
+                                      {rule.enabled ? "ACTIVE" : "DISABLED"}
                                     </span>
-                                    <span className="text-gray-400">•</span>
-                                    <span className="text-sm text-gray-400">
-                                      {scan.scan_type.replace("_", " ")}
+                                    <span
+                                      className={`px-2 py-1 rounded text-xs font-medium ${
+                                        rule.severity === "critical"
+                                          ? "bg-red-600 text-white"
+                                          : rule.severity === "high"
+                                          ? "bg-orange-600 text-white"
+                                          : rule.severity === "medium"
+                                          ? "bg-yellow-600 text-white"
+                                          : "bg-blue-600 text-white"
+                                      }`}
+                                    >
+                                      {rule.severity.toUpperCase()}
                                     </span>
-                                    {scan.scan_type === "openai_moderation" && (
+                                    <span className="bg-purple-600 text-white px-2 py-1 rounded text-xs font-medium">
+                                      {rule.type
+                                        .replace("_", " ")
+                                        .toUpperCase()}
+                                    </span>
+                                    {rule.conditions.aiEnabled && (
                                       <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
                                         <Robot className="h-3 w-3" />
-                                        OpenAI
+                                        AI
                                       </span>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-4 text-sm text-gray-400 mt-1">
+
+                                  <p className="text-gray-300 text-sm mb-3">
+                                    {rule.description}
+                                  </p>
+
+                                  <div className="flex items-center gap-4 text-sm text-gray-400">
                                     <span>
-                                      Confidence:{" "}
-                                      {scan.confidence_score.toFixed(1)}%
+                                      Action: {rule.action.replace("_", " ")}
                                     </span>
-                                    <span>Flags: {scan.flags.length}</span>
-                                    {scan.action_taken && (
-                                      <span>Action: {scan.action_taken}</span>
+                                    <span>
+                                      Created:{" "}
+                                      {new Date(
+                                        rule.created_at
+                                      ).toLocaleDateString()}
+                                    </span>
+                                    {rule.conditions.keywords && (
+                                      <span>
+                                        Keywords:{" "}
+                                        {rule.conditions.keywords.length}
+                                      </span>
+                                    )}
+                                    {rule.conditions.confidenceThreshold && (
+                                      <span>
+                                        AI Threshold:{" "}
+                                        {rule.conditions.confidenceThreshold}%
+                                      </span>
                                     )}
                                   </div>
-                                  {scan.ai_result && (
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      AI: {scan.ai_result.reasoning}
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() =>
+                                      toggleModerationRule(
+                                        rule.id,
+                                        !rule.enabled
+                                      )
+                                    }
+                                    className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-colors text-sm ${
+                                      rule.enabled
+                                        ? "bg-orange-600 hover:bg-orange-700"
+                                        : "bg-green-600 hover:bg-green-700"
+                                    }`}
+                                  >
+                                    {rule.enabled ? (
+                                      <PauseCircle className="h-4 w-4" />
+                                    ) : (
+                                      <PlayCircle className="h-4 w-4" />
+                                    )}
+                                    {rule.enabled ? "Disable" : "Enable"}
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setRuleModal({
+                                        open: true,
+                                        rule,
+                                        isEditing: true,
+                                      });
+                                      setNewRule({
+                                        name: rule.name,
+                                        description: rule.description,
+                                        type: rule.type,
+                                        severity: rule.severity,
+                                        action: rule.action,
+                                        keywords:
+                                          rule.conditions.keywords?.join(
+                                            ", "
+                                          ) || "",
+                                        patterns:
+                                          rule.conditions.patterns?.join(
+                                            ", "
+                                          ) || "",
+                                        aiEnabled:
+                                          rule.conditions.aiEnabled || false,
+                                        confidenceThreshold:
+                                          rule.conditions.confidenceThreshold ||
+                                          70,
+                                      });
+                                    }}
+                                    className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                    Edit
+                                  </button>
+
+                                  <button
+                                    onClick={() =>
+                                      deleteModerationRule(rule.id)
+                                    }
+                                    className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm"
+                                  >
+                                    <Trash className="h-4 w-4" />
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+
+                    {/* Recent AI Scans */}
+                    <section>
+                      <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <Activity className="h-5 w-5 text-green-400" />
+                        Recent AI Scans
+                      </h3>
+
+                      {fetchingScans ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {recentScans.slice(0, 10).map((scan) => (
+                            <div
+                              key={scan.id}
+                              className="bg-gray-700 rounded-lg p-4"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                  <div
+                                    className={`h-3 w-3 rounded-full ${
+                                      scan.status === "completed"
+                                        ? "bg-green-400"
+                                        : scan.status === "pending"
+                                        ? "bg-yellow-400"
+                                        : "bg-red-400"
+                                    }`}
+                                  />
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">
+                                        {scan.content_type}
+                                      </span>
+                                      <span className="text-gray-400">•</span>
+                                      <span className="text-sm text-gray-400">
+                                        {scan.scan_type.replace("_", " ")}
+                                      </span>
+                                      {scan.scan_type ===
+                                        "openai_moderation" && (
+                                        <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                                          <Robot className="h-3 w-3" />
+                                          OpenAI
+                                        </span>
+                                      )}
                                     </div>
+                                    <div className="flex items-center gap-4 text-sm text-gray-400 mt-1">
+                                      <span>
+                                        Confidence:{" "}
+                                        {scan.confidence_score.toFixed(1)}%
+                                      </span>
+                                      <span>Flags: {scan.flags.length}</span>
+                                      {scan.action_taken && (
+                                        <span>Action: {scan.action_taken}</span>
+                                      )}
+                                    </div>
+                                    {scan.ai_result && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        AI: {scan.ai_result.reasoning}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-sm text-gray-400">
+                                    {new Date(
+                                      scan.created_at
+                                    ).toLocaleDateString()}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {new Date(
+                                      scan.created_at
+                                    ).toLocaleTimeString()}
+                                  </div>
+                                </div>
+                              </div>
+                              {scan.flags.length > 0 && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {scan.flags.map((flag) => (
+                                    <span
+                                      key={flag}
+                                      className="bg-red-600/20 text-red-300 px-2 py-1 rounded text-xs border border-red-600/30"
+                                    >
+                                      {flag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+
+                    {/* Spam Patterns */}
+                    <section>
+                      <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-orange-400" />
+                        Spam Detection Patterns
+                      </h3>
+
+                      {fetchingPatterns ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {spamPatterns.map((pattern) => (
+                            <div
+                              key={pattern.id}
+                              className="bg-gray-700 rounded-lg p-4"
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-medium text-sm">
+                                      {pattern.type.toUpperCase()}
+                                    </span>
+                                    <button
+                                      onClick={() =>
+                                        toggleSpamPattern(
+                                          pattern.id,
+                                          !pattern.enabled
+                                        )
+                                      }
+                                      className={`px-2 py-1 rounded text-xs transition-colors ${
+                                        pattern.enabled
+                                          ? "bg-green-600 text-white hover:bg-green-700"
+                                          : "bg-gray-600 text-gray-300 hover:bg-gray-500"
+                                      }`}
+                                    >
+                                      {pattern.enabled ? "ACTIVE" : "DISABLED"}
+                                    </button>
+                                  </div>
+                                  <p className="text-xs text-gray-400 mb-2">
+                                    {pattern.description}
+                                  </p>
+                                  <code className="text-xs bg-gray-800 px-2 py-1 rounded text-green-400 block">
+                                    {pattern.pattern}
+                                  </code>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between text-xs text-gray-400">
+                                <span>Severity: {pattern.severity}/10</span>
+                                <span>
+                                  {new Date(
+                                    pattern.created_at
+                                  ).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  </div>
+                )}
+
+                {/* Analytics Tab */}
+                {activeTab === "analytics" && (
+                  <div>
+                    {fetchingAnalytics ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                      </div>
+                    ) : analyticsData ? (
+                      <div className="space-y-8">
+                        {/* Platform Overview */}
+                        <section>
+                          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                            <PieChart className="h-5 w-5 text-blue-400" />
+                            Platform Overview
+                          </h3>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="bg-gray-700 rounded-lg p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-gray-400 text-sm">
+                                    Total Users
+                                  </p>
+                                  <p className="text-2xl font-bold">
+                                    {analyticsData.overview.totalUsers.toLocaleString()}
+                                  </p>
+                                  <p className="text-green-400 text-sm">
+                                    +{analyticsData.overview.newUsersThisWeek}{" "}
+                                    this week
+                                  </p>
+                                </div>
+                                <Users className="h-8 w-8 text-blue-400" />
+                              </div>
+                            </div>
+
+                            <div className="bg-gray-700 rounded-lg p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-gray-400 text-sm">
+                                    Total Content
+                                  </p>
+                                  <p className="text-2xl font-bold">
+                                    {analyticsData.overview.totalContent.toLocaleString()}
+                                  </p>
+                                  <p className="text-green-400 text-sm">
+                                    +{analyticsData.overview.newContentThisWeek}{" "}
+                                    this week
+                                  </p>
+                                </div>
+                                <ImageIcon className="h-8 w-8 text-purple-400" />
+                              </div>
+                            </div>
+
+                            <div className="bg-gray-700 rounded-lg p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-gray-400 text-sm">
+                                    Total Downloads
+                                  </p>
+                                  <p className="text-2xl font-bold">
+                                    {analyticsData.overview.totalDownloads.toLocaleString()}
+                                  </p>
+                                </div>
+                                <Download className="h-8 w-8 text-green-400" />
+                              </div>
+                            </div>
+
+                            <div className="bg-gray-700 rounded-lg p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-gray-400 text-sm">
+                                    Total Reports
+                                  </p>
+                                  <p className="text-2xl font-bold">
+                                    {analyticsData.overview.totalReports.toLocaleString()}
+                                  </p>
+                                  <p className="text-red-400 text-sm">
+                                    +{analyticsData.overview.reportsThisWeek}{" "}
+                                    this week
+                                  </p>
+                                </div>
+                                <AlertTriangle className="h-8 w-8 text-orange-400" />
+                              </div>
+                            </div>
+                          </div>
+                        </section>
+
+                        {/* Content Statistics */}
+                        <section>
+                          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                            <BarChart3 className="h-5 w-5 text-purple-400" />
+                            Content Statistics
+                          </h3>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="bg-gray-700 rounded-lg p-4">
+                              <h4 className="font-semibold mb-3">
+                                Content Types
+                              </h4>
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span>Profiles</span>
+                                  <span>
+                                    {analyticsData.contentStats.profileCount.toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span>Banners</span>
+                                  <span>
+                                    {analyticsData.contentStats.bannerCount.toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span>Pairs</span>
+                                  <span>
+                                    {analyticsData.contentStats.pairCount.toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="bg-gray-700 rounded-lg p-4">
+                              <h4 className="font-semibold mb-3">
+                                Top Categories
+                              </h4>
+                              <div className="space-y-2">
+                                {analyticsData.contentStats.categoriesBreakdown.map(
+                                  (cat) => (
+                                    <div
+                                      key={cat.category}
+                                      className="flex items-center justify-between"
+                                    >
+                                      <span>{cat.category}</span>
+                                      <span>{cat.count.toLocaleString()}</span>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="bg-gray-700 rounded-lg p-4">
+                              <h4 className="font-semibold mb-3">Top Tags</h4>
+                              <div className="space-y-2">
+                                {analyticsData.contentStats.topTags.map(
+                                  (tag) => (
+                                    <div
+                                      key={tag.tag}
+                                      className="flex items-center justify-between"
+                                    >
+                                      <span>{tag.tag}</span>
+                                      <span>{tag.count.toLocaleString()}</span>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </section>
+
+                        {/* Trending Content */}
+                        <section>
+                          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-green-400" />
+                            Trending Content
+                          </h3>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {analyticsData.contentStats.trendingItems.map(
+                              (item) => (
+                                <div
+                                  key={item.id}
+                                  className="bg-gray-700 rounded-lg overflow-hidden"
+                                >
+                                  <div className="aspect-square relative">
+                                    <img
+                                      src={
+                                        item.image_url ||
+                                        item.pfp_url ||
+                                        item.banner_url ||
+                                        "/placeholder.svg"
+                                      }
+                                      alt={item.title}
+                                      className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute top-2 right-2">
+                                      <span
+                                        className={`px-2 py-1 rounded text-xs font-medium ${
+                                          item.type === "pfp" ||
+                                          item.type === "profile"
+                                            ? "bg-blue-600 text-white"
+                                            : item.type === "banner"
+                                            ? "bg-purple-600 text-white"
+                                            : "bg-green-600 text-white"
+                                        }`}
+                                      >
+                                        {item.type.toUpperCase()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="p-4">
+                                    <h4 className="font-semibold text-lg mb-2 truncate">
+                                      {item.title}
+                                    </h4>
+                                    <div className="space-y-2 text-sm text-gray-300">
+                                      <div className="flex items-center gap-2">
+                                        <Download className="h-4 w-4 text-gray-400" />
+                                        <span>
+                                          {item.download_count.toLocaleString()}{" "}
+                                          downloads
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <TrendingUp className="h-4 w-4 text-gray-400" />
+                                        <span>
+                                          Trend Score:{" "}
+                                          {item.trend_score.toLocaleString()}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <Clock className="h-4 w-4 text-gray-400" />
+                                        <span>
+                                          {new Date(
+                                            item.updated_at
+                                          ).toLocaleDateString()}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </section>
+
+                        {/* User Statistics */}
+                        <section>
+                          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                            <UserCog className="h-5 w-5 text-yellow-400" />
+                            User Statistics
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="bg-gray-700 rounded-lg p-4">
+                              <h4 className="font-semibold mb-3">
+                                Active Users
+                              </h4>
+                              <div className="flex items-center justify-between">
+                                <p className="text-2xl font-bold">
+                                  {analyticsData.userStats.activeUsers.toLocaleString()}
+                                </p>
+                                <UserCheck className="h-8 w-8 text-green-400" />
+                              </div>
+                            </div>
+                            <div className="bg-gray-700 rounded-lg p-4">
+                              <h4 className="font-semibold mb-3">
+                                Top Uploaders
+                              </h4>
+                              <div className="space-y-2">
+                                {analyticsData.userStats.topUploaders.map(
+                                  (user) => (
+                                    <div
+                                      key={user.username}
+                                      className="flex items-center justify-between"
+                                    >
+                                      <span>{user.username}</span>
+                                      <span>
+                                        {user.uploadCount.toLocaleString()}
+                                      </span>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                            <div className="bg-gray-700 rounded-lg p-4">
+                              <h4 className="font-semibold mb-3">
+                                Registration Trends
+                              </h4>
+                              <div className="space-y-2">
+                                {analyticsData.userStats.registrationTrends
+                                  .slice(0, 5)
+                                  .map((trend) => (
+                                    <div
+                                      key={trend.date}
+                                      className="flex items-center justify-between"
+                                    >
+                                      <span>{trend.date}</span>
+                                      <span>
+                                        {trend.count.toLocaleString()}
+                                      </span>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          </div>
+                        </section>
+
+                        {/* Moderation Statistics */}
+                        <section>
+                          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                            <Shield className="h-5 w-5 text-red-400" />
+                            Moderation Statistics
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="bg-gray-700 rounded-lg p-4">
+                              <h4 className="font-semibold mb-3">
+                                Reports Resolved
+                              </h4>
+                              <div className="flex items-center justify-between">
+                                <p className="text-2xl font-bold">
+                                  {analyticsData.moderationStats.reportsResolved.toLocaleString()}
+                                </p>
+                                <CheckCircle className="h-8 w-8 text-green-400" />
+                              </div>
+                            </div>
+                            <div className="bg-gray-700 rounded-lg p-4">
+                              <h4 className="font-semibold mb-3">
+                                Reports Pending
+                              </h4>
+                              <div className="flex items-center justify-between">
+                                <p className="text-2xl font-bold">
+                                  {analyticsData.moderationStats.reportsPending.toLocaleString()}
+                                </p>
+                                <Clock className="h-8 w-8 text-yellow-400" />
+                              </div>
+                            </div>
+                            <div className="bg-gray-700 rounded-lg p-4">
+                              <h4 className="font-semibold mb-3">
+                                Top Report Reasons
+                              </h4>
+                              <div className="space-y-2">
+                                {analyticsData.moderationStats.topReportReasons.map(
+                                  (reason) => (
+                                    <div
+                                      key={reason.reason}
+                                      className="flex items-center justify-between"
+                                    >
+                                      <span>{reason.reason}</span>
+                                      <span>
+                                        {reason.count.toLocaleString()}
+                                      </span>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </section>
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <BarChart3 className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium mb-2">
+                          No analytics data available
+                        </h3>
+                        <p className="text-gray-400">Please try again later</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* User Management Tab */}
+                {activeTab === "users" && (
+                  <div>
+                    {/* Search and Filter Controls */}
+                    <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search by username, email, or display name..."
+                          value={userSearch}
+                          onChange={(e) => setUserSearch(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-gray-400" />
+                        <select
+                          value={userFilter}
+                          onChange={(e) =>
+                            setUserFilter(
+                              e.target.value as
+                                | "all"
+                                | "active"
+                                | "restricted"
+                                | "terminated"
+                            )
+                          }
+                          className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="all">All Users</option>
+                          <option value="active">Active Users</option>
+                          <option value="restricted">Restricted Users</option>
+                          <option value="terminated">Terminated Users</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {fetchingUsers ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                      </div>
+                    ) : filteredUsers.length === 0 ? (
+                      <div className="text-center py-12">
+                        <UserCog className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium mb-2">
+                          No users found
+                        </h3>
+                        <p className="text-gray-400">
+                          {userSearch || userFilter !== "all"
+                            ? "Try adjusting your search or filter"
+                            : "No users have registered yet"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredUsers.map((user) => (
+                          <div
+                            key={user.id}
+                            className="bg-gray-700 rounded-lg overflow-hidden"
+                          >
+                            <div className="p-4">
+                              <div className="flex items-center gap-4 mb-3">
+                                <img
+                                  src={user.avatar_url || "/placeholder.svg"}
+                                  alt={user.username}
+                                  className="h-10 w-10 rounded-full object-cover"
+                                />
+                                <div>
+                                  <h3 className="font-semibold text-lg">
+                                    {user.display_name}
+                                  </h3>
+                                  <p className="text-gray-400 text-sm">
+                                    @{user.username}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="space-y-2 text-sm text-gray-300">
+                                <div className="flex items-center gap-2">
+                                  <Mail className="h-4 w-4 text-gray-400" />
+                                  <span>{user.email}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-4 w-4 text-gray-400" />
+                                  <span>
+                                    Joined:{" "}
+                                    {new Date(
+                                      user.created_at
+                                    ).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Activity className="h-4 w-4 text-gray-400" />
+                                  <span>
+                                    Last Active:{" "}
+                                    {new Date(
+                                      user.last_active
+                                    ).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Download className="h-4 w-4 text-gray-400" />
+                                  <span>{user.download_count} downloads</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <HardDrive className="h-4 w-4 text-gray-400" />
+                                  <span>{user.upload_count} uploads</span>
+                                </div>
+                              </div>
+                              <div className="mt-4 flex items-center justify-between">
+                                <span
+                                  className={`px-2 py-1 rounded text-xs font-medium ${
+                                    user.status === "active"
+                                      ? "bg-green-600 text-white"
+                                      : user.status === "restricted"
+                                      ? "bg-orange-600 text-white"
+                                      : "bg-red-600 text-white"
+                                  }`}
+                                >
+                                  {user.status.toUpperCase()}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  {user.status !== "active" && (
+                                    <button
+                                      onClick={() =>
+                                        updateUserStatus(user.id, "active")
+                                      }
+                                      className="flex items-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors text-sm"
+                                    >
+                                      <UserCheck className="h-4 w-4" />
+                                      Activate
+                                    </button>
+                                  )}
+                                  {user.status !== "restricted" && (
+                                    <button
+                                      onClick={() =>
+                                        updateUserStatus(user.id, "restricted")
+                                      }
+                                      className="flex items-center gap-1 px-3 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors text-sm"
+                                    >
+                                      <UserX className="h-4 w-4" />
+                                      Restrict
+                                    </button>
+                                  )}
+                                  {user.status !== "terminated" && (
+                                    <button
+                                      onClick={() =>
+                                        updateUserStatus(user.id, "terminated")
+                                      }
+                                      className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm"
+                                    >
+                                      <UserX className="h-4 w-4" />
+                                      Terminate
+                                    </button>
                                   )}
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <div className="text-sm text-gray-400">
-                                  {new Date(
-                                    scan.created_at
-                                  ).toLocaleDateString()}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {new Date(
-                                    scan.created_at
-                                  ).toLocaleTimeString()}
-                                </div>
-                              </div>
                             </div>
-                            {scan.flags.length > 0 && (
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {scan.flags.map((flag) => (
-                                  <span
-                                    key={flag}
-                                    className="bg-red-600/20 text-red-300 px-2 py-1 rounded text-xs border border-red-600/30"
-                                  >
-                                    {flag}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
                           </div>
                         ))}
                       </div>
                     )}
-                  </section>
+                  </div>
+                )}
 
-                  {/* Spam Patterns */}
-                  <section>
-                    <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-orange-400" />
-                      Spam Detection Patterns
-                    </h3>
-
-                    {fetchingPatterns ? (
+                {/* System Settings Tab */}
+                {activeTab === "settings" && (
+                  <div>
+                    {fetchingSettings ? (
                       <div className="flex items-center justify-center py-12">
                         <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {spamPatterns.map((pattern) => (
-                          <div
-                            key={pattern.id}
-                            className="bg-gray-700 rounded-lg p-4"
-                          >
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-medium text-sm">
-                                    {pattern.type.toUpperCase()}
-                                  </span>
-                                  <button
-                                    onClick={() => toggleSpamPattern(
-                                      pattern.id,
-                                      !pattern.enabled
-                                    )}
-                                    className={`px-2 py-1 rounded text-xs transition-colors ${pattern.enabled
-                                        ? "bg-green-600 text-white hover:bg-green-700"
-                                        : "bg-gray-600 text-gray-300 hover:bg-gray-500"}`}
+                      <div className="space-y-6">
+                        {Object.entries(settingsByCategory).map(
+                          ([category, settings]) => (
+                            <section
+                              key={category}
+                              className="bg-gray-700 rounded-lg p-6"
+                            >
+                              <h3 className="text-xl font-semibold mb-4 capitalize">
+                                {category.replace("_", " ")}
+                              </h3>
+                              <div className="space-y-4">
+                                {settings.map((setting) => (
+                                  <div
+                                    key={setting.key}
+                                    className="flex items-center justify-between"
                                   >
-                                    {pattern.enabled ? "ACTIVE" : "DISABLED"}
-                                  </button>
-                                </div>
-                                <p className="text-xs text-gray-400 mb-2">
-                                  {pattern.description}
-                                </p>
-                                <code className="text-xs bg-gray-800 px-2 py-1 rounded text-green-400 block">
-                                  {pattern.pattern}
-                                </code>
+                                    <div>
+                                      <h4 className="font-semibold">
+                                        {setting.key.replace(/_/g, " ")}
+                                      </h4>
+                                      <p className="text-gray-400 text-sm">
+                                        {setting.description}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                      {setting.type === "boolean" ? (
+                                        <select
+                                          value={setting.value}
+                                          onChange={(e) =>
+                                            updateSystemSetting(
+                                              setting.key,
+                                              e.target.value
+                                            )
+                                          }
+                                          disabled={savingSettings[setting.key]}
+                                          className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                          <option value="true">True</option>
+                                          <option value="false">False</option>
+                                        </select>
+                                      ) : (
+                                        <input
+                                          type="text"
+                                          value={setting.value}
+                                          onChange={(e) =>
+                                            updateSystemSetting(
+                                              setting.key,
+                                              e.target.value
+                                            )
+                                          }
+                                          disabled={savingSettings[setting.key]}
+                                          className="w-48 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                      )}
+                                      {savingSettings[setting.key] && (
+                                        <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                            </div>
-                            <div className="flex items-center justify-between text-xs text-gray-400">
-                              <span>Severity: {pattern.severity}/10</span>
-                              <span>
-                                {new Date(
-                                  pattern.created_at
-                                ).toLocaleDateString()}
-                              </span>
+                            </section>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Moderation Logs Tab */}
+                {activeTab === "logs" && (
+                  <div>
+                    {fetchingLogs ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                      </div>
+                    ) : logs.length === 0 ? (
+                      <div className="text-center py-12">
+                        <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium mb-2">
+                          No moderation logs found
+                        </h3>
+                        <p className="text-gray-400">
+                          No actions have been logged yet
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {logs.map((log) => (
+                          <div
+                            key={log.id}
+                            className="bg-gray-700 rounded-lg p-6"
+                          >
+                            <div className="flex items-start gap-4">
+                              <div>
+                                <User className="h-8 w-8 text-gray-400" />
+                              </div>
+                              <div className="flex-1 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-semibold text-lg">
+                                    {usersMap[log.moderator_id]?.display_name ||
+                                      usersMap[log.moderator_id]?.username ||
+                                      "System"}
+                                  </h3>
+                                  <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
+                                    {log.action.toUpperCase()}
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
+                                  <div className="flex items-center gap-2">
+                                    <User className="h-4 w-4 text-gray-400" />
+                                    <span>
+                                      Target User:{" "}
+                                      {usersMap[log.target_user_id]?.username ||
+                                        "Unknown"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-gray-400" />
+                                    <span>
+                                      {new Date(
+                                        log.created_at
+                                      ).toLocaleString()}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-start gap-2">
+                                  <MessageSquare className="h-4 w-4 text-gray-400 mt-0.5" />
+                                  <span className="text-sm text-gray-300">
+                                    {log.description}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         ))}
                       </div>
                     )}
-                  </section>
-                </div>
-              )}
-
-              {/* Analytics Tab */}
-              {activeTab === "analytics" && (
-                <div>
-                  {fetchingAnalytics ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-                    </div>
-                  ) : analyticsData ? (
-                    <div className="space-y-8">
-                      {/* Platform Overview */}
-                      <section>
-                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                          <PieChart className="h-5 w-5 text-blue-400" />
-                          Platform Overview
-                        </h3>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                          <div className="bg-gray-700 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-gray-400 text-sm">
-                                  Total Users
-                                </p>
-                                <p className="text-2xl font-bold">
-                                  {analyticsData.overview.totalUsers.toLocaleString()}
-                                </p>
-                                <p className="text-green-400 text-sm">
-                                  +{analyticsData.overview.newUsersThisWeek}{" "}
-                                  this week
-                                </p>
-                              </div>
-                              <Users className="h-8 w-8 text-blue-400" />
-                            </div>
-                          </div>
-
-                          <div className="bg-gray-700 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-gray-400 text-sm">
-                                  Total Content
-                                </p>
-                                <p className="text-2xl font-bold">
-                                  {analyticsData.overview.totalContent.toLocaleString()}
-                                </p>
-                                <p className="text-green-400 text-sm">
-                                  +{analyticsData.overview.newContentThisWeek}{" "}
-                                  this week
-                                </p>
-                              </div>
-                              <ImageIcon className="h-8 w-8 text-purple-400" />
-                            </div>
-                          </div>
-
-                          <div className="bg-gray-700 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-gray-400 text-sm">
-                                  Total Downloads
-                                </p>
-                                <p className="text-2xl font-bold">
-                                  {analyticsData.overview.totalDownloads.toLocaleString()}
-                                </p>
-                              </div>
-                              <Download className="h-8 w-8 text-green-400" />
-                            </div>
-                          </div>
-
-                          <div className="bg-gray-700 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-gray-400 text-sm">
-                                  Total Reports
-                                </p>
-                                <p className="text-2xl font-bold">
-                                  {analyticsData.overview.totalReports.toLocaleString()}
-                                </p>
-                                <p className="text-red-400 text-sm">
-                                  +{analyticsData.overview.reportsThisWeek} this
-                                  week
-                                </p>
-                              </div>
-                              <AlertTriangle className="h-8 w-8 text-orange-400" />
-                            </div>
-                          </div>
-                        </div>
-                      </section>
-
-                      {/* Content Statistics */}
-                      <section>
-                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                          <BarChart3 className="h-5 w-5 text-purple-400" />
-                          Content Statistics
-                        </h3>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          <div className="bg-gray-700 rounded-lg p-4">
-                            <h4 className="font-semibold mb-3">
-                              Content Types
-                            </h4>
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span>Profiles</span>
-                                <span>
-                                  {analyticsData.contentStats.profileCount.toLocaleString()}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <span>Banners</span>
-                                <span>
-                                  {analyticsData.contentStats.bannerCount.toLocaleString()}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <span>Pairs</span>
-                                <span>
-                                  {analyticsData.contentStats.pairCount.toLocaleString()}
-                                </span>
-                              </div>
-
-                            </div>
-                          </div>
-
-                          <div className="bg-gray-700 rounded-lg p-4">
-                            <h4 className="font-semibold mb-3">
-                              Top Categories
-                            </h4>
-                            <div className="space-y-2">
-                              {analyticsData.contentStats.categoriesBreakdown.map(
-                                (cat) => (
-                                  <div
-                                    key={cat.category}
-                                    className="flex items-center justify-between"
-                                  >
-                                    <span>{cat.category}</span>
-                                    <span>{cat.count.toLocaleString()}</span>
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="bg-gray-700 rounded-lg p-4">
-                            <h4 className="font-semibold mb-3">Top Tags</h4>
-                            <div className="space-y-2">
-                              {analyticsData.contentStats.topTags.map((tag) => (
-                                <div
-                                  key={tag.tag}
-                                  className="flex items-center justify-between"
-                                >
-                                  <span>{tag.tag}</span>
-                                  <span>{tag.count.toLocaleString()}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </section>
-
-                      {/* Trending Content */}
-                      <section>
-                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                          <TrendingUp className="h-5 w-5 text-green-400" />
-                          Trending Content
-                        </h3>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                          {analyticsData.contentStats.trendingItems.map(
-                            (item) => (
-                              <div
-                                key={item.id}
-                                className="bg-gray-700 rounded-lg overflow-hidden"
-                              >
-                                <div className="aspect-square relative">
-                                  <img
-                                    src={item.image_url ||
-                                      item.pfp_url ||
-                                      item.banner_url ||
-                                      "/placeholder.svg"}
-                                    alt={item.title}
-                                    className="w-full h-full object-cover" />
-                                  <div className="absolute top-2 right-2">
-                                    <span
-                                      className={`px-2 py-1 rounded text-xs font-medium ${item.type === "pfp" ||
-                                          item.type === "profile"
-                                          ? "bg-blue-600 text-white"
-                                          : item.type === "banner"
-                                            ? "bg-purple-600 text-white"
-                                            : "bg-green-600 text-white"}`}
-                                    >
-                                      {item.type.toUpperCase()}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="p-4">
-                                  <h4 className="font-semibold text-lg mb-2 truncate">
-                                    {item.title}
-                                  </h4>
-                                  <div className="space-y-2 text-sm text-gray-300">
-                                    <div className="flex items-center gap-2">
-                                      <Download className="h-4 w-4 text-gray-400" />
-                                      <span>
-                                        {item.download_count.toLocaleString()}{" "}
-                                        downloads
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <TrendingUp className="h-4 w-4 text-gray-400" />
-                                      <span>
-                                        Trend Score:{" "}
-                                        {item.trend_score.toLocaleString()}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <Clock className="h-4 w-4 text-gray-400" />
-                                      <span>
-                                        {new Date(
-                                          item.updated_at
-                                        ).toLocaleDateString()}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )
-                          )}
-                        </div>
-                      </section>
-
-                      {/* User Statistics */}
-                      <section>
-                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                          <UserCog className="h-5 w-5 text-yellow-400" />
-                          User Statistics
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          <div className="bg-gray-700 rounded-lg p-4">
-                            <h4 className="font-semibold mb-3">Active Users</h4>
-                            <div className="flex items-center justify-between">
-                              <p className="text-2xl font-bold">
-                                {analyticsData.userStats.activeUsers.toLocaleString()}
-                              </p>
-                              <UserCheck className="h-8 w-8 text-green-400" />
-                            </div>
-                          </div>
-                          <div className="bg-gray-700 rounded-lg p-4">
-                            <h4 className="font-semibold mb-3">
-                              Top Uploaders
-                            </h4>
-                            <div className="space-y-2">
-                              {analyticsData.userStats.topUploaders.map(
-                                (user) => (
-                                  <div
-                                    key={user.username}
-                                    className="flex items-center justify-between"
-                                  >
-                                    <span>{user.username}</span>
-                                    <span>
-                                      {user.uploadCount.toLocaleString()}
-                                    </span>
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          </div>
-                          <div className="bg-gray-700 rounded-lg p-4">
-                            <h4 className="font-semibold mb-3">
-                              Registration Trends
-                            </h4>
-                            <div className="space-y-2">
-                              {analyticsData.userStats.registrationTrends
-                                .slice(0, 5)
-                                .map((trend) => (
-                                  <div
-                                    key={trend.date}
-                                    className="flex items-center justify-between"
-                                  >
-                                    <span>{trend.date}</span>
-                                    <span>{trend.count.toLocaleString()}</span>
-                                  </div>
-                                ))}
-                            </div>
-                          </div>
-                        </div>
-                      </section>
-
-                      {/* Moderation Statistics */}
-                      <section>
-                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                          <Shield className="h-5 w-5 text-red-400" />
-                          Moderation Statistics
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          <div className="bg-gray-700 rounded-lg p-4">
-                            <h4 className="font-semibold mb-3">
-                              Reports Resolved
-                            </h4>
-                            <div className="flex items-center justify-between">
-                              <p className="text-2xl font-bold">
-                                {analyticsData.moderationStats.reportsResolved.toLocaleString()}
-                              </p>
-                              <CheckCircle className="h-8 w-8 text-green-400" />
-                            </div>
-                          </div>
-                          <div className="bg-gray-700 rounded-lg p-4">
-                            <h4 className="font-semibold mb-3">
-                              Reports Pending
-                            </h4>
-                            <div className="flex items-center justify-between">
-                              <p className="text-2xl font-bold">
-                                {analyticsData.moderationStats.reportsPending.toLocaleString()}
-                              </p>
-                              <Clock className="h-8 w-8 text-yellow-400" />
-                            </div>
-                          </div>
-                          <div className="bg-gray-700 rounded-lg p-4">
-                            <h4 className="font-semibold mb-3">
-                              Top Report Reasons
-                            </h4>
-                            <div className="space-y-2">
-                              {analyticsData.moderationStats.topReportReasons.map(
-                                (reason) => (
-                                  <div
-                                    key={reason.reason}
-                                    className="flex items-center justify-between"
-                                  >
-                                    <span>{reason.reason}</span>
-                                    <span>{reason.count.toLocaleString()}</span>
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </section>
-                    </div>
-                  ) : (
-                    <div className="text-center py-12">
-                      <BarChart3 className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium mb-2">
-                        No analytics data available
-                      </h3>
-                      <p className="text-gray-400">Please try again later</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* User Management Tab */}
-              {activeTab === "users" && (
-                <div>
-                  {/* Search and Filter Controls */}
-                  <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Search by username, email, or display name..."
-                        value={userSearch}
-                        onChange={(e) => setUserSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4 text-gray-400" />
-                      <select
-                        value={userFilter}
-                        onChange={(e) => setUserFilter(
-                          e.target.value as "all" |
-                          "active" |
-                          "restricted" |
-                          "terminated"
-                        )}
-                        className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="all">All Users</option>
-                        <option value="active">Active Users</option>
-                        <option value="restricted">Restricted Users</option>
-                        <option value="terminated">Terminated Users</option>
-                      </select>
-                    </div>
                   </div>
+                )}
 
-                  {fetchingUsers ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-                    </div>
-                  ) : filteredUsers.length === 0 ? (
-                    <div className="text-center py-12">
-                      <UserCog className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium mb-2">
-                        No users found
-                      </h3>
-                      <p className="text-gray-400">
-                        {userSearch || userFilter !== "all"
-                          ? "Try adjusting your search or filter"
-                          : "No users have registered yet"}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredUsers.map((user) => (
-                        <div
-                          key={user.id}
-                          className="bg-gray-700 rounded-lg overflow-hidden"
-                        >
-                          <div className="p-4">
-                            <div className="flex items-center gap-4 mb-3">
-                              <img
-                                src={user.avatar_url || "/placeholder.svg"}
-                                alt={user.username}
-                                className="h-10 w-10 rounded-full object-cover" />
-                              <div>
-                                <h3 className="font-semibold text-lg">
-                                  {user.display_name}
-                                </h3>
-                                <p className="text-gray-400 text-sm">
-                                  @{user.username}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="space-y-2 text-sm text-gray-300">
-                              <div className="flex items-center gap-2">
-                                <Mail className="h-4 w-4 text-gray-400" />
-                                <span>{user.email}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-gray-400" />
-                                <span>
-                                  Joined:{" "}
-                                  {new Date(
-                                    user.created_at
-                                  ).toLocaleDateString()}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Activity className="h-4 w-4 text-gray-400" />
-                                <span>
-                                  Last Active:{" "}
-                                  {new Date(
-                                    user.last_active
-                                  ).toLocaleDateString()}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Download className="h-4 w-4 text-gray-400" />
-                                <span>{user.download_count} downloads</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <HardDrive className="h-4 w-4 text-gray-400" />
-                                <span>{user.upload_count} uploads</span>
-                              </div>
-                            </div>
-                            <div className="mt-4 flex items-center justify-between">
-                              <span
-                                className={`px-2 py-1 rounded text-xs font-medium ${user.status === "active"
-                                    ? "bg-green-600 text-white"
-                                    : user.status === "restricted"
-                                      ? "bg-orange-600 text-white"
-                                      : "bg-red-600 text-white"}`}
-                              >
-                                {user.status.toUpperCase()}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                {user.status !== "active" && (
-                                  <button
-                                    onClick={() => updateUserStatus(user.id, "active")}
-                                    className="flex items-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors text-sm"
-                                  >
-                                    <UserCheck className="h-4 w-4" />
-                                    Activate
-                                  </button>
-                                )}
-                                {user.status !== "restricted" && (
-                                  <button
-                                    onClick={() => updateUserStatus(user.id, "restricted")}
-                                    className="flex items-center gap-1 px-3 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors text-sm"
-                                  >
-                                    <UserX className="h-4 w-4" />
-                                    Restrict
-                                  </button>
-                                )}
-                                {user.status !== "terminated" && (
-                                  <button
-                                    onClick={() => updateUserStatus(user.id, "terminated")}
-                                    className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm"
-                                  >
-                                    <UserX className="h-4 w-4" />
-                                    Terminate
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                {activeTab === "modcases" &&
+                  (() => {
+
+                    if (loading) {
+                      return (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                      );
+                    }
 
-              {/* System Settings Tab */}
-              {activeTab === "settings" && (
-                <div>
-                  {fetchingSettings ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {Object.entries(settingsByCategory).map(
-                        ([category, settings]) => (
-                          <section
-                            key={category}
+                    if (!cases || cases.length === 0) {
+                      return (
+                        <div className="text-center py-12">
+                          <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                          <h3 className="text-lg font-medium mb-2">
+                            No moderation cases found
+                          </h3>
+                          <p className="text-gray-400">
+                            No moderation actions have been logged yet
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-4">
+                        {cases.map((c) => (
+                          <div
+                            key={c.id}
                             className="bg-gray-700 rounded-lg p-6"
                           >
-                            <h3 className="text-xl font-semibold mb-4 capitalize">
-                              {category.replace("_", " ")}
-                            </h3>
-                            <div className="space-y-4">
-                              {settings.map((setting) => (
-                                <div
-                                  key={setting.key}
-                                  className="flex items-center justify-between"
-                                >
-                                  <div>
-                                    <h4 className="font-semibold">
-                                      {setting.key.replace(/_/g, " ")}
-                                    </h4>
-                                    <p className="text-gray-400 text-sm">
-                                      {setting.description}
-                                    </p>
-                                  </div>
-                                  <div className="flex items-center gap-4">
-                                    {setting.type === "boolean" ? (
-                                      <select
-                                        value={setting.value}
-                                        onChange={(e) => updateSystemSetting(
-                                          setting.key,
-                                          e.target.value
-                                        )}
-                                        disabled={savingSettings[setting.key]}
-                                        className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                      >
-                                        <option value="true">True</option>
-                                        <option value="false">False</option>
-                                      </select>
-                                    ) : (
-                                      <input
-                                        type="text"
-                                        value={setting.value}
-                                        onChange={(e) => updateSystemSetting(
-                                          setting.key,
-                                          e.target.value
-                                        )}
-                                        disabled={savingSettings[setting.key]}
-                                        className="w-48 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                                    )}
-                                    {savingSettings[setting.key] && (
-                                      <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </section>
-                        )
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Moderation Logs Tab */}
-              {activeTab === "logs" && (
-                <div>
-                  {fetchingLogs ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-                    </div>
-                  ) : logs.length === 0 ? (
-                    <div className="text-center py-12">
-                      <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium mb-2">
-                        No moderation logs found
-                      </h3>
-                      <p className="text-gray-400">
-                        No actions have been logged yet
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {logs.map((log) => (
-                        <div
-                          key={log.id}
-                          className="bg-gray-700 rounded-lg p-6"
-                        >
-                          <div className="flex items-start gap-4">
-                            <div>
-                              <User className="h-8 w-8 text-gray-400" />
-                            </div>
-                            <div className="flex-1 space-y-2">
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-semibold text-lg">
-                                  {usersMap[log.moderator_id]?.display_name ||
-                                    usersMap[log.moderator_id]?.username ||
-                                    "System"}
-                                </h3>
-                                <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
-                                  {log.action.toUpperCase()}
-                                </span>
+                            <div className="flex items-start gap-4">
+                              <div>
+                                <User className="h-8 w-8 text-gray-400" />
                               </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
+                              <div className="flex-1 space-y-2">
                                 <div className="flex items-center gap-2">
-                                  <User className="h-4 w-4 text-gray-400" />
-                                  <span>
-                                    Target User:{" "}
-                                    {usersMap[log.target_user_id]?.username ||
-                                      "Unknown"}
+                                  <h3 className="font-semibold text-lg">
+                                    {c.moderator_tag || "System"}
+                                  </h3>
+                                  <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
+                                    {c.action.toUpperCase()}
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <Clock className="h-4 w-4 text-gray-400" />
-                                  <span>
-                                    {new Date(log.created_at).toLocaleString()}
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
+                                  <div className="flex items-center gap-2">
+                                    <User className="h-4 w-4 text-gray-400" />
+                                    <span>
+                                      Target User: {c.user_tag || "Unknown"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-gray-400" />
+                                    <span>
+                                      {new Date(c.timestamp).toLocaleString()}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-start gap-2">
+                                  <MessageSquare className="h-4 w-4 text-gray-400 mt-0.5" />
+                                  <span className="text-sm text-gray-300">
+                                    {c.reason || "No reason provided."}
                                   </span>
                                 </div>
-                              </div>
-
-                              <div className="flex items-start gap-2">
-                                <MessageSquare className="h-4 w-4 text-gray-400 mt-0.5" />
-                                <span className="text-sm text-gray-300">
-                                  {log.description}
-                                </span>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                        ))}
+                      </div>
+                    );
+                  })()}
 
-              {/* System Monitoring Tab */}
-              {activeTab === "monitoring" && (
-                <div className="space-y-6">
-                  <section className="bg-gray-700 rounded-lg p-6">
-                    <h3 className="text-xl font-semibold mb-4">
-                      System Resources
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-center gap-4">
-                        <HardDrive className="h-8 w-8 text-blue-400" />
-                        <div>
-                          <h4 className="font-semibold">CPU Usage</h4>
-                          <p className="text-gray-400">75%</p>
+                {/* System Monitoring Tab */}
+                {activeTab === "monitoring" && (
+                  <div className="space-y-6">
+                    <section className="bg-gray-700 rounded-lg p-6">
+                      <h3 className="text-xl font-semibold mb-4">
+                        System Resources
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-center gap-4">
+                          <HardDrive className="h-8 w-8 text-blue-400" />
+                          <div>
+                            <h4 className="font-semibold">CPU Usage</h4>
+                            <p className="text-gray-400">75%</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <Database className="h-8 w-8 text-green-400" />
+                          <div>
+                            <h4 className="font-semibold">Memory Usage</h4>
+                            <p className="text-gray-400">60%</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <Database className="h-8 w-8 text-green-400" />
-                        <div>
-                          <h4 className="font-semibold">Memory Usage</h4>
-                          <p className="text-gray-400">60%</p>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
+                    </section>
 
-                  <section className="bg-gray-700 rounded-lg p-6">
-                    <h3 className="text-xl font-semibold mb-4">
-                      Network Traffic
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-center gap-4">
-                        <Download className="h-8 w-8 text-yellow-400" />
-                        <div>
-                          <h4 className="font-semibold">Incoming</h4>
-                          <p className="text-gray-400">10 Mbps</p>
+                    <section className="bg-gray-700 rounded-lg p-6">
+                      <h3 className="text-xl font-semibold mb-4">
+                        Network Traffic
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-center gap-4">
+                          <Download className="h-8 w-8 text-yellow-400" />
+                          <div>
+                            <h4 className="font-semibold">Incoming</h4>
+                            <p className="text-gray-400">10 Mbps</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <TrendingUp className="h-8 w-8 text-red-400" />
+                          <div>
+                            <h4 className="font-semibold">Outgoing</h4>
+                            <p className="text-gray-400">8 Mbps</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <TrendingUp className="h-8 w-8 text-red-400" />
-                        <div>
-                          <h4 className="font-semibold">Outgoing</h4>
-                          <p className="text-gray-400">8 Mbps</p>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
+                    </section>
 
-                  <section className="bg-gray-700 rounded-lg p-6">
-                    <h3 className="text-xl font-semibold mb-4">System Logs</h3>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-gray-400">Server started</p>
-                        <span className="text-sm text-gray-500">
-                          2024-01-01 00:00:00
-                        </span>
+                    <section className="bg-gray-700 rounded-lg p-6">
+                      <h3 className="text-xl font-semibold mb-4">
+                        System Logs
+                      </h3>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-gray-400">Server started</p>
+                          <span className="text-sm text-gray-500">
+                            2024-01-01 00:00:00
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-gray-400">Database connected</p>
+                          <span className="text-sm text-gray-500">
+                            2024-01-01 00:00:05
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-gray-400">User login</p>
+                          <span className="text-sm text-gray-500">
+                            2024-01-01 00:00:10
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <p className="text-gray-400">Database connected</p>
-                        <span className="text-sm text-gray-500">
-                          2024-01-01 00:00:05
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <p className="text-gray-400">User login</p>
-                        <span className="text-sm text-gray-500">
-                          2024-01-01 00:00:10
-                        </span>
-                      </div>
-                    </div>
-                  </section>
-                </div>
-              )}
+                    </section>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </main>
-      </div>
+          </main>
+        </div>
 
-      {/* Action Modal */}
-      {actionModal.open && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center">
-          <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full">
-            <h2 className="text-2xl font-semibold mb-4">
-              {actionModal.action === "warn"
-                ? "Warn User"
-                : actionModal.action === "restrict"
+        {/* Action Modal */}
+        {actionModal.open && (
+          <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center">
+            <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full">
+              <h2 className="text-2xl font-semibold mb-4">
+                {actionModal.action === "warn"
+                  ? "Warn User"
+                  : actionModal.action === "restrict"
                   ? "Restrict User"
                   : "Terminate User"}
-            </h2>
-            <p className="text-gray-400 mb-4">
-              Are you sure you want to {actionModal.action} user{" "}
-              {actionModal.username}?
-            </p>
-            {actionModal.action === "warn" && (
-              <textarea
-                value={warningMessage}
-                onChange={(e) => setWarningMessage(e.target.value)}
-                className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                rows={4}
-                placeholder="Enter warning message..." />
-            )}
-            <div className="flex justify-end gap-4 mt-6">
-              <button
-                onClick={closeActionModal}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleActionConfirmed}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
-              >
-                {actionModal.action === "warn"
-                  ? "Warn"
-                  : actionModal.action === "restrict"
-                    ? "Restrict"
-                    : "Terminate"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Content Modal */}
-      {editModal.open && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center">
-          <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full">
-            <h2 className="text-2xl font-semibold mb-4">Edit Content</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block font-medium mb-1">Title</label>
-                <input
-                  type="text"
-                  value={editModal.editedTitle}
-                  onChange={(e) => setEditModal({ ...editModal, editedTitle: e.target.value })}
-                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter title..." />
-              </div>
-              <div>
-                <label className="block font-medium mb-1">Tags</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={editModal.tagInput}
-                    onChange={(e) => setEditModal({ ...editModal, tagInput: e.target.value })}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addTagToEdit();
-                      }
-                    } }
-                    className="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter tag..." />
-                  <button
-                    onClick={addTagToEdit}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                  >
-                    Add
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {editModal.editedTags.map((tag) => (
-                    <div
-                      key={tag}
-                      className="flex items-center gap-1 px-3 py-1 bg-gray-600 rounded-full text-sm"
-                    >
-                      {tag}
-                      <button
-                        onClick={() => removeTagFromEdit(tag)}
-                        className="hover:text-red-400"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="flex justify-between">
-                <button
-                  onClick={() => generateTagsForContent(editModal.content!)}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
-                >
-                  Generate AI Tags
-                </button>
-                <div>
-                  <button
-                    onClick={closeEditModal}
-                    className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors mr-2"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={saveContentEdit}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* New Rule Modal */}
-      {ruleModal.open && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center">
-          <div className="bg-gray-800 rounded-lg p-8 max-w-2xl w-full">
-            <h2 className="text-2xl font-semibold mb-4">
-              {ruleModal.isEditing
-                ? "Edit Moderation Rule"
-                : "Create Moderation Rule"}
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block font-medium mb-1">Name</label>
-                <input
-                  type="text"
-                  value={newRule.name}
-                  onChange={(e) => setNewRule({ ...newRule, name: e.target.value })}
-                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter rule name..." />
-              </div>
-              <div>
-                <label className="block font-medium mb-1">Description</label>
+              </h2>
+              <p className="text-gray-400 mb-4">
+                Are you sure you want to {actionModal.action} user{" "}
+                {actionModal.username}?
+              </p>
+              {actionModal.action === "warn" && (
                 <textarea
-                  value={newRule.description}
-                  onChange={(e) => setNewRule({ ...newRule, description: e.target.value })}
+                  value={warningMessage}
+                  onChange={(e) => setWarningMessage(e.target.value)}
                   className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  rows={3}
-                  placeholder="Enter rule description..." />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-medium mb-1">Type</label>
-                  <select
-                    value={newRule.type}
-                    onChange={(e) => setNewRule({
-                      ...newRule,
-                      type: e.target.value as ModerationRule["type"],
-                    })}
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="ai_moderation">AI Moderation</option>
-                    <option value="content_filter">Content Filter</option>
-                    <option value="spam_detection">Spam Detection</option>
-                    <option value="keyword_filter">Keyword Filter</option>
-                    <option value="user_behavior">User Behavior</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-medium mb-1">Severity</label>
-                  <select
-                    value={newRule.severity}
-                    onChange={(e) => setNewRule({
-                      ...newRule,
-                      severity: e.target.value as ModerationRule["severity"],
-                    })}
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="critical">Critical</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-medium mb-1">Action</label>
-                  <select
-                    value={newRule.action}
-                    onChange={(e) => setNewRule({
-                      ...newRule,
-                      action: e.target.value as ModerationRule["action"],
-                    })}
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="flag">Flag</option>
-                    <option value="hide">Hide</option>
-                    <option value="remove">Remove</option>
-                    <option value="warn_user">Warn User</option>
-                    <option value="restrict_user">Restrict User</option>
-                    <option value="ban_user">Ban User</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-medium mb-1">
-                    AI Confidence Threshold (%)
-                  </label>
-                  <input
-                    type="number"
-                    value={newRule.confidenceThreshold}
-                    onChange={(e) => setNewRule({
-                      ...newRule,
-                      confidenceThreshold: Number.parseInt(e.target.value) || 70,
-                    })}
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter confidence threshold..." />
-                </div>
-              </div>
-              <div>
-                <label className="block font-medium mb-1">
-                  Keywords (comma-separated)
-                </label>
-                <input
-                  type="text"
-                  value={newRule.keywords}
-                  onChange={(e) => setNewRule({ ...newRule, keywords: e.target.value })}
-                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter keywords..." />
-              </div>
-              <div>
-                <label className="block font-medium mb-1">
-                  Patterns (comma-separated)
-                </label>
-                <input
-                  type="text"
-                  value={newRule.patterns}
-                  onChange={(e) => setNewRule({ ...newRule, patterns: e.target.value })}
-                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter patterns..." />
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="aiEnabled"
-                  checked={newRule.aiEnabled}
-                  onChange={(e) => setNewRule({ ...newRule, aiEnabled: e.target.checked })}
-                  className="h-5 w-5 text-blue-600 rounded focus:ring-blue-500" />
-                <label htmlFor="aiEnabled" className="font-medium">
-                  Enable AI Analysis
-                </label>
-              </div>
+                  rows={4}
+                  placeholder="Enter warning message..."
+                />
+              )}
               <div className="flex justify-end gap-4 mt-6">
                 <button
-                  onClick={() => setRuleModal({ open: false, rule: null, isEditing: false })}
+                  onClick={closeActionModal}
                   className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={ruleModal.isEditing
-                    ? updateModerationRule
-                    : createModerationRule}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                  onClick={handleActionConfirmed}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
                 >
-                  {ruleModal.isEditing ? "Update Rule" : "Create Rule"}
+                  {actionModal.action === "warn"
+                    ? "Warn"
+                    : actionModal.action === "restrict"
+                    ? "Restrict"
+                    : "Terminate"}
                 </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div><Footer /></>
+        )}
+
+        {/* Edit Content Modal */}
+        {editModal.open && (
+          <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center">
+            <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full">
+              <h2 className="text-2xl font-semibold mb-4">Edit Content</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block font-medium mb-1">Title</label>
+                  <input
+                    type="text"
+                    value={editModal.editedTitle}
+                    onChange={(e) =>
+                      setEditModal({
+                        ...editModal,
+                        editedTitle: e.target.value,
+                      })
+                    }
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter title..."
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium mb-1">Tags</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={editModal.tagInput}
+                      onChange={(e) =>
+                        setEditModal({ ...editModal, tagInput: e.target.value })
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addTagToEdit();
+                        }
+                      }}
+                      className="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter tag..."
+                    />
+                    <button
+                      onClick={addTagToEdit}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                    >
+                      Add
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {editModal.editedTags.map((tag) => (
+                      <div
+                        key={tag}
+                        className="flex items-center gap-1 px-3 py-1 bg-gray-600 rounded-full text-sm"
+                      >
+                        {tag}
+                        <button
+                          onClick={() => removeTagFromEdit(tag)}
+                          className="hover:text-red-400"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex justify-between">
+                  <button
+                    onClick={() => generateTagsForContent(editModal.content!)}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                  >
+                    Generate AI Tags
+                  </button>
+                  <div>
+                    <button
+                      onClick={closeEditModal}
+                      className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors mr-2"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveContentEdit}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* New Rule Modal */}
+        {ruleModal.open && (
+          <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center">
+            <div className="bg-gray-800 rounded-lg p-8 max-w-2xl w-full">
+              <h2 className="text-2xl font-semibold mb-4">
+                {ruleModal.isEditing
+                  ? "Edit Moderation Rule"
+                  : "Create Moderation Rule"}
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block font-medium mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={newRule.name}
+                    onChange={(e) =>
+                      setNewRule({ ...newRule, name: e.target.value })
+                    }
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter rule name..."
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium mb-1">Description</label>
+                  <textarea
+                    value={newRule.description}
+                    onChange={(e) =>
+                      setNewRule({ ...newRule, description: e.target.value })
+                    }
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    rows={3}
+                    placeholder="Enter rule description..."
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-medium mb-1">Type</label>
+                    <select
+                      value={newRule.type}
+                      onChange={(e) =>
+                        setNewRule({
+                          ...newRule,
+                          type: e.target.value as ModerationRule["type"],
+                        })
+                      }
+                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="ai_moderation">AI Moderation</option>
+                      <option value="content_filter">Content Filter</option>
+                      <option value="spam_detection">Spam Detection</option>
+                      <option value="keyword_filter">Keyword Filter</option>
+                      <option value="user_behavior">User Behavior</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-medium mb-1">Severity</label>
+                    <select
+                      value={newRule.severity}
+                      onChange={(e) =>
+                        setNewRule({
+                          ...newRule,
+                          severity: e.target
+                            .value as ModerationRule["severity"],
+                        })
+                      }
+                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="critical">Critical</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-medium mb-1">Action</label>
+                    <select
+                      value={newRule.action}
+                      onChange={(e) =>
+                        setNewRule({
+                          ...newRule,
+                          action: e.target.value as ModerationRule["action"],
+                        })
+                      }
+                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="flag">Flag</option>
+                      <option value="hide">Hide</option>
+                      <option value="remove">Remove</option>
+                      <option value="warn_user">Warn User</option>
+                      <option value="restrict_user">Restrict User</option>
+                      <option value="ban_user">Ban User</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-medium mb-1">
+                      AI Confidence Threshold (%)
+                    </label>
+                    <input
+                      type="number"
+                      value={newRule.confidenceThreshold}
+                      onChange={(e) =>
+                        setNewRule({
+                          ...newRule,
+                          confidenceThreshold:
+                            Number.parseInt(e.target.value) || 70,
+                        })
+                      }
+                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter confidence threshold..."
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block font-medium mb-1">
+                    Keywords (comma-separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={newRule.keywords}
+                    onChange={(e) =>
+                      setNewRule({ ...newRule, keywords: e.target.value })
+                    }
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter keywords..."
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium mb-1">
+                    Patterns (comma-separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={newRule.patterns}
+                    onChange={(e) =>
+                      setNewRule({ ...newRule, patterns: e.target.value })
+                    }
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter patterns..."
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="aiEnabled"
+                    checked={newRule.aiEnabled}
+                    onChange={(e) =>
+                      setNewRule({ ...newRule, aiEnabled: e.target.checked })
+                    }
+                    className="h-5 w-5 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="aiEnabled" className="font-medium">
+                    Enable AI Analysis
+                  </label>
+                </div>
+                <div className="flex justify-end gap-4 mt-6">
+                  <button
+                    onClick={() =>
+                      setRuleModal({
+                        open: false,
+                        rule: null,
+                        isEditing: false,
+                      })
+                    }
+                    className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={
+                      ruleModal.isEditing
+                        ? updateModerationRule
+                        : createModerationRule
+                    }
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                  >
+                    {ruleModal.isEditing ? "Update Rule" : "Create Rule"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      <Footer />
+    </>
   );
 };
 

@@ -285,10 +285,6 @@ interface SpamPattern {
   updated_at?: string;
 }
 
-const { data: moderators } = await supabase
-  .from("user_profiles")
-  .select("id, username");
-
 const guildId = "1386840977188061194";
 
 const ModerationPanel = () => {

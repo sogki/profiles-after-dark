@@ -48,6 +48,8 @@ import ReportContent from "./components/legal/ReportContent"
 
 import WallpaperGallery from "./components/gallery/WallpaperGallery"
 
+import AppealsFormSystem from "./components/appeal/AppealsForm"
+
 import { useAuth } from "./context/authContext"
 
 import { Toaster } from "react-hot-toast"
@@ -219,6 +221,9 @@ function App() {
             <Route path="/guidelines" element={<Guidelines />} />
 
             <Route path="/report-content" element={<ReportContent />} />
+
+            {/* Appeals routes */}
+            <Route path="/appeals" element={<AppealsFormSystem/>} />
           </Routes>
         </div>
 

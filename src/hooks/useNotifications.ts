@@ -1,60 +1,52 @@
-
-import { useAuth } from "@/context/authContext";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/authContext";
 import { Tables } from "@/types/database";
+
 type Notification = Tables<"notifications">;
-import { useState, useEffect, useCallback } from "react"
-interface Notification {
-  id: string
-  user_id: string
-  title: string
-  message: string
-  type: "info" | "success" | "warning" | "error" | "follow" | "like" | "comment" | "system"
-  read: boolean
-  action_url?: string
-  metadata?: Record<string, any>
-  created_at: string
-}
 
 export function useNotifications() {
-  const { user } = useAuth()
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const { user } = useAuth();
 
   const fetchNotifications = useCallback(async () => {
+    if (!user) {
+      setError("Not authenticated");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    try {
-      if (!user) throw new Error("Not authenticated");
+    setError(null);
 
     try {
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
-        .eq("user_id", `${user?.id}`)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
+      if (error) {
+        throw new Error(error.message);
+      }
 
-      if (error) throw error
-
-      setNotifications(data || [])
-      setUnreadCount(data?.filter((n) => !n.read).length || 0)
+      setNotifications(data || []);
+      setUnreadCount(data?.filter((n: Notification) => !n.read).length || 0);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load notifications"
-      );
+      setError(err instanceof Error ? err.message : "Failed to load notifications");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [user])
+  }, [user]);
 
   // Create a new notification
   const createNotification = useCallback(
     async (notification: Omit<Notification, "id" | "user_id" | "created_at">) => {
-      if (!user) return
+      if (!user) return;
 
       try {
         const { data, error } = await supabase
@@ -66,24 +58,23 @@ export function useNotifications() {
             },
           ])
           .select()
-          .single()
+          .single();
 
-        if (error) throw error
+        if (error) throw error;
 
-        // Add to local state
-        setNotifications((prev) => [data, ...prev])
+        setNotifications((prev) => [data, ...prev]);
         if (!notification.read) {
-          setUnreadCount((prev) => prev + 1)
+          setUnreadCount((prev) => prev + 1);
         }
 
-        return data
+        return data;
       } catch (err) {
-        console.error("Error creating notification:", err)
-        throw err
+        console.error("Error creating notification:", err);
+        throw err;
       }
     },
     [user]
-  )
+  );
 
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId: string) => {
@@ -91,117 +82,122 @@ export function useNotifications() {
       const { error } = await supabase
         .from("notifications")
         .update({ read: true })
-        .eq("id", id);
+        .eq("id", notificationId);
 
-      if (error) throw error
+      if (error) throw error;
 
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
-      )
-      setUnreadCount((prev) => Math.max(0, prev - 1))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (err) {
       console.error("Failed to mark notification as read:", err);
     }
-  }, [])
+  }, []);
 
   // Mark all notifications as read
   const markAllAsRead = useCallback(async () => {
-    if (!user) return
+    if (!user) return;
 
-    if (!user?.id) return;
     try {
       const { error } = await supabase
         .from("notifications")
         .update({ read: true })
         .eq("user_id", user.id)
-        .eq("read", false)
+        .eq("read", false);
 
-      if (error) throw error
+      if (error) throw error;
 
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-      setUnreadCount(0)
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
     } catch (err) {
-      console.error("Error marking all notifications as read:", err)
-      throw err
+      console.error("Error marking all notifications as read:", err);
+      throw err;
     }
-  }, [user])
+  }, [user]);
 
   // Delete notification
   const deleteNotification = useCallback(async (notificationId: string) => {
     try {
-      const { error } = await supabase.from("notifications").delete().eq("id", notificationId)
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .eq("id", notificationId);
 
-      if (error) throw error
+      if (error) throw error;
 
       setNotifications((prev) => {
-        const notification = prev.find((n) => n.id === notificationId)
+        const notification = prev.find((n) => n.id === notificationId);
         if (notification && !notification.read) {
-          setUnreadCount((count) => Math.max(0, count - 1))
+          setUnreadCount((count) => Math.max(0, count - 1));
         }
-        return prev.filter((n) => n.id !== notificationId)
-      })
+        return prev.filter((n) => n.id !== notificationId);
+      });
     } catch (err) {
-      console.error("Error deleting notification:", err)
-      throw err
+      console.error("Error deleting notification:", err);
+      throw err;
     }
-  }, [])
+  }, []);
 
   // Delete multiple notifications
   const deleteNotifications = useCallback(async (notificationIds: string[]) => {
     try {
-      const { error } = await supabase.from("notifications").delete().in("id", notificationIds)
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .in("id", notificationIds);
 
-      if (error) throw error
+      if (error) throw error;
 
       setNotifications((prev) => {
-        const deletedNotifications = prev.filter((n) => notificationIds.includes(n.id))
-        const unreadDeleted = deletedNotifications.filter((n) => !n.read).length
-        setUnreadCount((count) => Math.max(0, count - unreadDeleted))
-        return prev.filter((n) => !notificationIds.includes(n.id))
-      })
+        const deletedNotifications = prev.filter((n) => notificationIds.includes(n.id));
+        const unreadDeleted = deletedNotifications.filter((n) => !n.read).length;
+        setUnreadCount((count) => Math.max(0, count - unreadDeleted));
+        return prev.filter((n) => !notificationIds.includes(n.id));
+      });
     } catch (err) {
-      console.error("Error deleting notifications:", err)
-      throw err
+      console.error("Error deleting notifications:", err);
+      throw err;
     }
-  }, [])
+  }, []);
 
   // Request notification permission
   const requestNotificationPermission = useCallback(async () => {
     if (!("Notification" in window)) {
-      console.warn("This browser does not support notifications")
-      return false
+      console.warn("This browser does not support notifications");
+      return false;
     }
 
     if (Notification.permission === "granted") {
-      return true
+      return true;
     }
 
     if (Notification.permission !== "denied") {
-      const permission = await Notification.requestPermission()
-      return permission === "granted"
+      const permission = await Notification.requestPermission();
+      return permission === "granted";
     }
 
-    return false
-  }, [])
+    return false;
+  }, []);
 
   // Show browser notification
   const showBrowserNotification = useCallback(
     async (title: string, options?: NotificationOptions) => {
-      const hasPermission = await requestNotificationPermission()
-      if (!hasPermission) return
+      const hasPermission = await requestNotificationPermission();
+      if (!hasPermission) return;
 
       return new Notification(title, {
         icon: "/favicon.ico",
         badge: "/favicon.ico",
         ...options,
-      })
+      });
     },
     [requestNotificationPermission]
-  )
+  );
 
   // Setup real-time subscription
   useEffect(() => {
-    if (!user) return
+    if (!user) return;
 
     const subscription = supabase
       .channel("public:notifications")
@@ -211,12 +207,14 @@ export function useNotifications() {
           event: "*",
           schema: "public",
           table: "notifications",
-          filter: `user_id=eq.${user?.id}`,
+          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          // payload has eventType and new/old records
           if (payload.eventType === "INSERT") {
             setNotifications((prev) => [payload.new as Notification, ...prev]);
+            if (!(payload.new as Notification).read) {
+              setUnreadCount((prev) => prev + 1);
+            }
           } else if (payload.eventType === "UPDATE") {
             setNotifications((prev) =>
               prev.map((n) =>
@@ -225,19 +223,31 @@ export function useNotifications() {
                   : n
               )
             );
+            setUnreadCount(
+              (prev) =>
+                prev +
+                ((payload.new as Notification).read
+                  ? -1
+                  : (payload.old as Notification).read
+                  ? 1
+                  : 0)
+            );
           } else if (payload.eventType === "DELETE") {
             setNotifications((prev) =>
               prev.filter((n) => n.id !== payload.old.id)
             );
+            if (!(payload.old as Notification).read) {
+              setUnreadCount((prev) => Math.max(0, prev - 1));
+            }
           }
         }
       )
-      .subscribe()
+      .subscribe();
 
     return () => {
       supabase.removeChannel(subscription);
     };
-  }, [fetchNotifications, user]);
+  }, [user]);
 
   return {
     notifications,
@@ -252,5 +262,5 @@ export function useNotifications() {
     deleteNotifications,
     requestNotificationPermission,
     showBrowserNotification,
-  }
+  };
 }

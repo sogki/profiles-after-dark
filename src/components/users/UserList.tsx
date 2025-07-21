@@ -1,46 +1,21 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Link } from "react-router-dom"
-import { supabase } from "../../lib/supabase"
-import Footer from "../Footer"
-
-interface UserProfile {
-  id: string
-  username: string
-  avatar_url: string | null
-  banner_url: string | null
-  bio: string | null
-}
+import useUserList from "@/hooks/users/use-user-list";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import Footer from "../Footer";
 
 export default function UsersList() {
-  const [users, setUsers] = useState<UserProfile[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("id, username, avatar_url, banner_url, bio")
-        .order("username", { ascending: true })
+  const { data: users, isLoading: loading } = useUserList();
 
-      if (error) {
-        console.error("Error fetching users:", error)
-      } else {
-        setUsers(data || [])
-      }
-      setLoading(false)
-    }
-
-    fetchUsers()
-  }, [])
-
-  const filteredUsers = users.filter(
-    (user) =>
-      user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (user.bio && user.bio.toLowerCase().includes(searchQuery.toLowerCase())),
-  )
+  const filteredUsers = useMemo(() => {
+    if (!users) return [];
+    return users.filter((user) =>
+      user?.username?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [users, searchQuery]);
 
   if (loading) {
     return (
@@ -50,7 +25,7 @@ export default function UsersList() {
           <p className="text-white text-lg">Loading members...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -72,15 +47,17 @@ export default function UsersList() {
           </div>
         </div>
 
-        {filteredUsers.length === 0 ? (
+        {filteredUsers?.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-slate-400 text-lg">
-              {searchQuery ? "No members found matching your search." : "No members found."}
+              {searchQuery
+                ? "No members found matching your search."
+                : "No members found."}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {filteredUsers.map((user) => (
+            {filteredUsers?.map((user) => (
               <Link
                 key={user.id}
                 to={`/user/${user.username}`}
@@ -98,7 +75,9 @@ export default function UsersList() {
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">
-                      <div className="text-white/30 text-sm font-medium">{user.username.charAt(0).toUpperCase()}</div>
+                      <div className="text-white/30 text-sm font-medium">
+                        {user?.username?.charAt(0).toUpperCase()}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -106,7 +85,10 @@ export default function UsersList() {
                 {/* Avatar - positioned half on banner, half off */}
                 <div className="absolute top-28 left-1/2 transform -translate-x-1/2">
                   <img
-                    src={user.avatar_url || "/placeholder.svg?height=96&width=96&query=default+avatar"}
+                    src={
+                      user.avatar_url ||
+                      "/placeholder.svg?height=96&width=96&query=default+avatar"
+                    }
                     alt={`${user.username}'s avatar`}
                     className="w-24 h-24 rounded-full border-4 border-purple-500 bg-slate-900 object-cover shadow-lg"
                     loading="lazy"
@@ -127,8 +109,18 @@ export default function UsersList() {
                   <div className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <div className="inline-flex items-center text-purple-400 text-sm font-medium">
                       View Profile
-                      <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      <svg
+                        className="ml-1 w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
                       </svg>
                     </div>
                   </div>
@@ -144,12 +136,12 @@ export default function UsersList() {
         {/* Stats */}
         <div className="mt-12 text-center">
           <p className="text-slate-400">
-            Showing {filteredUsers.length} of {users.length} members
+            Showing {filteredUsers?.length || 0} of {users?.length || 0} members
           </p>
         </div>
       </div>
 
       <Footer />
     </div>
-  )
+  );
 }

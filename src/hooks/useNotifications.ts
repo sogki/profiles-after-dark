@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from "react"
-import { supabase } from "../lib/supabase"
-import { useAuth } from "../context/authContext"
 
+import { useAuth } from "@/context/authContext";
+import { supabase } from "@/lib/supabase";
+import { Tables } from "@/types/database";
+type Notification = Tables<"notifications">;
+import { useState, useEffect, useCallback } from "react"
 interface Notification {
   id: string
   user_id: string
@@ -21,27 +23,29 @@ export function useNotifications() {
   const [error, setError] = useState<string | null>(null)
   const [unreadCount, setUnreadCount] = useState(0)
 
-  // Load notifications
-  const fetchNotifications = useCallback(async () => {
-    if (!user) return
+  const { user } = useAuth();
 
-    setLoading(true)
-    setError(null)
+  const fetchNotifications = useCallback(async () => {
+    setLoading(true);
+    try {
+      if (!user) throw new Error("Not authenticated");
 
     try {
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50)
+        .eq("user_id", `${user?.id}`)
+        .order("created_at", { ascending: false });
+
 
       if (error) throw error
 
       setNotifications(data || [])
       setUnreadCount(data?.filter((n) => !n.read).length || 0)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load notifications")
+      setError(
+        err instanceof Error ? err.message : "Failed to load notifications"
+      );
     } finally {
       setLoading(false)
     }
@@ -87,7 +91,7 @@ export function useNotifications() {
       const { error } = await supabase
         .from("notifications")
         .update({ read: true })
-        .eq("id", notificationId)
+        .eq("id", id);
 
       if (error) throw error
 
@@ -96,8 +100,7 @@ export function useNotifications() {
       )
       setUnreadCount((prev) => Math.max(0, prev - 1))
     } catch (err) {
-      console.error("Error marking notification as read:", err)
-      throw err
+      console.error("Failed to mark notification as read:", err);
     }
   }, [])
 
@@ -105,6 +108,7 @@ export function useNotifications() {
   const markAllAsRead = useCallback(async () => {
     if (!user) return
 
+    if (!user?.id) return;
     try {
       const { error } = await supabase
         .from("notifications")
@@ -200,57 +204,40 @@ export function useNotifications() {
     if (!user) return
 
     const subscription = supabase
-      .channel(`notifications:${user.id}`)
+      .channel("public:notifications")
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "notifications",
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${user?.id}`,
         },
         (payload) => {
+          // payload has eventType and new/old records
           if (payload.eventType === "INSERT") {
-            const newNotification = payload.new as Notification
-            setNotifications((prev) => [newNotification, ...prev])
-            
-            if (!newNotification.read) {
-              setUnreadCount((prev) => prev + 1)
-            }
-
-            // Show browser notification
-            showBrowserNotification(newNotification.title, {
-              body: newNotification.message,
-              tag: newNotification.id,
-            })
+            setNotifications((prev) => [payload.new as Notification, ...prev]);
           } else if (payload.eventType === "UPDATE") {
-            const updatedNotification = payload.new as Notification
             setNotifications((prev) =>
-              prev.map((n) => (n.id === updatedNotification.id ? updatedNotification : n))
-            )
+              prev.map((n) =>
+                n.id === (payload.new as Notification).id
+                  ? (payload.new as Notification)
+                  : n
+              )
+            );
           } else if (payload.eventType === "DELETE") {
-            const deletedId = payload.old.id
-            setNotifications((prev) => {
-              const notification = prev.find((n) => n.id === deletedId)
-              if (notification && !notification.read) {
-                setUnreadCount((count) => Math.max(0, count - 1))
-              }
-              return prev.filter((n) => n.id !== deletedId)
-            })
+            setNotifications((prev) =>
+              prev.filter((n) => n.id !== payload.old.id)
+            );
           }
         }
       )
       .subscribe()
 
     return () => {
-      subscription.unsubscribe()
-    }
-  }, [user, showBrowserNotification])
-
-  // Load notifications on mount
-  useEffect(() => {
-    fetchNotifications()
-  }, [fetchNotifications])
+      supabase.removeChannel(subscription);
+    };
+  }, [fetchNotifications, user]);
 
   return {
     notifications,

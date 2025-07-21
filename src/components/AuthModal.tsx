@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { X, Mail, Lock, User, Loader, Info } from 'lucide-react';
-import { useAuth } from '../context/authContext';
+import React, { useState } from "react";
+import { X, Mail, Lock, User, Loader, Info } from "lucide-react";
+import { useAuth } from "../context/authContext";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -9,8 +9,8 @@ interface AuthModalProps {
 
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { signIn, signUp } = useAuth();
@@ -23,7 +23,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setError(null);
 
     try {
-      const { error } = isSignUp 
+      const { error } = isSignUp
         ? await signUp(email, password)
         : await signIn(email, password);
 
@@ -31,19 +31,19 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         setError(error.message);
       } else {
         onClose();
-        setEmail('');
-        setPassword('');
+        setEmail("");
+        setPassword("");
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError("An unexpected error occurred");
     } finally {
       setLoading(false);
     }
   };
 
   const resetForm = () => {
-    setEmail('');
-    setPassword('');
+    setEmail("");
+    setPassword("");
     setError(null);
     setLoading(false);
   };
@@ -59,7 +59,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
           <h2 className="text-2xl font-bold text-white">
-            {isSignUp ? 'Create Account' : 'Sign In'}
+            {isSignUp ? "Create Account" : "Sign In"}
           </h2>
           <button
             onClick={onClose}
@@ -81,13 +81,17 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <div className="flex items-start space-x-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm text-blue-300">
               <Info className="h-5 w-5 mt-0.5" />
               <p>
-                Please be patient — it may take up to <strong>5 minutes</strong> to receive your confirmation email.
+                Please be patient — it may take up to <strong>5 minutes</strong>{" "}
+                to receive your confirmation email.
               </p>
             </div>
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-white mb-2">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-white mb-2"
+            >
               Email
             </label>
             <div className="relative">
@@ -105,7 +109,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-white mb-2">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-white mb-2"
+            >
               Password
             </label>
             <div className="relative">
@@ -131,25 +138,27 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             {loading ? (
               <>
                 <Loader className="h-4 w-4 animate-spin" />
-                <span>{isSignUp ? 'Creating Account...' : 'Signing In...'}</span>
+                <span>
+                  {isSignUp ? "Creating Account..." : "Signing In..."}
+                </span>
               </>
             ) : (
               <>
                 <User className="h-4 w-4" />
-                <span>{isSignUp ? 'Create Account' : 'Sign In'}</span>
+                <span>{isSignUp ? "Create Account" : "Sign In"}</span>
               </>
             )}
           </button>
 
           <div className="text-center pt-4 border-t border-slate-700">
             <p className="text-slate-400">
-              {isSignUp ? 'Already have an account?' : "Don't have an account?"}
+              {isSignUp ? "Already have an account?" : "Don't have an account?"}
               <button
                 type="button"
                 onClick={switchMode}
                 className="ml-2 text-purple-400 hover:text-purple-300 transition-colors"
               >
-                {isSignUp ? 'Sign In' : 'Sign Up'}
+                {isSignUp ? "Sign In" : "Sign Up"}
               </button>
             </p>
           </div>

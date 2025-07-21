@@ -200,7 +200,6 @@ interface AnalyticsData {
 interface UserAccount {
   id: string;
   username: string;
-  email: string;
   display_name: string;
   avatar_url?: string;
   created_at: string;
@@ -922,31 +921,56 @@ const ModerationPanel = () => {
   const fetchUsers = async () => {
     setFetchingUsers(true);
     try {
-      // Mock user data - in real implementation, this would fetch from user_profiles table
-      const mockUsers: UserAccount[] = Array.from({ length: 50 }, (_, i) => ({
-        id: `user-${i + 1}`,
-        username: `user${i + 1}`,
-        email: `user${i + 1}@example.com`,
-        display_name: `User ${i + 1}`,
-        avatar_url: `/placeholder.svg?height=40&width=40`,
-        created_at: new Date(
-          Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000
-        ).toISOString(),
-        last_active: new Date(
-          Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000
-        ).toISOString(),
-        role: Math.random() > 0.95 ? "staff" : "user",
-        status:
-          Math.random() > 0.9
+      // Fetch user_profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("user_profiles")
+        .select(
+          "id, username, display_name, avatar_url, created_at, updated_at, role, is_active, restricted_until, user_id"
+        )
+        .order("created_at", { ascending: false });
+
+      if (profilesError) {
+        throw new Error(profilesError.message);
+      }
+
+      // Fetch download_count from profiles table for all user_ids
+      const userIds = (profilesData || []).map((profile) => profile.user_id);
+      const { data: downloadData, error: downloadError } = await supabase
+        .from("profiles")
+        .select("user_id, download_count")
+        .in("user_id", userIds);
+
+      if (downloadError) {
+        throw new Error(downloadError.message);
+      }
+
+      // Create a map for download_count
+      const downloadCountMap = new Map(
+        (downloadData || []).map((entry) => [
+          entry.user_id,
+          entry.download_count ?? 0,
+        ])
+      );
+
+      const users: UserAccount[] = (profilesData || []).map((profile) => ({
+        id: profile.id,
+        username: profile.username || "unknown", // Fallback for null username
+        display_name: profile.display_name || "Unknown User", // Fallback for null display_name
+        avatar_url: profile.avatar_url ?? undefined, // Convert null to undefined
+        created_at: profile.created_at || new Date().toISOString(), // Fallback for null created_at
+        last_active:
+          profile.updated_at || profile.created_at || new Date().toISOString(), // Use updated_at as proxy
+        role: (profile.role as "user" | "staff" | "admin") || "user", // Cast role, fallback to "user"
+        status: profile.is_active
+          ? profile.restricted_until
             ? "restricted"
-            : Math.random() > 0.95
-            ? "terminated"
-            : "active",
-        upload_count: Math.floor(Math.random() * 50),
-        download_count: Math.floor(Math.random() * 500),
+            : "active"
+          : "terminated",
+        upload_count: 0, // Placeholder; replace with actual query if available
+        download_count: downloadCountMap.get(profile.user_id) || 0, // Use download_count from profiles
       }));
 
-      setUsers(mockUsers);
+      setUsers(users);
     } catch (error) {
       console.error("Failed to fetch users:", error);
       toast.error("Failed to fetch users");
@@ -3921,7 +3945,7 @@ const ModerationPanel = () => {
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <input
                           type="text"
-                          placeholder="Search by username, email, or display name..."
+                          placeholder="Search by username, or display name..."
                           value={userSearch}
                           onChange={(e) => setUserSearch(e.target.value)}
                           className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -3990,10 +4014,6 @@ const ModerationPanel = () => {
                                 </div>
                               </div>
                               <div className="space-y-2 text-sm text-gray-300">
-                                <div className="flex items-center gap-2">
-                                  <Mail className="h-4 w-4 text-gray-400" />
-                                  <span>{user.email}</span>
-                                </div>
                                 <div className="flex items-center gap-2">
                                   <Calendar className="h-4 w-4 text-gray-400" />
                                   <span>

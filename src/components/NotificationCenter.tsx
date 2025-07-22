@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "../context/authContext"
 import { supabase } from "../lib/supabase"
 import toast from "react-hot-toast"
+import { useNavigate } from "react-router-dom"
 
 interface Notification {
   id: string
@@ -32,12 +33,20 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
   const [selectedNotifications, setSelectedNotifications] = useState<Set<string>>(new Set())
   const [showFilters, setShowFilters] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const subscriptionRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const navigate = useNavigate()
 
-  // Load notifications
   useEffect(() => {
     if (isOpen && user) {
       loadNotifications()
       setupRealtimeSubscription()
+    }
+
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe()
+        subscriptionRef.current = null
+      }
     }
   }, [isOpen, user])
 
@@ -54,19 +63,46 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
         .limit(50)
       
       if (error) throw error
-      setNotifications(data || [])
-    } catch (error) {
-      console.error("Error loading notifications:", error)
+
+      const transformedData: Notification[] = (data || []).map((item: any) => ({
+        id: item.id,
+        user_id: item.user_id,
+        title: item.content || "Notification",
+        message: item.content || "",
+        type: ["info", "success", "warning", "error", "follow", "like", "comment", "system"].includes(item.type)
+          ? (item.type as Notification["type"])
+          : "info",
+        read: item.read ?? false,
+        created_at: item.created_at ?? new Date().toISOString(),
+        action_url: item.action_url,
+        metadata: item.metadata,
+      }))
+
+      setNotifications(transformedData)
+    } catch (error: any) {
+      console.error("Error loading notifications:", error.message, error)
       toast.error("Failed to load notifications")
     } finally {
       setLoading(false)
     }
   }
 
+  const requestNotificationPermission = async () => {
+    if (Notification.permission === "default") {
+      const permission = await Notification.requestPermission()
+      return permission === "granted"
+    }
+    return Notification.permission === "granted"
+  }
+
   const setupRealtimeSubscription = () => {
     if (!user) return
 
-    const subscription = supabase
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe()
+    }
+
+    subscriptionRef.current = supabase
       .channel(`notifications:${user.id}`)
       .on(
         "postgres_changes",
@@ -76,24 +112,53 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
           table: "notifications",
           filter: `user_id=eq.${user.id}`,
         },
-        (payload) => {
+        async (payload) => {
           if (payload.eventType === "INSERT") {
-            setNotifications((prev) => [payload.new as Notification, ...prev])
+            const newNotification: Notification = {
+              id: payload.new.id,
+              user_id: payload.new.user_id,
+              title: payload.new.content || "Notification",
+              message: payload.new.content || "",
+              type: ["info", "success", "warning", "error", "follow", "like", "comment", "system"].includes(payload.new.type)
+                ? (payload.new.type as Notification["type"])
+                : "info",
+              read: payload.new.read ?? false,
+              created_at: payload.new.created_at ?? new Date().toISOString(),
+              action_url: payload.new.action_url,
+              metadata: payload.new.metadata,
+            }
+
+            setNotifications((prev) => [newNotification, ...prev])
             
-            // Show browser notification if permission granted
-            if (Notification.permission === "granted") {
-              new Notification(payload.new.title, {
-                body: payload.new.message,
+            if (await requestNotificationPermission()) {
+              new Notification(newNotification.title, {
+                body: newNotification.message,
                 icon: "/favicon.ico",
-                tag: payload.new.id,
+                tag: newNotification.id,
               })
             }
             
-            // Play notification sound
+            toast.success(newNotification.message, { duration: 4000 })
+            
             playNotificationSound()
           } else if (payload.eventType === "UPDATE") {
             setNotifications((prev) =>
-              prev.map((n) => (n.id === payload.new.id ? (payload.new as Notification) : n))
+              prev.map((n) =>
+                n.id === payload.new.id
+                  ? {
+                      ...n,
+                      title: payload.new.content || n.title,
+                      message: payload.new.content || n.message,
+                      type: ["info", "success", "warning", "error", "follow", "like", "comment", "system"].includes(payload.new.type)
+                        ? (payload.new.type as Notification["type"])
+                        : n.type,
+                      read: payload.new.read ?? n.read,
+                      created_at: payload.new.created_at ?? n.created_at,
+                      action_url: payload.new.action_url,
+                      metadata: payload.new.metadata,
+                    }
+                  : n
+              )
             )
           } else if (payload.eventType === "DELETE") {
             setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id))
@@ -103,21 +168,21 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
       .subscribe()
 
     return () => {
-      subscription.unsubscribe()
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe()
+        subscriptionRef.current = null
+      }
     }
   }
 
   const playNotificationSound = () => {
-    // Check if sound is enabled in user settings
     const settings = localStorage.getItem(`user_settings_${user?.id}`)
     if (settings) {
       const parsed = JSON.parse(settings)
       if (parsed.notifications?.soundEnabled) {
         const audio = new Audio("/notification-sound.mp3")
         audio.volume = 0.3
-        audio.play().catch(() => {
-          // Ignore errors if sound can't play
-        })
+        audio.play().catch(() => {})
       }
     }
   }
@@ -134,8 +199,9 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
       )
-    } catch (error) {
-      console.error("Error marking notification as read:", error)
+    } catch (error: any) {
+      console.error("Error marking notification as read:", error.message, error)
+      toast.error("Failed to mark notification as read")
     }
   }
 
@@ -149,13 +215,16 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
         .eq("user_id", user.id)
         .eq("read", false)
       
-      if (error) throw error
+      if (error) {
+        console.error("Supabase error details:", error)
+        throw new Error(`Failed to mark all as read: ${error.message}`)
+      }
       
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
       toast.success("All notifications marked as read")
-    } catch (error) {
-      console.error("Error marking all as read:", error)
-      toast.error("Failed to mark all as read")
+    } catch (error: any) {
+      console.error("Error marking all as read:", error.message, error)
+      toast.error(`Failed to mark all as read: ${error.message || 'Unknown error'}`)
     }
   }
 
@@ -169,8 +238,8 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
       if (error) throw error
       
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
-    } catch (error) {
-      console.error("Error deleting notification:", error)
+    } catch (error: any) {
+      console.error("Error deleting notification:", error.message, error)
       toast.error("Failed to delete notification")
     }
   }
@@ -189,8 +258,8 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
       setNotifications((prev) => prev.filter((n) => !selectedNotifications.has(n.id)))
       setSelectedNotifications(new Set())
       toast.success(`Deleted ${selectedNotifications.size} notifications`)
-    } catch (error) {
-      console.error("Error deleting notifications:", error)
+    } catch (error: any) {
+      console.error("Error deleting notifications:", error.message, error)
       toast.error("Failed to delete notifications")
     }
   }
@@ -205,7 +274,7 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
     }
     
     if (notification.action_url) {
-      window.location.href = notification.action_url
+      navigate(notification.action_url)
     }
   }
 
@@ -427,7 +496,7 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
                           e.stopPropagation()
                           toggleNotificationSelection(notification.id)
                         }}
-                        className="mt-1 w-4 h-4 text-purple-600 bg-slate-700 border-slate-600 rounded focus:ring-purple-500"
+                        className="mt-1 w-4 h-4 rounded-full border-slate-600 bg-slate-700 text-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-slate-800 cursor-pointer"
                       />
                       
                       <div className={`flex-shrink-0 w-8 h-8 rounded-full border flex items-center justify-center text-sm ${getNotificationColor(notification.type)}`}>
@@ -475,9 +544,8 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
           <div className="p-4 border-t border-slate-700 bg-slate-800/50">
             <button
               onClick={() => {
-                // Navigate to notification settings
                 onClose()
-                window.location.href = "/profile-settings?tab=notifications"
+                navigate("/profile-settings?tab=notifications")
               }}
               className="w-full flex items-center justify-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
             >

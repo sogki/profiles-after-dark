@@ -419,14 +419,14 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
           <div className="flex space-x-6 overflow-x-auto no-scrollbar py-2">
             <Link
               to="/users"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
+              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm mr-20 font-medium transition-all ${
                 isActive("/users")
                   ? "bg-purple-600 text-white shadow-lg"
                   : "text-slate-300 hover:bg-slate-700 hover:text-white"
               }`}
             >
               <Users className="inline h-4 w-4 mr-1" />
-              Members
+              Community
             </Link>
             <Link
               to="/gallery/profiles"

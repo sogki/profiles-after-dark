@@ -1,207 +1,297 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Download, Users, ImageIcon, ArrowRight, Sparkles, TrendingUp } from "lucide-react"
-import { useAuth } from "../context/authContext"
-import { supabase } from "../lib/supabase"
+import { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Download,
+  Users,
+  ImageIcon,
+  ArrowRight,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
+import { useAuth } from "../context/authContext";
+import { supabase } from "../lib/supabase";
+import DarkVeil from "./animations/Veil";
 
 interface HeroStats {
-  totalProfiles: number
-  totalDownloads: number
-  totalUsers: number
+  totalProfiles: number;
+  totalDownloads: number;
+  totalUsers: number;
 }
 
+const statVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+};
+
 export default function Hero() {
-  const { user } = useAuth()
+  const { user } = useAuth();
   const [stats, setStats] = useState<HeroStats>({
     totalProfiles: 0,
     totalDownloads: 0,
     totalUsers: 0,
-  })
-  const [isLoading, setIsLoading] = useState(true)
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Cache results for 5 minutes
+      const cacheKey = "hero_stats";
+      const cached = localStorage.getItem(cacheKey);
+      const cacheTimestamp = localStorage.getItem(`${cacheKey}_timestamp`);
+      const cacheAge = cacheTimestamp
+        ? Date.now() - parseInt(cacheTimestamp)
+        : Infinity;
+
+      if (cached && cacheAge < 5 * 60 * 1000) {
+        setStats(JSON.parse(cached));
+        setIsLoading(false);
+        return;
+      }
+
+      const [pairsResponse, profilesResponse, usersResponse] =
+        await Promise.all([
+          supabase
+            .from("profile_pairs")
+            .select("id", { count: "exact", head: true }),
+          supabase
+            .from("profiles")
+            .select("id, download_count", { count: "exact" }),
+          supabase
+            .from("user_profiles")
+            .select("id", { count: "exact", head: true }),
+        ]);
+
+      if (
+        pairsResponse.error ||
+        profilesResponse.error ||
+        usersResponse.error
+      ) {
+        throw new Error("Failed to fetch stats");
+      }
+
+      const totalProfiles =
+        (pairsResponse.count || 0) + (profilesResponse.count || 0);
+      const totalDownloads =
+        profilesResponse.data?.reduce(
+          (sum, profile) => sum + (profile.download_count || 0),
+          0
+        ) || 0;
+      const totalUsers = usersResponse.count || 0;
+
+      const newStats = { totalProfiles, totalDownloads, totalUsers };
+      setStats(newStats);
+      localStorage.setItem(cacheKey, JSON.stringify(newStats));
+      localStorage.setItem(`${cacheKey}_timestamp`, Date.now().toString());
+    } catch (err) {
+      setError("Failed to load statistics. Please try again later.");
+      console.error("Failed to fetch stats:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    async function fetchStats() {
-      try {
-        // Fetch total profiles from both tables
-        const [pairsResponse, profilesResponse, usersResponse] = await Promise.all([
-          supabase.from("profile_pairs").select("id", { count: "exact", head: true }),
-          supabase.from("profiles").select("id, download_count", { count: "exact" }),
-          supabase.from("user_profiles").select("id", { count: "exact", head: true }),
-        ])
-
-        const totalProfiles = (pairsResponse.count || 0) + (profilesResponse.count || 0)
-        const totalDownloads =
-          profilesResponse.data?.reduce((sum, profile) => sum + (profile.download_count || 0), 0) || 0
-        const totalUsers = usersResponse.count || 0
-
-        setStats({
-          totalProfiles,
-          totalDownloads,
-          totalUsers,
-        })
-      } catch (error) {
-        console.error("Failed to fetch stats:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchStats()
-  }, [])
+    fetchStats();
+  }, [fetchStats]);
 
   const scrollToGallery = () => {
-    // Try to find the gallery section by class or navigate to gallery page
     const galleryElement =
       document.querySelector("[data-gallery]") ||
       document.querySelector(".profiles-gallery") ||
-      document.querySelector("main")
+      document.querySelector("main");
 
     if (galleryElement) {
-      galleryElement.scrollIntoView({ behavior: "smooth" })
+      galleryElement.scrollIntoView({ behavior: "smooth" });
     } else {
-      // If no gallery found on current page, navigate to gallery route
-      window.location.href = "/gallery" // Adjust this path to match your routing
+      window.location.href = "/gallery";
     }
-  }
+  };
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-black via-blue-900/20 to-slate-900">
-      {/* Enhanced Background decoration */}
-      <div className="absolute inset-0">
-        <div className="absolute top-10 left-10 w-2 h-2 bg-white rounded-full animate-pulse"></div>
-        <div className="absolute top-32 right-20 w-1 h-1 bg-white rounded-full animate-pulse delay-1000"></div>
-        <div className="absolute bottom-20 left-1/4 w-1.5 h-1.5 bg-white rounded-full animate-pulse delay-500"></div>
-        <div className="absolute top-1/3 right-1/3 w-1 h-1 bg-white rounded-full animate-pulse delay-700"></div>
-
-        {/* Additional floating elements */}
-        <div className="absolute top-1/4 left-1/3 w-1 h-1 bg-purple-400 rounded-full animate-pulse delay-300"></div>
-        <div className="absolute bottom-1/3 right-1/4 w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse delay-900"></div>
-
-        {/* Gradient orbs */}
-        <div className="absolute top-20 right-10 w-32 h-32 bg-purple-600/10 rounded-full blur-xl"></div>
-        <div className="absolute bottom-20 left-10 w-40 h-40 bg-blue-600/10 rounded-full blur-xl"></div>
-      </div>
-
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+      <DarkVeil />
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-24">
         <div className="text-center">
-          {/* Logo with enhanced styling */}
-          <div className="flex justify-center mb-8">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6 }}
+            className="flex justify-center mb-8"
+          >
             <div className="relative group">
-              <div className="absolute -inset-4 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-full blur-lg group-hover:blur-xl transition-all duration-300"></div>
-              <div className="relative">
-                <img
-                  src="https://zzywottwfffyddnorein.supabase.co/storage/v1/object/public/static-assets//profiles-after-dark-logomark.png"
-                  alt="Profiles After Dark"
-                  className="h-15 transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
+              <div className="absolute -inset-4 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-full blur-lg group-hover:blur-xl transition-all duration-300" />
+              <img
+                src="https://zzywottwfffyddnorein.supabase.co/storage/v1/object/public/static-assets//profiles-after-dark-logomark.png"
+                alt="Profiles After Dark"
+                className="relative h-12 sm:h-16 transition-transform duration-300 group-hover:scale-105"
+                loading="eager"
+              />
             </div>
-          </div>
+          </motion.div>
 
-          {/* Enhanced tagline */}
-          <div className="mb-6">
-            <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400 mb-4 leading-tight">
-              Profiles That Come Alive
-            </h1>
-          </div>
+          {/* <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-3xl sm:text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400 mb-4 leading-tight"
+          >
+            Profiles That Come Alive
+          </motion.h1> */}
 
-          <p className="text-lg text-slate-300 mb-12 max-w-3xl mx-auto leading-relaxed">
-            Discover and download stunning aesthetic profile pictures and banners for all your favourite social media.
-            Join the night owls who know that the best profiles come alive after dark.
-          </p>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="text-base sm:text-md text-slate-300 mb-12 max-w-3xl mx-auto leading-relaxed"
+          >
+            Discover and download stunning aesthetic profile pictures and
+            banners for all your favourite social media.
+          </motion.p>
 
-          {/* Call-to-action buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="flex flex-col sm:flex-row gap-4 justify-center mb-12 sm:mb-16"
+          >
             <button
               onClick={scrollToGallery}
-              className="group inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold px-8 py-4 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-purple-500/25"
+              className="group inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-purple-500/25"
+              aria-label="Explore gallery"
             >
               <Sparkles className="h-5 w-5" />
               Explore Gallery
               <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </button>
 
-            {!user && (
-              <button className="inline-flex items-center gap-2 bg-slate-800/50 backdrop-blur-sm hover:bg-slate-700/50 text-white font-semibold px-8 py-4 rounded-xl transition-all duration-300 border border-slate-600/50 hover:border-slate-500/50">
-                <Users className="h-5 w-5" />
-                Join Community
-              </button>
-            )}
-          </div>
+            <AnimatePresence>
+              {!user && (
+                <motion.button
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="inline-flex items-center gap-2 bg-slate-800/50 backdrop-blur-sm hover:bg-slate-700/50 text-white font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl transition-all duration-300 border border-slate-600/50 hover:border-slate-500/50"
+                  aria-label="Join community"
+                >
+                  <Users className="h-5 w-5" />
+                  Join Community
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </motion.div>
 
-          {/* Live Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-            <div className="bg-slate-800/30 backdrop-blur-sm rounded-2xl p-6 border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300">
-              <div className="flex items-center justify-center mb-3">
-                <div className="p-3 bg-purple-600/20 rounded-full">
-                  <ImageIcon className="h-6 w-6 text-purple-400" />
+          {error ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-red-400 text-center mb-8"
+              role="alert"
+            >
+              {error}
+            </motion.div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-12 sm:mb-16">
+              {[
+                {
+                  icon: ImageIcon,
+                  color: "purple-blue",
+                  label: "Total Profiles",
+                  value: stats.totalProfiles,
+                },
+                {
+                  icon: Download,
+                  color: "purple-blue",
+                  label: "Downloads",
+                  value: stats.totalDownloads,
+                },
+                {
+                  icon: Users,
+                  color: "purple-blue",
+                  label: "Community Members",
+                  value: stats.totalUsers,
+                },
+              ].map((stat, index) => (
+                <motion.div
+                  key={stat.label}
+                  variants={statVariants}
+                  initial="hidden"
+                  animate="visible"
+                  transition={{ delay: index * 0.2 }}
+                  className="bg-[rgba(30,20,60,0.25)] backdrop-blur-md rounded-2xl p-6 border border-purple-600/40 hover:border-purple-500/60 transition-all duration-300 shadow-lg shadow-purple-900/30"
+                >
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="p-3 bg-gradient-to-br from-purple-700/30 to-blue-500/30 rounded-full">
+                      <stat.icon className="h-6 w-6 text-purple-400" />
+                    </div>
+                  </div>
+                  <div className="text-3xl font-bold text-white mb-1">
+                    {isLoading ? (
+                      <div className="h-8 w-24 mx-auto bg-purple-700/50 animate-pulse rounded" />
+                    ) : (
+                      stat.value.toLocaleString()
+                    )}
+                  </div>
+                  <div className="text-purple-300 text-sm">{stat.label}</div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {/* <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.6 }}
+            className="flex flex-wrap justify-center gap-4 sm:gap-6"
+          >
+            {[
+              {
+                icon: ImageIcon,
+                text: "Express yourself",
+              },
+              {
+                icon: Download,
+                text: "Empower creativity",
+              },
+              {
+                icon: Users,
+                text: "Vibrant community",
+              },
+            ].map((feature) => (
+              <div
+                key={feature.text}
+                className="flex items-center space-x-3 bg-[rgba(30,20,60,0.25)] backdrop-blur-md rounded-xl px-6 py-4 border border-purple-600/40 hover:border-purple-500/60 transition-all duration-300 group shadow-md shadow-purple-900/30"
+              >
+                <div className="p-2 bg-gradient-to-br from-purple-700/30 to-blue-500/30 rounded-lg group-hover:from-purple-700/50 group-hover:to-blue-500/50 transition-colors">
+                  <feature.icon className="h-5 w-5 text-purple-400" />
                 </div>
+                <span className="text-white font-medium text-sm sm:text-base">
+                  {feature.text}
+                </span>
               </div>
-              <div className="text-3xl font-bold text-white mb-1">
-                {isLoading ? "..." : stats.totalProfiles.toLocaleString()}
-              </div>
-              <div className="text-slate-400 text-sm">Total Profiles</div>
-            </div>
+            ))}
+          </motion.div> */}
 
-            <div className="bg-slate-800/30 backdrop-blur-sm rounded-2xl p-6 border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300">
-              <div className="flex items-center justify-center mb-3">
-                <div className="p-3 bg-green-600/20 rounded-full">
-                  <Download className="h-6 w-6 text-green-400" />
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-1">
-                {isLoading ? "..." : stats.totalDownloads.toLocaleString()}
-              </div>
-              <div className="text-slate-400 text-sm">Downloads</div>
-            </div>
-
-            <div className="bg-slate-800/30 backdrop-blur-sm rounded-2xl p-6 border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300">
-              <div className="flex items-center justify-center mb-3">
-                <div className="p-3 bg-blue-600/20 rounded-full">
-                  <Users className="h-6 w-6 text-blue-400" />
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-1">
-                {isLoading ? "..." : stats.totalUsers.toLocaleString()}
-              </div>
-              <div className="text-slate-400 text-sm">Community Members</div>
-            </div>
-          </div>
-
-          {/* Enhanced feature highlights */}
-          <div className="flex flex-wrap justify-center gap-6">
-            <div className="flex items-center space-x-3 bg-slate-800/50 backdrop-blur-sm rounded-xl px-6 py-4 border border-slate-700/50 hover:border-purple-500/50 transition-all duration-300 group">
-              <div className="p-2 bg-purple-600/20 rounded-lg group-hover:bg-purple-600/30 transition-colors">
-                <ImageIcon className="h-5 w-5 text-purple-400" />
-              </div>
-              <span className="text-white font-medium">Profiles that express your style</span>
-            </div>
-
-            <div className="flex items-center space-x-3 bg-slate-800/50 backdrop-blur-sm rounded-xl px-6 py-4 border border-slate-700/50 hover:border-green-500/50 transition-all duration-300 group">
-              <div className="p-2 bg-green-600/20 rounded-lg group-hover:bg-green-600/30 transition-colors">
-                <Download className="h-5 w-5 text-green-400" />
-              </div>
-              <span className="text-white font-medium">Downloads empowering your creativity</span>
-            </div>
-
-            <div className="flex items-center space-x-3 bg-slate-800/50 backdrop-blur-sm rounded-xl px-6 py-4 border border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 group">
-              <div className="p-2 bg-blue-600/20 rounded-lg group-hover:bg-blue-600/30 transition-colors">
-                <Users className="h-5 w-5 text-blue-400" />
-              </div>
-              <span className="text-white font-medium">A vibrant community of creators</span>
-            </div>
-          </div>
-
-          {/* Trending/Popular indicator */}
-          <div className="mt-12 flex justify-center">
-            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-600/20 to-red-600/20 border border-orange-500/30 rounded-full px-4 py-2 text-orange-300">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.8 }}
+            className="mt-20 flex justify-center"
+          >
+            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600/50 to-gray-600/50 border border-purple-500/30 rounded-full px-4 py-2 text-white">
               <TrendingUp className="h-4 w-4" />
-              <span className="text-sm font-medium">Trending: Dark aesthetic profiles</span>
+              <span className="text-sm font-medium">
+                Trending: Aesthetic Profiles
+              </span>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>
-  )
+  );
 }

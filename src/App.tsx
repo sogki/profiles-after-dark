@@ -155,7 +155,7 @@ function App() {
         {/* Announcement banner */}
 
         {announcement && (
-         <div className="flex justify-center bg-red-500/50 text-white px-4 py-2 text-center font-semibold"> <Megaphone className="mr-5"/> {announcement}</div>
+         <div className="flex justify-center bg-purple-800/50 text-white px-4 py-2 text-center font-semibold"> <Megaphone className="mr-5"/> {announcement}</div>
         )}
 
         <div className="flex-grow">

@@ -6,11 +6,12 @@ interface SearchBarProps {
   searchQuery: string
   onSearchChange: (query: string) => void
   searchRef: React.RefObject<HTMLDivElement>
+  showSearchSuggestions: boolean
+  setShowSearchSuggestions: (show: boolean) => void
 }
 
-export default function SearchBar({ searchQuery, onSearchChange, searchRef }: SearchBarProps) {
+export default function SearchBar({ searchQuery, onSearchChange, searchRef, showSearchSuggestions, setShowSearchSuggestions }: SearchBarProps) {
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([])
-  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
 
   useEffect(() => {
     if (searchQuery.length > 1) {
@@ -19,7 +20,7 @@ export default function SearchBar({ searchQuery, onSearchChange, searchRef }: Se
       setSearchSuggestions([])
       setShowSearchSuggestions(false)
     }
-  }, [searchQuery])
+  }, [searchQuery, setShowSearchSuggestions])
 
   const fetchSearchSuggestions = async (query: string) => {
     try {

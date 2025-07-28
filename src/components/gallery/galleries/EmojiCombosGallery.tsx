@@ -3,11 +3,11 @@
 import { useState, useEffect, useMemo, Fragment, useCallback } from "react"
 import { Copy, Heart, Eye, Search, Tag, Check, Clock } from "lucide-react"
 import { Dialog, Transition } from "@headlessui/react"
-import { useAuth } from "../../context/authContext"
-import { supabase } from "../../lib/supabase"
-import type { Database } from "../../types/database"
-import { useEmojiCombos } from "../../hooks/useEmojiCombos"
-import Footer from "../Footer"
+import { useAuth } from "../../../context/authContext"
+import { supabase } from "../../../lib/supabase"
+import type { Database } from "../../../types/database"
+import { useEmojiCombos } from "../../../hooks/useEmojiCombos"
+import Footer from "../../Footer"
 
 type EmojiCombo = Database["public"]["Tables"]["emoji_combos"]["Row"]
 

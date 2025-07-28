@@ -9,20 +9,23 @@ import SearchBar from "./SearchBar"
 import UserDropdown from "./UserDropdown"
 import MobileMenu from "./MobileMenu"
 import SubNavigation from "./SubNavigation"
+import { User } from "@supabase/supabase-js"
 
 interface HeaderProps {
   onUploadClick: () => void
   onAuthClick: () => void
   searchQuery: string
   onSearchChange: (query: string) => void
+  user: User | null
 }
 
-export default function Header({ onUploadClick, onAuthClick, searchQuery, onSearchChange }: HeaderProps) {
+export default function Header({ onUploadClick, onAuthClick, searchQuery, onSearchChange, user }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const { user, signOut } = useAuth()
+  const { signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [showSubNav, setShowSubNav] = useState(true)
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
   const lastScrollY = useRef(0)
   const { unreadCount } = useNotifications()
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false)
@@ -92,6 +95,8 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                 searchQuery={searchQuery}
                 onSearchChange={onSearchChange}
                 searchRef={searchRef}
+                showSearchSuggestions={showSearchSuggestions}
+                setShowSearchSuggestions={setShowSearchSuggestions}
               />
               
               {user ? (
@@ -159,8 +164,4 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
       <SubNavigation showSubNav={showSubNav} isActive={isActive} />
     </>
   )
-}
-
-function setShowSearchSuggestions(arg0: boolean) {
-    throw new Error("Function not implemented.")
 }

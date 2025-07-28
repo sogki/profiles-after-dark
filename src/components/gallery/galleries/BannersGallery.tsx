@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, Fragment, useCallback } from "react"
 import { Download, Heart, Eye, Search, Clock, Tag, Grid3X3, List, Palette, Layout } from "lucide-react"
 import { Dialog, Transition } from "@headlessui/react"
-import { useAuth } from "../../context/authContext"
-import { supabase } from "../../lib/supabase"
+import { useAuth } from "../../../context/authContext"
+import { supabase } from "../../../lib/supabase"
 
-import Footer from "../Footer"
+import Footer from "../../Footer"
 
 interface Banner {
   id: string

@@ -39,11 +39,12 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
   const [showSubNav, setShowSubNav] = useState(true)
   const lastScrollY = useRef(0)
 
-  const { unreadCount } = useNotifications()
+  const { unreadCount, notifications } = useNotifications()
 
   // User dropdown state
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
   const userDropdownRef = useRef<HTMLDivElement>(null)
+  const notifRef = useRef<HTMLDivElement>(null)
 
   // Search suggestions
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([])
@@ -74,7 +75,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
-        setIsNotifOpen(false)
+        setIsNotificationCenterOpen(false)
       }
       if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
         setIsUserDropdownOpen(false)
@@ -131,6 +132,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
       <NotificationCenter
         isOpen={isNotificationCenterOpen}
         onClose={() => setIsNotificationCenterOpen(false)}
+        notifications={notifications}
       />
       
       <header className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-50">
@@ -198,7 +200,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                   </button>
 
                   {/* Enhanced Notifications */}
-                  <div className="relative">
+                  <div className="relative" ref={notifRef}>
                     <button
                       onClick={() => setIsNotificationCenterOpen(true)}
                       className="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
@@ -261,15 +263,25 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                         </div>
 
                         <div className="py-2">
-                          {userProfile?.role === "staff" && (
-                            <Link
-                              to="/moderation"
-                              className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
-                              onClick={() => setIsUserDropdownOpen(false)}
-                            >
-                              <ShieldCheck className="w-4 h-4 mr-3 text-blue-400" />
-                              Moderation Panel
-                            </Link>
+                          {(userProfile?.role === "admin" || userProfile?.role === "moderator" || userProfile?.role === "staff") && (
+                            <>
+                              <Link
+                                to="/moderation"
+                                className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
+                                onClick={() => setIsUserDropdownOpen(false)}
+                              >
+                                <ShieldCheck className="w-4 h-4 mr-3 text-blue-400" />
+                                Moderation Panel
+                              </Link>
+                              <Link
+                                to="/moderation/enhanced"
+                                className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
+                                onClick={() => setIsUserDropdownOpen(false)}
+                              >
+                                <ShieldCheck className="w-4 h-4 mr-3 text-purple-400" />
+                                Enhanced Moderation
+                              </Link>
+                            </>
                           )}
                           {userProfile?.username && (
                             <Link

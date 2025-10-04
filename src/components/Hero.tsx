@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Download,
@@ -8,11 +8,14 @@ import {
   ImageIcon,
   ArrowRight,
   Sparkles,
-  TrendingUp,
+  Star,
+  Heart,
+  Eye,
+  Upload,
+  Zap,
 } from "lucide-react";
 import { useAuth } from "../context/authContext";
 import { supabase } from "../lib/supabase";
-import DarkVeil from "./animations/Veil";
 
 interface HeroStats {
   totalProfiles: number;
@@ -34,6 +37,7 @@ export default function Hero() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [featuredProfiles, setFeaturedProfiles] = useState<any[]>([]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -96,9 +100,42 @@ export default function Hero() {
     }
   }, []);
 
+  const fetchFeaturedProfiles = useCallback(async () => {
+    try {
+      // First try to get admin-selected featured profiles
+      const { data: featuredProfiles, error: featuredError } = await supabase
+        .from("profiles")
+        .select("id, title, image_url, download_count, category, tags, is_featured")
+        .eq("is_featured", true)
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (featuredError) {
+        console.warn("Featured profiles table might not have is_featured column:", featuredError);
+        // Fallback to most downloaded profiles if featured column doesn't exist
+        const { data: fallbackProfiles, error: fallbackError } = await supabase
+          .from("profiles")
+          .select("id, title, image_url, download_count, category, tags")
+          .order("download_count", { ascending: false })
+          .limit(3);
+
+        if (fallbackError) throw fallbackError;
+        setFeaturedProfiles(fallbackProfiles || []);
+      } else {
+        setFeaturedProfiles(featuredProfiles || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch featured profiles:", err);
+      // Set empty array on error to prevent crashes
+      setFeaturedProfiles([]);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStats();
-  }, [fetchStats]);
+    fetchFeaturedProfiles();
+  }, [fetchStats, fetchFeaturedProfiles]);
+
 
   const scrollToGallery = () => {
     const galleryElement =
@@ -114,9 +151,9 @@ export default function Hero() {
   };
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-black via-blue-900/20 to-slate-900">
-      <DarkVeil />
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-24">
+    <section className="relative overflow-hidden bg-cover bg-center bg-no-repeat" style={{ backgroundImage: 'url(https://zzywottwfffyddnorein.supabase.co/storage/v1/object/public/static-assets/hero-background.png)', zIndex: 1 }}>
+      <div className="absolute inset-0 bg-black/40 z-0"></div>
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
         <div className="text-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -135,30 +172,23 @@ export default function Hero() {
             </div>
           </motion.div>
 
-          {/* <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-3xl sm:text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400 mb-4 leading-tight"
-          >
-            Profiles That Come Alive
-          </motion.h1> */}
 
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-base sm:text-md text-slate-300 mb-12 max-w-3xl mx-auto leading-relaxed"
+            className="text-lg sm:text-xl text-slate-300 mb-8 max-w-4xl mx-auto leading-relaxed"
           >
             Discover and download stunning aesthetic profile pictures and
-            banners for all your favourite social media.
+            banners for all your favourite social media platforms.
           </motion.p>
+
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center mb-12 sm:mb-16"
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="flex flex-col sm:flex-row gap-4 justify-center mb-16 sm:mb-20"
           >
             <button
               onClick={scrollToGallery}
@@ -170,13 +200,14 @@ export default function Hero() {
               <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </button>
 
+
             <AnimatePresence>
               {!user && (
                 <motion.button
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="inline-flex items-center gap-2 bg-slate-800/50 backdrop-blur-sm hover:bg-slate-700/50 text-white font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl transition-all duration-300 border border-slate-600/50 hover:border-slate-500/50"
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-pink-500/25"
                   aria-label="Join community"
                 >
                   <Users className="h-5 w-5" />
@@ -185,6 +216,58 @@ export default function Hero() {
               )}
             </AnimatePresence>
           </motion.div>
+
+          {/* Featured Profiles Preview - Bleeding into next section */}
+          {featuredProfiles.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+            className="absolute -bottom-60 left-0 right-0 w-full"
+            style={{ zIndex: 999999 }}
+          >
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h3 className="text-2xl font-bold text-white mb-8 text-center relative" style={{ zIndex: 1000000 }}>
+                  Featured Profiles
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-5xl mx-auto relative" style={{ zIndex: 1000000 }}>
+                  {featuredProfiles.map((profile, index) => (
+                    <motion.div
+                      key={profile.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.6 + index * 0.1 }}
+                      className="group bg-slate-800/95 backdrop-blur-sm rounded-2xl p-5 border border-slate-600/50 hover:border-purple-500/50 transition-all duration-300 cursor-pointer shadow-2xl relative"
+                      style={{ zIndex: 1000000 + index }}
+                      onClick={scrollToGallery}
+                    >
+                      <div className="relative mb-4">
+                        <img
+                          src={profile.image_url || "/placeholder.svg"}
+                          alt={profile.title}
+                          className="w-full h-36 object-cover rounded-xl brightness-75 group-hover:brightness-90 transition-all duration-300"
+                          loading="lazy"
+                        />
+                        <div className="absolute top-3 right-3 flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-full px-3 py-1"
+                             style={{ zIndex: 1000001 + index }}>
+                          <Star className="h-3 w-3 text-yellow-400" />
+                          <span className="text-xs text-white font-medium">
+                            {profile.download_count || 0}
+                          </span>
+                        </div>
+                      </div>
+                      <h4 className="text-white font-semibold text-sm mb-2 truncate">
+                        {profile.title}
+                      </h4>
+                      <p className="text-slate-400 text-xs capitalize">
+                        {profile.category}
+                      </p>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {error ? (
             <motion.div
@@ -196,7 +279,7 @@ export default function Hero() {
               {error}
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-12 sm:mb-16">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 mb-16 sm:mb-20 relative z-20">
               {[
                 {
                   icon: ImageIcon,
@@ -223,7 +306,7 @@ export default function Hero() {
                   initial="hidden"
                   animate="visible"
                   transition={{ delay: index * 0.2 }}
-                  className="bg-[rgba(30,20,60,0.25)] backdrop-blur-md rounded-2xl p-6 border border-purple-600/40 hover:border-purple-500/60 transition-all duration-300 shadow-lg shadow-purple-900/30"
+                  className="bg-[rgba(30,20,60,0.3)] backdrop-blur-md rounded-2xl p-6 border border-purple-600/40 hover:border-purple-500/60 transition-all duration-300 shadow-lg shadow-purple-900/30 relative z-30"
                 >
                   <div className="flex items-center justify-center mb-4">
                     <div className="p-3 bg-gradient-to-br from-purple-700/30 to-blue-500/30 rounded-full">
@@ -277,19 +360,6 @@ export default function Hero() {
             ))}
           </motion.div> */}
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.8 }}
-            className="mt-20 flex justify-center"
-          >
-            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600/50 to-gray-600/50 border border-purple-500/30 rounded-full px-4 py-2 text-white">
-              <TrendingUp className="h-4 w-4" />
-              <span className="text-sm font-medium">
-                Trending: Aesthetic Profiles
-              </span>
-            </div>
-          </motion.div>
         </div>
       </div>
     </section>

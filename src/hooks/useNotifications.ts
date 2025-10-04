@@ -200,7 +200,7 @@ export function useNotifications() {
     if (!user) return;
 
     const subscription = supabase
-      .channel("public:notifications")
+      .channel(`notifications:${user.id}`)
       .on(
         "postgres_changes",
         {
@@ -245,7 +245,9 @@ export function useNotifications() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(subscription);
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, [user]);
 

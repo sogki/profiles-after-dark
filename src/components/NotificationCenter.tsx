@@ -8,9 +8,10 @@ import toast from "react-hot-toast"
 interface Notification {
   id: string
   user_id: string
-  title: string
-  message: string
-  type: "info" | "success" | "warning" | "error" | "follow" | "like" | "comment" | "system"
+  title?: string
+  message?: string
+  content?: string
+  type: "info" | "success" | "warning" | "error" | "follow" | "like" | "comment" | "system" | "report"
   read: boolean
   action_url?: string
   metadata?: Record<string, any>
@@ -20,12 +21,12 @@ interface Notification {
 interface NotificationCenterProps {
   isOpen: boolean
   onClose: () => void
+  notifications?: Notification[]
   onNotificationClick?: (notification: Notification) => void
 }
 
-export default function NotificationCenter({ isOpen, onClose, onNotificationClick }: NotificationCenterProps) {
+export default function NotificationCenter({ isOpen, onClose, notifications: propNotifications, onNotificationClick }: NotificationCenterProps) {
   const { user } = useAuth()
-  const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all")
   const [typeFilter, setTypeFilter] = useState<string>("all")
@@ -33,79 +34,11 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
   const [showFilters, setShowFilters] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Load notifications
-  useEffect(() => {
-    if (isOpen && user) {
-      loadNotifications()
-      setupRealtimeSubscription()
-    }
-  }, [isOpen, user])
+  // Use prop notifications or fallback to empty array
+  const notifications = propNotifications || []
 
-  const loadNotifications = async () => {
-    if (!user) return
-    
-    setLoading(true)
-    try {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50)
-      
-      if (error) throw error
-      setNotifications(data || [])
-    } catch (error) {
-      console.error("Error loading notifications:", error)
-      toast.error("Failed to load notifications")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const setupRealtimeSubscription = () => {
-    if (!user) return
-
-    const subscription = supabase
-      .channel(`notifications:${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            setNotifications((prev) => [payload.new as Notification, ...prev])
-            
-            // Show browser notification if permission granted
-            if (Notification.permission === "granted") {
-              new Notification(payload.new.title, {
-                body: payload.new.message,
-                icon: "/favicon.ico",
-                tag: payload.new.id,
-              })
-            }
-            
-            // Play notification sound
-            playNotificationSound()
-          } else if (payload.eventType === "UPDATE") {
-            setNotifications((prev) =>
-              prev.map((n) => (n.id === payload.new.id ? (payload.new as Notification) : n))
-            )
-          } else if (payload.eventType === "DELETE") {
-            setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id))
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }
+  // Notifications are now managed by the useNotifications hook in Header
+  // No need for local loading or subscription management
 
   const playNotificationSound = () => {
     // Check if sound is enabled in user settings
@@ -131,11 +64,11 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
       
       if (error) throw error
       
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
-      )
+      // The useNotifications hook will handle the state update
+      toast.success("Notification marked as read")
     } catch (error) {
       console.error("Error marking notification as read:", error)
+      toast.error("Failed to mark notification as read")
     }
   }
 
@@ -151,7 +84,7 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
       
       if (error) throw error
       
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+      // The useNotifications hook will handle the state update
       toast.success("All notifications marked as read")
     } catch (error) {
       console.error("Error marking all as read:", error)
@@ -168,7 +101,8 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
       
       if (error) throw error
       
-      setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
+      // The useNotifications hook will handle the state update
+      toast.success("Notification deleted")
     } catch (error) {
       console.error("Error deleting notification:", error)
       toast.error("Failed to delete notification")
@@ -186,7 +120,7 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
       
       if (error) throw error
       
-      setNotifications((prev) => prev.filter((n) => !selectedNotifications.has(n.id)))
+      // The useNotifications hook will handle the state update
       setSelectedNotifications(new Set())
       toast.success(`Deleted ${selectedNotifications.size} notifications`)
     } catch (error) {
@@ -221,6 +155,29 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
     })
   }
 
+  const getNotificationTitle = (type: string) => {
+    switch (type) {
+      case "follow":
+        return "New Follower"
+      case "like":
+        return "New Like"
+      case "comment":
+        return "New Comment"
+      case "system":
+        return "System Notification"
+      case "success":
+        return "Success"
+      case "warning":
+        return "Warning"
+      case "error":
+        return "Error"
+      case "report":
+        return "Report Notification"
+      default:
+        return "Notification"
+    }
+  }
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case "follow":
@@ -237,6 +194,8 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
         return "⚠️"
       case "error":
         return "❌"
+      case "report":
+        return "🚩"
       default:
         return "ℹ️"
     }
@@ -258,6 +217,8 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
         return "bg-yellow-500/20 border-yellow-500/30"
       case "error":
         return "bg-red-500/20 border-red-500/30"
+      case "report":
+        return "bg-orange-500/20 border-orange-500/30"
       default:
         return "bg-slate-500/20 border-slate-500/30"
     }
@@ -360,6 +321,7 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
                       <option value="like">Likes</option>
                       <option value="comment">Comments</option>
                       <option value="system">System</option>
+                      <option value="report">Reports</option>
                       <option value="info">Info</option>
                       <option value="success">Success</option>
                       <option value="warning">Warning</option>
@@ -438,10 +400,10 @@ export default function NotificationCenter({ isOpen, onClose, onNotificationClic
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <h4 className={`text-sm font-medium ${notification.read ? "text-slate-300" : "text-white"}`}>
-                              {notification.title}
+                              {notification.title || getNotificationTitle(notification.type)}
                             </h4>
                             <p className={`text-sm mt-1 ${notification.read ? "text-slate-400" : "text-slate-300"}`}>
-                              {notification.message}
+                              {notification.message || notification.content || "No message content"}
                             </p>
                             <p className="text-xs text-slate-500 mt-2">
                               {new Date(notification.created_at).toLocaleString()}

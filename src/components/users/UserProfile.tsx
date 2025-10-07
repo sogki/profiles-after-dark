@@ -14,6 +14,7 @@ import { Fragment, useState } from "react";
 import { BsFillEmojiHeartEyesFill } from "react-icons/bs";
 import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import EnhancedReportModal from "../moderation/modals/EnhancedReportModal";
 
 import useRetrieveProfileFavorites from "@/hooks/users/profile-info/use-retrieve-profile-favorites";
 import useRetrieveProfilePairs from "@/hooks/users/profile-info/use-retrieve-profile-pairs";
@@ -97,10 +98,6 @@ export default function UserProfile() {
   >(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [reportReason, setReportReason] = useState("");
-  const [reportSubmitting, setReportSubmitting] = useState(false);
-  const [reportSuccess, setReportSuccess] = useState(false);
-  const [reportError, setReportError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<
     "uploads" | "pairs" | "favorites" | "emojicombos"
@@ -118,57 +115,11 @@ export default function UserProfile() {
   };
 
   const openReportModal = () => {
-    setReportReason("");
-    setReportError(null);
-    setReportSuccess(false);
     setIsReportModalOpen(true);
   };
 
   const closeReportModal = () => {
     setIsReportModalOpen(false);
-  };
-
-  const submitReport = async () => {
-    setReportError(null);
-    setReportSuccess(false);
-
-    if (!currentUserProfileId) {
-      setReportError("You must be logged in to submit a report.");
-      return;
-    }
-
-    if (!profile) {
-      setReportError("Reported user profile not found.");
-      return;
-    }
-
-    if (reportReason.trim().length === 0) {
-      setReportError("Please provide a reason for the report.");
-      return;
-    }
-
-    setReportSubmitting(true);
-
-    const { error } = await supabase.from("reports").insert({
-      reporter_user_id: currentUserProfileId,
-      reported_user_id: profile.id,
-      handled_by: null,
-      reason: reportReason.trim(),
-      created_at: new Date().toISOString(),
-    });
-
-    setReportSubmitting(false);
-
-    if (error) {
-      console.error("Error submitting report:", error);
-      setReportError("Failed to submit report. Please try again later.");
-    } else {
-      setReportSuccess(true);
-      setReportReason("");
-      setTimeout(() => {
-        closeReportModal();
-      }, 2000);
-    }
   };
 
   const formatDate = (dateString: string) => {
@@ -791,95 +742,17 @@ export default function UserProfile() {
           </Dialog>
         </Transition>
 
-        {/* Report Modal */}
-        <Transition appear show={isReportModalOpen} as={Fragment}>
-          <Dialog as="div" className="relative z-50" onClose={closeReportModal}>
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0"
-              enterTo="opacity-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100"
-              leaveTo="opacity-0"
-            >
-              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
-            </Transition.Child>
-
-            <div className="fixed inset-0 overflow-y-auto flex items-center justify-center p-4">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <Dialog.Panel className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                      <Flag className="h-5 w-5 text-red-600" />
-                    </div>
-                    <Dialog.Title className="text-lg font-semibold text-gray-900">
-                      Report User
-                    </Dialog.Title>
-                  </div>
-
-                  <p className="text-gray-600 mb-4">
-                    Please describe why you're reporting @{profile.username}.
-                    Our team will review this report.
-                  </p>
-
-                  <textarea
-                    rows={4}
-                    placeholder="Describe the reason for reporting this user..."
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                    value={reportReason}
-                    onChange={(e) => setReportReason(e.target.value)}
-                    disabled={reportSubmitting || reportSuccess}
-                  />
-
-                  {reportError && (
-                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-red-600 text-sm">{reportError}</p>
-                    </div>
-                  )}
-
-                  {reportSuccess && (
-                    <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-green-600 text-sm">
-                        Report submitted successfully. Thank you for helping
-                        keep our community safe.
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="mt-6 flex justify-end gap-3">
-                    <button
-                      onClick={closeReportModal}
-                      className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                      disabled={reportSubmitting}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={submitReport}
-                      className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={
-                        reportSubmitting ||
-                        reportSuccess ||
-                        !reportReason.trim()
-                      }
-                    >
-                      {reportSubmitting ? "Submitting..." : "Submit Report"}
-                    </button>
-                  </div>
-                </Dialog.Panel>
-              </Transition.Child>
-            </div>
-          </Dialog>
-        </Transition>
+        {/* Enhanced Report Modal */}
+        <EnhancedReportModal
+          isOpen={isReportModalOpen}
+          onClose={closeReportModal}
+          reporterUserId={currentUserProfileId || ''}
+          reportedUserId={profile?.id}
+          reportedUsername={profile?.username}
+          onReportSubmitted={() => {
+            closeReportModal();
+          }}
+        />
       </div>
       <Footer />
     </>

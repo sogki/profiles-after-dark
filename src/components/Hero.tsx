@@ -8,11 +8,9 @@ import {
   ImageIcon,
   ArrowRight,
   Sparkles,
-  TrendingUp,
 } from "lucide-react";
 import { useAuth } from "../context/authContext";
 import { supabase } from "../lib/supabase";
-import DarkVeil from "./animations/Veil";
 
 interface HeroStats {
   totalProfiles: number;
@@ -96,9 +94,11 @@ export default function Hero() {
     }
   }, []);
 
+
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
 
   const scrollToGallery = () => {
     const galleryElement =
@@ -114,9 +114,10 @@ export default function Hero() {
   };
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-black via-blue-900/20 to-slate-900">
-      <DarkVeil />
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-24">
+    <section className="relative overflow-hidden" style={{ zIndex: 1 }}>
+      <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: 'url(https://zzywottwfffyddnorein.supabase.co/storage/v1/object/public/static-assets/hero-background.png)', filter: 'blur(4px)' }}></div>
+      <div className="absolute inset-0 bg-black/40 z-0"></div>
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
         <div className="text-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -135,30 +136,23 @@ export default function Hero() {
             </div>
           </motion.div>
 
-          {/* <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-3xl sm:text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400 mb-4 leading-tight"
-          >
-            Profiles That Come Alive
-          </motion.h1> */}
 
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-base sm:text-md text-slate-300 mb-12 max-w-3xl mx-auto leading-relaxed"
+            className="text-lg sm:text-xl text-slate-300 mb-8 max-w-4xl mx-auto leading-relaxed"
           >
             Discover and download stunning aesthetic profile pictures and
-            banners for all your favourite social media.
+            banners for all your favourite social media platforms.
           </motion.p>
+
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center mb-12 sm:mb-16"
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="flex flex-col sm:flex-row gap-4 justify-center mb-16 sm:mb-20"
           >
             <button
               onClick={scrollToGallery}
@@ -170,13 +164,14 @@ export default function Hero() {
               <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </button>
 
+
             <AnimatePresence>
               {!user && (
                 <motion.button
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="inline-flex items-center gap-2 bg-slate-800/50 backdrop-blur-sm hover:bg-slate-700/50 text-white font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl transition-all duration-300 border border-slate-600/50 hover:border-slate-500/50"
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-pink-500/25"
                   aria-label="Join community"
                 >
                   <Users className="h-5 w-5" />
@@ -185,6 +180,7 @@ export default function Hero() {
               )}
             </AnimatePresence>
           </motion.div>
+
 
           {error ? (
             <motion.div
@@ -196,7 +192,7 @@ export default function Hero() {
               {error}
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-12 sm:mb-16">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 mb-16 sm:mb-20 relative z-10">
               {[
                 {
                   icon: ImageIcon,
@@ -223,7 +219,7 @@ export default function Hero() {
                   initial="hidden"
                   animate="visible"
                   transition={{ delay: index * 0.2 }}
-                  className="bg-[rgba(30,20,60,0.25)] backdrop-blur-md rounded-2xl p-6 border border-purple-600/40 hover:border-purple-500/60 transition-all duration-300 shadow-lg shadow-purple-900/30"
+                  className="bg-[rgba(30,20,60,0.3)] backdrop-blur-md rounded-2xl p-6 border border-purple-600/40 hover:border-purple-500/60 transition-all duration-300 shadow-lg shadow-purple-900/30 relative z-10"
                 >
                   <div className="flex items-center justify-center mb-4">
                     <div className="p-3 bg-gradient-to-br from-purple-700/30 to-blue-500/30 rounded-full">
@@ -277,19 +273,6 @@ export default function Hero() {
             ))}
           </motion.div> */}
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.8 }}
-            className="mt-20 flex justify-center"
-          >
-            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600/50 to-gray-600/50 border border-purple-500/30 rounded-full px-4 py-2 text-white">
-              <TrendingUp className="h-4 w-4" />
-              <span className="text-sm font-medium">
-                Trending: Aesthetic Profiles
-              </span>
-            </div>
-          </motion.div>
         </div>
       </div>
     </section>

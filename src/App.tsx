@@ -1,54 +1,35 @@
-import { useState, useEffect } from "react"
-
+import { useState, useEffect, Suspense, lazy } from "react"
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 
+// Core components (loaded immediately)
 import Header from "./components/Header"
-
 import Hero from "./components/Hero"
-
 import Gallery from "./components/Gallery"
-
-import UploadModal from "./components/UploadModal"
-
-import AuthModal from "./components/AuthModal"
-
 import Footer from "./components/Footer"
-
 import DiscordCTA from "./components/DiscordCTA"
 
-import ProfileSettings from "./components/users/ProfileSettings"
-
-import UsersList from "./components/users/UserList"
-
-import UserProfile from "./components/users/UserProfile"
-
-import ProfilesGallery from "./components/gallery/ProfilesGallery"
-
-import PfpGallery from "./components/gallery/PfpGallery"
-
-import BannersGallery from "./components/gallery/BannersGallery"
-
-import EmotesGallery from "./components/gallery/EmotesGallery"
-
-import EmojiCombosGallery from "./components/gallery/EmojiCombosGallery"
-
-import TrendingPage from "./components/gallery/Trending"
-
-import ModerationPanel from "./components/users/moderation/ModerationPanel"
-
-import ModerationLogs from "./components/users/moderation/ModerationLogs"
-
-import Terms from "./components/legal/Terms"
-
-import Policies from "./components/legal/Policies"
-
-import Guidelines from "./components/legal/Guidelines"
-
-import ReportContent from "./components/legal/ReportContent"
-
-import WallpaperGallery from "./components/gallery/WallpaperGallery"
-
-import AppealsFormSystem from "./components/appeal/AppealsForm"
+// Lazy load heavy components
+const UploadModal = lazy(() => import("./components/UploadModal"))
+const AuthModal = lazy(() => import("./components/AuthModal"))
+const ProfileSettings = lazy(() => import("./components/users/ProfileSettings"))
+const UsersList = lazy(() => import("./components/users/UserList"))
+const UserProfile = lazy(() => import("./components/users/UserProfile"))
+const ProfilesGallery = lazy(() => import("./components/gallery/ProfilesGallery"))
+const PfpGallery = lazy(() => import("./components/gallery/PfpGallery"))
+const BannersGallery = lazy(() => import("./components/gallery/BannersGallery"))
+const EmotesGallery = lazy(() => import("./components/gallery/EmotesGallery"))
+const EmojiCombosGallery = lazy(() => import("./components/gallery/EmojiCombosGallery"))
+const TrendingPage = lazy(() => import("./components/gallery/Trending"))
+const ModerationPanel = lazy(() => import("./components/users/moderation/ModerationPanel"))
+const ModerationLogs = lazy(() => import("./components/users/moderation/ModerationLogs"))
+const EnhancedModerationPage = lazy(() => import("./components/moderation/EnhancedModerationPage"))
+const EnhancedReportModal = lazy(() => import("./components/moderation/modals/EnhancedReportModal"))
+const Terms = lazy(() => import("./components/legal/Terms"))
+const Policies = lazy(() => import("./components/legal/Policies"))
+const Guidelines = lazy(() => import("./components/legal/Guidelines"))
+const ReportContent = lazy(() => import("./components/legal/ReportContent"))
+const WallpaperGallery = lazy(() => import("./components/gallery/WallpaperGallery"))
+const AppealsFormSystem = lazy(() => import("./components/appeal/AppealsForm"))
 
 import { useAuth } from "./context/authContext"
 
@@ -76,6 +57,16 @@ function App() {
   const { user, loading } = useAuth()
 
   const [showScrollTop, setShowScrollTop] = useState(false)
+
+  // Enhanced Report Modal State
+  const [showEnhancedReport, setShowEnhancedReport] = useState(false)
+  const [reportTarget, setReportTarget] = useState<{
+    userId?: string;
+    username?: string;
+    contentId?: string;
+    contentType?: string;
+    contentUrl?: string;
+  } | null>(null)
 
   // Fetch announcement on mount
 
@@ -127,6 +118,23 @@ function App() {
     }
   }
 
+  // Enhanced Moderation System Handlers
+  const handleReportClick = (target: {
+    userId?: string;
+    username?: string;
+    contentId?: string;
+    contentType?: string;
+    contentUrl?: string;
+  }) => {
+    if (user) {
+      setReportTarget(target)
+      setShowEnhancedReport(true)
+    } else {
+      setIsAuthModalOpen(true)
+    }
+  }
+
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
@@ -149,7 +157,6 @@ function App() {
           onAuthClick={() => setIsAuthModalOpen(true)}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          user={user}
         />
 
         {/* Announcement banner */}
@@ -159,77 +166,85 @@ function App() {
         )}
 
         <div className="flex-grow">
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <>
-                  <Hero />
-
-                  <Gallery
-                    searchQuery={searchQuery}
-                    selectedCategory={selectedCategory}
-                    selectedType={selectedType}
-                    viewMode={viewMode}
-                  />
-
-                  <DiscordCTA />
-
-                  <Footer />
-                </>
-              }
-            />
-
-            <Route path="/profile-settings" element={<ProfileSettings />} />
-
-            {/* User routes */}
-
-            <Route path="/users" element={<UsersList />} />
-
-            <Route path="/user/:username" element={<UserProfile />} />
-
-            {/* Moderation route */}
-
-            <Route path="/moderation" element={<ModerationPanel />} />
-
-            <Route path="/moderation/logs" element={<ModerationLogs />} />
-
-            {/* Gallery routes */}
-
-            <Route path="/gallery/profiles" element={<ProfilesGallery />} />
-
-            <Route path="/gallery/pfps" element={<PfpGallery />} />
-
-            <Route path="/gallery/banners" element={<BannersGallery />} />
-
-            <Route path="/gallery/emotes" element={<EmotesGallery />} />
-
-            <Route path="/gallery/emoji-combos" element={<EmojiCombosGallery />} />
-
-            <Route path="gallery/wallpapers" element={<WallpaperGallery/>} />
-
-            {/* Trending route */}
-
-            <Route path="/trending" element={<TrendingPage />} />
-
-            {/* Legal routes */}
-
-            <Route path="/terms" element={<Terms />} />
-
-            <Route path="/policies" element={<Policies />} />
-
-            <Route path="/guidelines" element={<Guidelines />} />
-
-            <Route path="/report-content" element={<ReportContent />} />
-
-            {/* Appeals routes */}
-            <Route path="/appeals" element={<AppealsFormSystem/>} />
-          </Routes>
+          <Suspense fallback={<div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
+              <p className="text-white">Loading page...</p>
+            </div>
+          </div>}>
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <>
+                    <Hero />
+                    <Gallery
+                      searchQuery={searchQuery}
+                      selectedCategory={selectedCategory}
+                      selectedType={selectedType}
+                      viewMode={viewMode}
+                    />
+                    <DiscordCTA />
+                    <Footer />
+                  </>
+                }
+              />
+              <Route path="/profile-settings" element={<ProfileSettings />} />
+              <Route path="/users" element={<UsersList />} />
+              <Route path="/user/:username" element={<UserProfile />} />
+              <Route path="/moderation" element={<ModerationPanel />} />
+              <Route path="/moderation/logs" element={<ModerationLogs />} />
+              <Route path="/moderation/enhanced" element={<EnhancedModerationPage />} />
+              <Route path="/gallery/profiles" element={<ProfilesGallery />} />
+              <Route path="/gallery/pfps" element={<PfpGallery />} />
+              <Route path="/gallery/banners" element={<BannersGallery />} />
+              <Route path="/gallery/emotes" element={<EmotesGallery />} />
+              <Route path="/gallery/emoji-combos" element={<EmojiCombosGallery />} />
+              <Route path="gallery/wallpapers" element={<WallpaperGallery/>} />
+              <Route path="/trending" element={<TrendingPage />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/policies" element={<Policies />} />
+              <Route path="/guidelines" element={<Guidelines />} />
+              <Route path="/report-content" element={<ReportContent />} />
+              <Route path="/appeals" element={<AppealsFormSystem/>} />
+            </Routes>
+          </Suspense>
         </div>
 
-        <UploadModal isOpen={isUploadModalOpen} onClose={() => setIsUploadModalOpen(false)} />
+        <Suspense fallback={<div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+        </div>}>
+          <UploadModal isOpen={isUploadModalOpen} onClose={() => setIsUploadModalOpen(false)} />
+        </Suspense>
 
-        <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+        <Suspense fallback={<div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+        </div>}>
+          <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+        </Suspense>
+
+        <Suspense fallback={<div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+        </div>}>
+          <EnhancedReportModal
+            isOpen={showEnhancedReport}
+            onClose={() => {
+              setShowEnhancedReport(false)
+              setReportTarget(null)
+            }}
+            reportedUserId={reportTarget?.userId}
+            reportedUsername={reportTarget?.username}
+            contentId={reportTarget?.contentId}
+            contentType={reportTarget?.contentType as any}
+            contentUrl={reportTarget?.contentUrl}
+            reporterUserId={user?.id || ''}
+            onReportSubmitted={() => {
+              setShowEnhancedReport(false)
+              setReportTarget(null)
+            }}
+          />
+        </Suspense>
+
 
         {/* Scroll to Top Button with fade and scale animation */}
         <button

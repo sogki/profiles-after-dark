@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, Fragment, useCallback } from "react"
+import { useState, useEffect, useMemo, Fragment, useCallback, memo } from "react"
 import { Download, Heart, Eye, Search, Clock, Tag } from "lucide-react"
 import { Dialog, Transition } from "@headlessui/react"
 import { useAuth } from "../context/authContext"
@@ -14,9 +14,10 @@ interface ProfilePair {
   tags: string[]
   pfp_url: string
   banner_url: string
-  created_at: string
-  updated_at: string
+  created_at: string | null
+  updated_at: string | null
   type: "pair"
+  download_count?: number
 }
 
 interface Profile {
@@ -28,8 +29,8 @@ interface Profile {
   image_url: string
   download_count: number
   tags: string[]
-  created_at: string
-  updated_at: string
+  created_at: string | null
+  updated_at: string | null
   text_data: string
 }
 
@@ -38,27 +39,272 @@ type GalleryItem = ProfilePair | Profile
 const FAVORITES_STORAGE_KEY = "profile_favorites"
 
 // Skeleton Loading Component
-const ProfileCardSkeleton = () => (
+const ProfileCardSkeleton = memo(() => (
   <div
-    className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl animate-pulse"
-    style={{ minHeight: "280px" }}
+    className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl animate-pulse flex flex-col"
+    style={{ minHeight: "320px", maxHeight: "420px" }}
   >
-    <div className="w-full h-40 bg-gray-700" />
-    <div className="w-24 h-24 bg-gray-700 rounded-full border-4 border-gray-800 absolute top-28 left-1/2 transform -translate-x-1/2" />
-    <div className="pt-20 pb-6 px-6 text-center space-y-3">
-      <div className="h-6 bg-gray-700 rounded mx-auto w-3/4" />
-      <div className="flex justify-center gap-2">
-        <div className="h-5 bg-gray-700 rounded w-12" />
-        <div className="h-5 bg-gray-700 rounded w-16" />
+    <div className="w-full h-40 bg-gray-700 flex-shrink-0" />
+    <div className="w-20 h-20 bg-gray-700 rounded-full border-4 border-gray-800 absolute -bottom-4 left-1/2 transform -translate-x-1/2" />
+    <div className="p-6 pt-8 flex flex-col h-full">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1 pr-2">
+          <div className="h-6 bg-gray-700 rounded w-3/4 mb-2" />
+          <div className="h-4 bg-gray-700 rounded w-1/2" />
+        </div>
+        <div className="w-10 h-10 bg-gray-700 rounded-full" />
       </div>
-      <div className="flex justify-center gap-5 pt-2">
-        <div className="h-8 w-8 bg-gray-700 rounded" />
-        <div className="h-8 w-8 bg-gray-700 rounded" />
-        <div className="h-8 w-8 bg-gray-700 rounded" />
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        <div className="h-6 bg-gray-700 rounded-full w-16" />
+        <div className="h-6 bg-gray-700 rounded-full w-20" />
+        <div className="h-6 bg-gray-700 rounded-full w-14" />
+      </div>
+      <div className="flex items-center justify-between mb-4 mt-auto">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-gray-700 rounded" />
+          <div className="h-4 bg-gray-700 rounded w-8" />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-gray-700 rounded" />
+          <div className="h-4 bg-gray-700 rounded w-12" />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <div className="flex-1 h-10 bg-gray-700 rounded-lg" />
+        <div className="flex-1 h-10 bg-gray-700 rounded-lg" />
       </div>
     </div>
   </div>
-)
+))
+
+// Memoized Profile Card Component
+interface ProfileCardProps {
+  profile: GalleryItem
+  onPreview: (profile: GalleryItem) => void
+  onDownload: (profile: GalleryItem) => void
+  onToggleFavorite: (profileId: string) => void
+  isFavorited: boolean
+  isHovered: boolean
+  onHover: (profileId: string | null) => void
+  isAnimatedImage: (url: string) => boolean
+  getStaticPreview: (url: string) => string
+}
+
+const ProfileCard = memo(({ profile, onPreview, onDownload, onToggleFavorite, isFavorited, isHovered, onHover, isAnimatedImage, getStaticPreview }: ProfileCardProps) => {
+  const getImageUrl = () => {
+    if ("pfp_url" in profile && profile.type === "pair") {
+      return profile.banner_url || profile.pfp_url
+    } else if ("image_url" in profile) {
+      return profile.image_url
+    }
+    return ""
+  }
+
+  const imageUrl = getImageUrl()
+  const isAnimated = isAnimatedImage(imageUrl)
+
+  return (
+    <div
+      className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 border border-slate-700 hover:border-slate-600 flex flex-col"
+      style={{ minHeight: "320px", maxHeight: "420px" }}
+      onMouseEnter={() => onHover(profile.id)}
+      onMouseLeave={() => onHover(null)}
+    >
+      {/* Animated Content Indicator - always show for animated content */}
+      {isAnimated && (
+        <div className="absolute top-2 left-2 z-20 bg-purple-600/90 text-white text-xs px-2 py-1 rounded-full font-medium backdrop-blur-sm">
+          ✨ Animated
+        </div>
+      )}
+
+      {/* Banner/Image Display */}
+      <div className="relative w-full h-40 flex-shrink-0">
+        {"pfp_url" in profile && profile.type === "pair" ? (
+          // Profile Pair Display
+          <>
+            {profile.banner_url ? (
+              isAnimated ? (
+                <div className="relative w-full h-full">
+                  {!isHovered ? (
+                    // Show static placeholder when not hovered
+                    <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center relative">
+                      <div className="text-center">
+                        <div className="text-3xl mb-2 text-purple-400">🎬</div>
+                      </div>
+                      <div className="absolute bottom-2 right-2">
+                        <div className="text-gray-300 text-xs bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">Hover to preview</div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Show animated GIF when hovered
+                    <img
+                      src={profile.banner_url || "/placeholder.svg"}
+                      alt={`${profile.title} banner`}
+                      className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
+                      loading="lazy"
+                    />
+                  )}
+                </div>
+              ) : (
+                <img
+                  src={profile.banner_url || "/placeholder.svg"}
+                  alt={`${profile.title} banner`}
+                  className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
+                  loading="lazy"
+                />
+              )
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-gray-400">
+                <span className="text-sm">No Banner</span>
+              </div>
+            )}
+
+            {profile.pfp_url && (
+              <img
+                src={profile.pfp_url || "/placeholder.svg"}
+                alt={`${profile.title} profile`}
+                className="w-20 h-20 rounded-full border-4 border-purple-500 absolute -bottom-4 left-1/2 transform -translate-x-1/2 border-solid bg-slate-900 group-hover:border-purple-400 transition-colors shadow-lg"
+                loading="lazy"
+              />
+            )}
+          </>
+        ) : (
+          // Single Profile Display
+          <>
+                {profile.image_url ? (
+                  isAnimated ? (
+                    <div className="relative w-full h-full">
+                      {!isHovered ? (
+                        // Show static placeholder when not hovered
+                        <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center relative">
+                          <div className="text-center">
+                            <div className="text-3xl mb-2 text-purple-400">🎬</div>
+                          </div>
+                          <div className="absolute bottom-2 right-2">
+                            <div className="text-gray-300 text-xs bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">Hover to preview</div>
+                          </div>
+                        </div>
+                      ) : (
+                        // Show animated GIF when hovered
+                        <img
+                          src={profile.image_url || "/placeholder.svg"}
+                          alt={profile.title}
+                          className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
+                          loading="lazy"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <img
+                      src={profile.image_url || "/placeholder.svg"}
+                      alt={profile.title}
+                      className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
+                      loading="lazy"
+                    />
+                  )
+                ) : (
+              <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-gray-400">
+                <span className="text-sm">No Image</span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="p-6 pt-8 flex flex-col h-full">
+        {/* Header with title and favorite button */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1 min-w-0 pr-2">
+            <h3 
+              className="text-lg font-semibold text-white group-hover:text-purple-300 transition-colors leading-tight"
+              title={profile.title}
+            >
+              {profile.title}
+            </h3>
+            <p className="text-sm text-gray-400 capitalize mt-1">{profile.category}</p>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleFavorite(profile.id)
+            }}
+            className={`p-2 rounded-full transition-all duration-200 flex-shrink-0 ${
+              isFavorited
+                ? "text-red-500 hover:text-red-400 bg-red-500/10 hover:bg-red-500/20"
+                : "text-gray-400 hover:text-red-500 hover:bg-red-500/10"
+            }`}
+            title={isFavorited ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Heart className={`w-5 h-5 ${isFavorited ? "fill-current" : ""}`} />
+          </button>
+        </div>
+
+        {/* Tags - Improved layout with better spacing */}
+        {profile.tags && profile.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-4 min-h-[2rem]">
+            {profile.tags.slice(0, 4).map((tag, index) => (
+              <span
+                key={index}
+                className="px-2.5 py-1 text-xs bg-slate-700 text-gray-300 rounded-full hover:bg-slate-600 transition-colors border border-slate-600/50"
+                title={tag}
+              >
+                #{tag}
+              </span>
+            ))}
+            {profile.tags.length > 4 && (
+              <span 
+                className="px-2.5 py-1 text-xs text-gray-400 bg-slate-800 rounded-full border border-slate-600/50"
+                title={`${profile.tags.length - 4} more tags: ${profile.tags.slice(4).join(', ')}`}
+              >
+                +{profile.tags.length - 4}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Stats - Better layout and information */}
+        <div className="flex items-center justify-between text-sm text-gray-400 mb-4 mt-auto">
+          <div className="flex items-center gap-1.5">
+            <Download className="w-4 h-4 text-green-400" />
+            <span className="font-medium">{profile.download_count || 0}</span>
+            <span className="text-xs text-gray-500">downloads</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-4 h-4 text-blue-400" />
+            <span className="text-xs">
+                     {profile.updated_at ? new Date(profile.updated_at).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: '2-digit',
+                year: '2-digit'
+              }) : 'Unknown'}
+            </span>
+          </div>
+        </div>
+
+        {/* Actions - Improved button layout */}
+        <div className="flex gap-2 mt-auto">
+          <button
+            onClick={() => onPreview(profile)}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-medium"
+            title={`Preview ${profile.title}`}
+          >
+            <Eye className="w-4 h-4" />
+            Preview
+          </button>
+          <button
+            onClick={() => onDownload(profile)}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm font-medium"
+            title={`Download ${profile.title}`}
+          >
+            <Download className="w-4 h-4" />
+            Download
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+})
 
 export default function ProfilesGallery() {
   const { user } = useAuth()
@@ -78,6 +324,115 @@ export default function ProfilesGallery() {
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [previewProfile, setPreviewProfile] = useState<GalleryItem | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [hoveredProfileId, setHoveredProfileId] = useState<string | null>(null)
+
+  // Helper function to check if image is animated (GIF)
+  const isAnimatedImage = (url: string): boolean => {
+    return url.toLowerCase().includes('.gif')
+  }
+
+  // Helper function to get static preview for GIFs
+  const getStaticPreview = (url: string): string => {
+    if (url.toLowerCase().includes('.gif')) {
+      // For GIFs, we'll use a different approach - show a blurred/desaturated version
+      return url
+    }
+    return url
+  }
+
+  // Retry function for failed requests
+  const retryFetch = useCallback(() => {
+    setError(null)
+    setLoading(true)
+    // Re-trigger the useEffect by updating a dependency
+    fetchProfiles()
+  }, [])
+
+  const fetchProfiles = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const allProfiles: GalleryItem[] = []
+
+      // Try to fetch from profile_pairs table with error handling
+      try {
+        const { data: pairsData, error: pairsError } = await supabase
+          .from("profile_pairs")
+          .select("*")
+          .order("updated_at", { ascending: false })
+
+        if (pairsError) {
+          console.warn("Error fetching profile_pairs:", pairsError)
+        } else if (pairsData) {
+          const processedPairs: ProfilePair[] = pairsData.map((item) => ({
+            id: item.id,
+            user_id: item.user_id,
+            title: item.title || "Untitled Profile Pair",
+            category: item.category || "General",
+            tags: Array.isArray(item.tags) ? item.tags : [],
+            pfp_url: item.pfp_url || "",
+            banner_url: item.banner_url || "",
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            type: "pair" as const,
+          }))
+          allProfiles.push(...processedPairs)
+        }
+      } catch (err) {
+        console.warn("Failed to fetch profile_pairs:", err)
+      }
+
+      // Try to fetch from profiles table with error handling
+      try {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("*")
+          .order("updated_at", { ascending: false })
+
+        if (profilesError) {
+          console.warn("Error fetching profiles:", profilesError)
+        } else if (profilesData) {
+          const processedProfiles: Profile[] = profilesData.map((item) => ({
+            id: item.id,
+            user_id: item.user_id,
+            title: item.title || "Untitled Profile",
+            category: item.category || "General",
+            type: item.type || "profile",
+            image_url: item.image_url || "",
+            download_count: item.download_count || 0,
+            tags: Array.isArray(item.tags) ? item.tags : [],
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            text_data: item.text_data || "",
+          }))
+          allProfiles.push(...processedProfiles)
+        }
+      } catch (err) {
+        console.warn("Failed to fetch profiles:", err)
+      }
+
+      // If no data was fetched from either table, show a helpful message
+      if (allProfiles.length === 0) {
+        setError("No profiles found. The database might be empty or there might be a connection issue.")
+        setLoading(false)
+        return
+      }
+
+      // Sort all profiles by updated_at
+      allProfiles.sort((a, b) => {
+        const dateA = a.updated_at ? new Date(a.updated_at).getTime() : 0
+        const dateB = b.updated_at ? new Date(b.updated_at).getTime() : 0
+        return dateB - dateA
+      })
+
+      setProfiles(allProfiles)
+    } catch (err) {
+      console.error("Unexpected error loading profiles:", err)
+      setError("Unexpected error loading profiles. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     if (user?.id) {
@@ -102,82 +457,8 @@ export default function ProfilesGallery() {
   }, [favorites, user])
 
   useEffect(() => {
-    async function fetchProfiles() {
-      setLoading(true)
-      setError(null)
-      try {
-        // Fetch from profile_pairs table
-        const { data: pairsData, error: pairsError } = await supabase
-          .from("profile_pairs")
-          .select("*")
-          .order("updated_at", { ascending: false })
-
-        // Fetch from profiles table
-        const { data: profilesData, error: profilesError } = await supabase
-          .from("profiles")
-          .select("*")
-          .order("updated_at", { ascending: false })
-
-        if (pairsError || profilesError) {
-          setError("Failed to fetch profiles")
-          setLoading(false)
-          return
-        }
-
-        const allProfiles: GalleryItem[] = []
-
-        // Process profile_pairs data
-        if (pairsData) {
-          const processedPairs: ProfilePair[] = pairsData.map((item) => ({
-            id: item.id,
-            user_id: item.user_id,
-            title: item.title || "Untitled Profile Pair",
-            category: item.category || "General",
-            tags: Array.isArray(item.tags) ? item.tags : [],
-            pfp_url: item.pfp_url || "",
-            banner_url: item.banner_url || "",
-            created_at: item.created_at,
-            updated_at: item.updated_at,
-            type: "pair" as const,
-          }))
-          allProfiles.push(...processedPairs)
-        }
-
-        // Process profiles data
-        if (profilesData) {
-          const processedProfiles: Profile[] = profilesData.map((item) => ({
-            id: item.id,
-            user_id: item.user_id,
-            title: item.title || "Untitled Profile",
-            category: item.category || "General",
-            type: item.type || "profile",
-            image_url: item.image_url || "",
-            download_count: item.download_count || 0,
-            tags: Array.isArray(item.tags) ? item.tags : [],
-            created_at: item.created_at,
-            updated_at: item.updated_at,
-            text_data: item.text_data || "",
-          }))
-          allProfiles.push(...processedProfiles)
-        }
-
-        // Sort all profiles by updated_at
-        allProfiles.sort((a, b) => {
-          const dateA = new Date(a.updated_at).getTime()
-          const dateB = new Date(b.updated_at).getTime()
-          return dateB - dateA
-        })
-
-        setProfiles(allProfiles)
-      } catch (err) {
-        setError("Unexpected error loading profiles")
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchProfiles()
-  }, [])
+  }, [fetchProfiles])
 
   const allTags = useMemo(() => {
     const tagsSet = new Set<string>()
@@ -264,7 +545,7 @@ export default function ProfilesGallery() {
             // Update local state
             setProfiles((prev) =>
               prev.map((p) =>
-                p.id === profile.id && "download_count" in p ? { ...p, download_count: p.download_count + 1 } : p,
+                p.id === profile.id && "download_count" in p ? { ...p, download_count: (p.download_count || 0) + 1 } : p,
               ),
             )
           }
@@ -347,17 +628,21 @@ export default function ProfilesGallery() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12" data-gallery>
+    <div 
+      className="w-full py-12 relative mt-4 sm:mt-6 mb-16 sm:mb-24 transition-all duration-1000 ease-out opacity-0 animate-fade-in" 
+      data-gallery 
+      style={{ zIndex: 2 }}
+    >
       {/* Enhanced Header */}
-      <div className="mb-8">
-        <h2 className="text-white text-4xl font-bold mb-2">Profiles Gallery</h2>
-        <p className="text-gray-400 text-lg">
+      <div className="mb-8 relative px-4 sm:px-6 lg:px-8">
+        <h2 className="text-white text-4xl font-bold mb-2 relative z-10">Profiles Gallery</h2>
+        <p className="text-gray-400 text-lg relative z-10">
           Discover and download amazing profile combinations • {filteredProfiles.length} items available
         </p>
       </div>
 
       {/* Enhanced Filters */}
-      <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-slate-600/50 shadow-2xl">
+      <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-slate-600/50 shadow-2xl mx-4 sm:mx-6 lg:mx-8">
         {/* Search Bar */}
         <div className="mb-6">
           <div className="relative">
@@ -454,7 +739,7 @@ export default function ProfilesGallery() {
 
       {/* Profiles grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 px-4 sm:px-6 lg:px-8">
           {Array.from({ length: 8 }).map((_, i) => (
             <ProfileCardSkeleton key={i} />
           ))}
@@ -464,7 +749,7 @@ export default function ProfilesGallery() {
           <div className="bg-red-900/20 border border-red-700 rounded-lg p-6 max-w-md mx-auto">
             <p className="text-red-400 font-medium">{error}</p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={retryFetch}
               className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white font-medium transition-colors"
             >
               Try Again
@@ -492,134 +777,26 @@ export default function ProfilesGallery() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4 sm:px-6 lg:px-8">
             {pagedProfiles.map((profile) => (
-              <div
+              <ProfileCard
                 key={profile.id}
-                className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 border border-slate-700 hover:border-slate-600"
-                style={{ minHeight: "280px" }}
-              >
-                {/* Banner/Image Display */}
-                {"pfp_url" in profile && profile.type === "pair" ? (
-                  // Profile Pair Display
-                  <>
-                    {profile.banner_url ? (
-                      <img
-                        src={profile.banner_url || "/placeholder.svg"}
-                        alt={`${profile.title} banner`}
-                        className="w-full h-40 object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-40 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-gray-400">
-                        No Banner
-                      </div>
-                    )}
-
-                    {profile.pfp_url && (
-                      <img
-                        src={profile.pfp_url || "/placeholder.svg"}
-                        alt={`${profile.title} profile`}
-                        className="w-24 h-24 rounded-full border-4 border-purple-500 absolute top-28 left-1/2 transform -translate-x-1/2 border-solid bg-slate-900 group-hover:border-purple-400 transition-colors"
-                        loading="lazy"
-                      />
-                    )}
-                  </>
-                ) : (
-                  // Single Profile Display
-                  <>
-                    {"image_url" in profile && profile.image_url ? (
-                      <img
-                        src={profile.image_url || "/placeholder.svg"}
-                        alt={profile.title}
-                        className="w-full h-40 object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-40 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-gray-400">
-                        No Image
-                      </div>
-                    )}
-                    {/* Remove the type indicator circle completely for single profiles */}
-                  </>
-                )}
-
-                {/* Stats Overlay */}
-                <div className="absolute top-3 right-3 flex gap-2">
-                  {"download_count" in profile && (
-                    <div className="bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                      <Download className="h-3 w-3 text-green-400" />
-                      <span className="text-xs text-gray-300">{profile.download_count}</span>
-                    </div>
-                  )}
-                  <div className="bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                    <span className="text-xs text-purple-300 font-medium">{profile.category}</span>
-                  </div>
-                </div>
-
-                <div className={`text-center ${profile.type === "pair" ? "pt-20" : "pt-6"} pb-6 px-6`}>
-                  <h3 className="text-white font-semibold text-xl truncate mb-3">{profile.title}</h3>
-
-                  <div className="flex flex-wrap justify-center gap-1 mb-4 max-h-16 overflow-auto px-2">
-                    {(profile.tags || []).map((tag) => (
-                      <span
-                        key={tag}
-                        className="bg-purple-700/30 text-purple-200 text-xs px-2 py-0.5 rounded-full select-none whitespace-nowrap border border-purple-600/30"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="flex justify-center gap-3">
-                    <button
-                      onClick={() => openPreview(profile)}
-                      className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm font-medium transition-colors"
-                      aria-label={`Preview ${profile.title}`}
-                      type="button"
-                    >
-                      <Eye size={16} />
-                      Preview
-                    </button>
-
-                    <button
-                      onClick={() => handleDownloadBoth(profile)}
-                      className="flex items-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium transition-colors"
-                      aria-label={`Download ${profile.title}`}
-                      type="button"
-                    >
-                      <Download size={16} />
-                      Download
-                    </button>
-
-                    {user && (
-                      <button
-                        onClick={() => handleFavorite(profile.id)}
-                        className={`p-2 rounded-lg transition-colors ${
-                          favorites.has(profile.id)
-                            ? "bg-red-600 text-white"
-                            : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                        }`}
-                        aria-pressed={favorites.has(profile.id)}
-                        aria-label={
-                          favorites.has(profile.id)
-                            ? `Remove ${profile.title} from favorites`
-                            : `Add ${profile.title} to favorites`
-                        }
-                        type="button"
-                      >
-                        <Heart size={16} fill={favorites.has(profile.id) ? "currentColor" : "none"} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+                profile={profile}
+                onPreview={openPreview}
+                onDownload={handleDownloadBoth}
+                onToggleFavorite={handleFavorite}
+                isFavorited={favorites.has(profile.id)}
+                isHovered={hoveredProfileId === profile.id}
+                onHover={setHoveredProfileId}
+                isAnimatedImage={isAnimatedImage}
+                getStaticPreview={getStaticPreview}
+              />
             ))}
           </div>
 
           {/* Enhanced Pagination */}
           {filteredProfiles.length > ITEMS_PER_PAGE && (
-            <div className="flex items-center justify-center gap-4 mt-12">
+            <div className="flex items-center justify-center gap-4 mt-12 px-4 sm:px-6 lg:px-8">
               <button
                 onClick={() => setPage((p) => Math.max(p - 1, 1))}
                 disabled={page === 1}
@@ -752,12 +929,12 @@ export default function ProfilesGallery() {
                     {previewProfile && "download_count" in previewProfile && (
                       <div className="flex items-center gap-1">
                         <Download className="h-4 w-4" />
-                        <span>{previewProfile.download_count} downloads</span>
+                        <span>{previewProfile.download_count || 0} downloads</span>
                       </div>
                     )}
                     <div className="flex items-center gap-1">
                       <Clock className="h-4 w-4" />
-                      <span>Updated {new Date(previewProfile?.updated_at || "").toLocaleDateString()}</span>
+                      <span>Updated {previewProfile?.updated_at ? new Date(previewProfile.updated_at).toLocaleDateString() : 'Unknown'}</span>
                     </div>
                   </div>
 

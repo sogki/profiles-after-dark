@@ -40,6 +40,10 @@ export default function EmojiCombosGallery() {
   // Filters
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
+  const [showAnimatedOnly, setShowAnimatedOnly] = useState(false)
+  
+  // Hover state for animated content
+  const [hoveredComboId, setHoveredComboId] = useState<string | null>(null)
 
   // Pagination
   const [page, setPage] = useState(1)
@@ -197,6 +201,11 @@ export default function EmojiCombosGallery() {
       .sort((a, b) => a.localeCompare(b))
   }, [emojiCombos])
 
+  // Helper function to check if content is animated
+  const isAnimatedImage = (url: string) => {
+    return url.toLowerCase().includes('.gif')
+  }
+
   const filteredCombos = useMemo(() => {
     return emojiCombos.filter((combo) => {
       const matchesSearch =
@@ -208,9 +217,11 @@ export default function EmojiCombosGallery() {
       const matchesTags =
         selectedTags.size === 0 || combo.tags?.some((tag) => selectedTags.has(tag.toLowerCase().trim()))
 
-      return matchesSearch && matchesTags
+      const matchesAnimated = !showAnimatedOnly || isAnimatedImage(combo.image_url || "")
+
+      return matchesSearch && matchesTags && matchesAnimated
     })
-  }, [emojiCombos, searchQuery, selectedTags])
+  }, [emojiCombos, searchQuery, selectedTags, showAnimatedOnly])
 
   const pagedCombos = useMemo(() => {
     const start = (page - 1) * ITEMS_PER_PAGE

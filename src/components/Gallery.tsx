@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, Fragment, useCallback, memo } from "react
 import { Download, Heart, Eye, Search, Clock, Tag } from "lucide-react"
 import { Dialog, Transition } from "@headlessui/react"
 import { useAuth } from "../context/authContext"
-import { useOptimizedGallery } from "../hooks/useOptimizedGallery"
 import { supabase } from "../lib/supabase"
 
 interface ProfilePair {
@@ -15,9 +14,10 @@ interface ProfilePair {
   tags: string[]
   pfp_url: string
   banner_url: string
-  created_at: string
-  updated_at: string
+  created_at: string | null
+  updated_at: string | null
   type: "pair"
+  download_count?: number
 }
 
 interface Profile {
@@ -29,8 +29,8 @@ interface Profile {
   image_url: string
   download_count: number
   tags: string[]
-  created_at: string
-  updated_at: string
+  created_at: string | null
+  updated_at: string | null
   text_data: string
 }
 
@@ -84,26 +84,75 @@ interface ProfileCardProps {
   onDownload: (profile: GalleryItem) => void
   onToggleFavorite: (profileId: string) => void
   isFavorited: boolean
+  isHovered: boolean
+  onHover: (profileId: string | null) => void
+  isAnimatedImage: (url: string) => boolean
+  getStaticPreview: (url: string) => string
 }
 
-const ProfileCard = memo(({ profile, onPreview, onDownload, onToggleFavorite, isFavorited }: ProfileCardProps) => {
+const ProfileCard = memo(({ profile, onPreview, onDownload, onToggleFavorite, isFavorited, isHovered, onHover, isAnimatedImage, getStaticPreview }: ProfileCardProps) => {
+  const getImageUrl = () => {
+    if ("pfp_url" in profile && profile.type === "pair") {
+      return profile.banner_url || profile.pfp_url
+    } else if ("image_url" in profile) {
+      return profile.image_url
+    }
+    return ""
+  }
+
+  const imageUrl = getImageUrl()
+  const isAnimated = isAnimatedImage(imageUrl)
+
   return (
     <div
       className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 border border-slate-700 hover:border-slate-600 flex flex-col"
       style={{ minHeight: "320px", maxHeight: "420px" }}
+      onMouseEnter={() => onHover(profile.id)}
+      onMouseLeave={() => onHover(null)}
     >
+      {/* Animated Content Indicator - always show for animated content */}
+      {isAnimated && (
+        <div className="absolute top-2 left-2 z-20 bg-purple-600/90 text-white text-xs px-2 py-1 rounded-full font-medium backdrop-blur-sm">
+          ✨ Animated
+        </div>
+      )}
+
       {/* Banner/Image Display */}
       <div className="relative w-full h-40 flex-shrink-0">
         {"pfp_url" in profile && profile.type === "pair" ? (
           // Profile Pair Display
           <>
             {profile.banner_url ? (
-              <img
-                src={profile.banner_url || "/placeholder.svg"}
-                alt={`${profile.title} banner`}
-                className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
-                loading="lazy"
-              />
+              isAnimated ? (
+                <div className="relative w-full h-full">
+                  {!isHovered ? (
+                    // Show static placeholder when not hovered
+                    <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center relative">
+                      <div className="text-center">
+                        <div className="text-3xl mb-2 text-purple-400">🎬</div>
+                      </div>
+                      <div className="absolute bottom-2 right-2">
+                        <div className="text-gray-300 text-xs bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">Hover to preview</div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Show animated GIF when hovered
+                    <img
+                      src={profile.banner_url || "/placeholder.svg"}
+                      alt={`${profile.title} banner`}
+                      className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
+                      loading="lazy"
+                    />
+                  )}
+                </div>
+              ) : (
+                <img
+                  src={profile.banner_url || "/placeholder.svg"}
+                  alt={`${profile.title} banner`}
+                  className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
+                  loading="lazy"
+                />
+              )
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-gray-400">
                 <span className="text-sm">No Banner</span>
@@ -122,14 +171,38 @@ const ProfileCard = memo(({ profile, onPreview, onDownload, onToggleFavorite, is
         ) : (
           // Single Profile Display
           <>
-            {profile.image_url ? (
-              <img
-                src={profile.image_url || "/placeholder.svg"}
-                alt={profile.title}
-                className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
-                loading="lazy"
-              />
-            ) : (
+                {profile.image_url ? (
+                  isAnimated ? (
+                    <div className="relative w-full h-full">
+                      {!isHovered ? (
+                        // Show static placeholder when not hovered
+                        <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center relative">
+                          <div className="text-center">
+                            <div className="text-3xl mb-2 text-purple-400">🎬</div>
+                          </div>
+                          <div className="absolute bottom-2 right-2">
+                            <div className="text-gray-300 text-xs bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">Hover to preview</div>
+                          </div>
+                        </div>
+                      ) : (
+                        // Show animated GIF when hovered
+                        <img
+                          src={profile.image_url || "/placeholder.svg"}
+                          alt={profile.title}
+                          className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
+                          loading="lazy"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <img
+                      src={profile.image_url || "/placeholder.svg"}
+                      alt={profile.title}
+                      className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
+                      loading="lazy"
+                    />
+                  )
+                ) : (
               <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-gray-400">
                 <span className="text-sm">No Image</span>
               </div>
@@ -200,11 +273,11 @@ const ProfileCard = memo(({ profile, onPreview, onDownload, onToggleFavorite, is
           <div className="flex items-center gap-1.5">
             <Clock className="w-4 h-4 text-blue-400" />
             <span className="text-xs">
-              {new Date(profile.updated_at).toLocaleDateString('en-GB', {
+                     {profile.updated_at ? new Date(profile.updated_at).toLocaleDateString('en-GB', {
                 day: '2-digit',
                 month: '2-digit',
                 year: '2-digit'
-              })}
+              }) : 'Unknown'}
             </span>
           </div>
         </div>
@@ -251,6 +324,21 @@ export default function ProfilesGallery() {
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [previewProfile, setPreviewProfile] = useState<GalleryItem | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [hoveredProfileId, setHoveredProfileId] = useState<string | null>(null)
+
+  // Helper function to check if image is animated (GIF)
+  const isAnimatedImage = (url: string): boolean => {
+    return url.toLowerCase().includes('.gif')
+  }
+
+  // Helper function to get static preview for GIFs
+  const getStaticPreview = (url: string): string => {
+    if (url.toLowerCase().includes('.gif')) {
+      // For GIFs, we'll use a different approach - show a blurred/desaturated version
+      return url
+    }
+    return url
+  }
 
   // Retry function for failed requests
   const retryFetch = useCallback(() => {
@@ -332,8 +420,8 @@ export default function ProfilesGallery() {
 
       // Sort all profiles by updated_at
       allProfiles.sort((a, b) => {
-        const dateA = new Date(a.updated_at).getTime()
-        const dateB = new Date(b.updated_at).getTime()
+        const dateA = a.updated_at ? new Date(a.updated_at).getTime() : 0
+        const dateB = b.updated_at ? new Date(b.updated_at).getTime() : 0
         return dateB - dateA
       })
 
@@ -457,7 +545,7 @@ export default function ProfilesGallery() {
             // Update local state
             setProfiles((prev) =>
               prev.map((p) =>
-                p.id === profile.id && "download_count" in p ? { ...p, download_count: p.download_count + 1 } : p,
+                p.id === profile.id && "download_count" in p ? { ...p, download_count: (p.download_count || 0) + 1 } : p,
               ),
             )
           }
@@ -540,17 +628,21 @@ export default function ProfilesGallery() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative" data-gallery style={{ zIndex: 10 }}>
+    <div 
+      className="w-full py-12 relative mt-4 sm:mt-6 mb-16 sm:mb-24 transition-all duration-1000 ease-out opacity-0 animate-fade-in" 
+      data-gallery 
+      style={{ zIndex: 2 }}
+    >
       {/* Enhanced Header */}
-      <div className="mb-8 pt-24">
-        <h2 className="text-white text-4xl font-bold mb-2">Profiles Gallery</h2>
-        <p className="text-gray-400 text-lg">
+      <div className="mb-8 relative px-4 sm:px-6 lg:px-8">
+        <h2 className="text-white text-4xl font-bold mb-2 relative z-10">Profiles Gallery</h2>
+        <p className="text-gray-400 text-lg relative z-10">
           Discover and download amazing profile combinations • {filteredProfiles.length} items available
         </p>
       </div>
 
       {/* Enhanced Filters */}
-      <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-slate-600/50 shadow-2xl">
+      <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-slate-600/50 shadow-2xl mx-4 sm:mx-6 lg:mx-8">
         {/* Search Bar */}
         <div className="mb-6">
           <div className="relative">
@@ -647,7 +739,7 @@ export default function ProfilesGallery() {
 
       {/* Profiles grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 px-4 sm:px-6 lg:px-8">
           {Array.from({ length: 8 }).map((_, i) => (
             <ProfileCardSkeleton key={i} />
           ))}
@@ -685,7 +777,7 @@ export default function ProfilesGallery() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4 sm:px-6 lg:px-8">
             {pagedProfiles.map((profile) => (
               <ProfileCard
                 key={profile.id}
@@ -694,13 +786,17 @@ export default function ProfilesGallery() {
                 onDownload={handleDownloadBoth}
                 onToggleFavorite={handleFavorite}
                 isFavorited={favorites.has(profile.id)}
+                isHovered={hoveredProfileId === profile.id}
+                onHover={setHoveredProfileId}
+                isAnimatedImage={isAnimatedImage}
+                getStaticPreview={getStaticPreview}
               />
             ))}
           </div>
 
           {/* Enhanced Pagination */}
           {filteredProfiles.length > ITEMS_PER_PAGE && (
-            <div className="flex items-center justify-center gap-4 mt-12">
+            <div className="flex items-center justify-center gap-4 mt-12 px-4 sm:px-6 lg:px-8">
               <button
                 onClick={() => setPage((p) => Math.max(p - 1, 1))}
                 disabled={page === 1}
@@ -833,12 +929,12 @@ export default function ProfilesGallery() {
                     {previewProfile && "download_count" in previewProfile && (
                       <div className="flex items-center gap-1">
                         <Download className="h-4 w-4" />
-                        <span>{previewProfile.download_count} downloads</span>
+                        <span>{previewProfile.download_count || 0} downloads</span>
                       </div>
                     )}
                     <div className="flex items-center gap-1">
                       <Clock className="h-4 w-4" />
-                      <span>Updated {new Date(previewProfile?.updated_at || "").toLocaleDateString()}</span>
+                      <span>Updated {previewProfile?.updated_at ? new Date(previewProfile.updated_at).toLocaleDateString() : 'Unknown'}</span>
                     </div>
                   </div>
 

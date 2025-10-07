@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Download,
@@ -8,11 +8,6 @@ import {
   ImageIcon,
   ArrowRight,
   Sparkles,
-  Star,
-  Heart,
-  Eye,
-  Upload,
-  Zap,
 } from "lucide-react";
 import { useAuth } from "../context/authContext";
 import { supabase } from "../lib/supabase";
@@ -37,7 +32,6 @@ export default function Hero() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [featuredProfiles, setFeaturedProfiles] = useState<any[]>([]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -100,41 +94,10 @@ export default function Hero() {
     }
   }, []);
 
-  const fetchFeaturedProfiles = useCallback(async () => {
-    try {
-      // First try to get admin-selected featured profiles
-      const { data: featuredProfiles, error: featuredError } = await supabase
-        .from("profiles")
-        .select("id, title, image_url, download_count, category, tags, is_featured")
-        .eq("is_featured", true)
-        .order("created_at", { ascending: false })
-        .limit(3);
-
-      if (featuredError) {
-        console.warn("Featured profiles table might not have is_featured column:", featuredError);
-        // Fallback to most downloaded profiles if featured column doesn't exist
-        const { data: fallbackProfiles, error: fallbackError } = await supabase
-          .from("profiles")
-          .select("id, title, image_url, download_count, category, tags")
-          .order("download_count", { ascending: false })
-          .limit(3);
-
-        if (fallbackError) throw fallbackError;
-        setFeaturedProfiles(fallbackProfiles || []);
-      } else {
-        setFeaturedProfiles(featuredProfiles || []);
-      }
-    } catch (err) {
-      console.error("Failed to fetch featured profiles:", err);
-      // Set empty array on error to prevent crashes
-      setFeaturedProfiles([]);
-    }
-  }, []);
 
   useEffect(() => {
     fetchStats();
-    fetchFeaturedProfiles();
-  }, [fetchStats, fetchFeaturedProfiles]);
+  }, [fetchStats]);
 
 
   const scrollToGallery = () => {
@@ -151,7 +114,8 @@ export default function Hero() {
   };
 
   return (
-    <section className="relative overflow-hidden bg-cover bg-center bg-no-repeat" style={{ backgroundImage: 'url(https://zzywottwfffyddnorein.supabase.co/storage/v1/object/public/static-assets/hero-background.png)', zIndex: 1 }}>
+    <section className="relative overflow-hidden" style={{ zIndex: 1000 }}>
+      <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: 'url(https://zzywottwfffyddnorein.supabase.co/storage/v1/object/public/static-assets/hero-background.png)', filter: 'blur(4px)' }}></div>
       <div className="absolute inset-0 bg-black/40 z-0"></div>
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
         <div className="text-center">
@@ -217,57 +181,6 @@ export default function Hero() {
             </AnimatePresence>
           </motion.div>
 
-          {/* Featured Profiles Preview - Bleeding into next section */}
-          {featuredProfiles.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className="absolute -bottom-60 left-0 right-0 w-full"
-            style={{ zIndex: 999999 }}
-          >
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <h3 className="text-2xl font-bold text-white mb-8 text-center relative" style={{ zIndex: 1000000 }}>
-                  Featured Profiles
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-5xl mx-auto relative" style={{ zIndex: 1000000 }}>
-                  {featuredProfiles.map((profile, index) => (
-                    <motion.div
-                      key={profile.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.6 + index * 0.1 }}
-                      className="group bg-slate-800/95 backdrop-blur-sm rounded-2xl p-5 border border-slate-600/50 hover:border-purple-500/50 transition-all duration-300 cursor-pointer shadow-2xl relative"
-                      style={{ zIndex: 1000000 + index }}
-                      onClick={scrollToGallery}
-                    >
-                      <div className="relative mb-4">
-                        <img
-                          src={profile.image_url || "/placeholder.svg"}
-                          alt={profile.title}
-                          className="w-full h-36 object-cover rounded-xl brightness-75 group-hover:brightness-90 transition-all duration-300"
-                          loading="lazy"
-                        />
-                        <div className="absolute top-3 right-3 flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-full px-3 py-1"
-                             style={{ zIndex: 1000001 + index }}>
-                          <Star className="h-3 w-3 text-yellow-400" />
-                          <span className="text-xs text-white font-medium">
-                            {profile.download_count || 0}
-                          </span>
-                        </div>
-                      </div>
-                      <h4 className="text-white font-semibold text-sm mb-2 truncate">
-                        {profile.title}
-                      </h4>
-                      <p className="text-slate-400 text-xs capitalize">
-                        {profile.category}
-                      </p>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
 
           {error ? (
             <motion.div

@@ -52,7 +52,11 @@ export default function ProfilesGallery() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
   const [selectedColor, setSelectedColor] = useState<string | "all">("all")
+  const [showAnimatedOnly, setShowAnimatedOnly] = useState(false)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  
+  // Hover state for animated content
+  const [hoveredProfileId, setHoveredProfileId] = useState<string | null>(null)
 
   // Pagination
   const [page, setPage] = useState(1)
@@ -163,6 +167,11 @@ export default function ProfilesGallery() {
     return Array.from(colorsSet).sort()
   }, [profiles])
 
+  // Helper function to check if content is animated
+  const isAnimatedImage = (url: string) => {
+    return url.toLowerCase().includes('.gif')
+  }
+
   const filteredProfiles = useMemo(() => {
     return profiles.filter((profile) => {
       const matchesSearch =
@@ -176,9 +185,11 @@ export default function ProfilesGallery() {
 
       const matchesColor = selectedColor === "all" || profile.color === selectedColor
 
-      return matchesSearch && matchesTags && matchesColor
+      const matchesAnimated = !showAnimatedOnly || isAnimatedImage(profile.pfp_url) || isAnimatedImage(profile.banner_url)
+
+      return matchesSearch && matchesTags && matchesColor && matchesAnimated
     })
-  }, [profiles, searchQuery, selectedTags, selectedColor])
+  }, [profiles, searchQuery, selectedTags, selectedColor, showAnimatedOnly])
 
   const pagedProfiles = useMemo(() => {
     const start = (page - 1) * ITEMS_PER_PAGE
@@ -386,7 +397,24 @@ export default function ProfilesGallery() {
         </div>
 
         {/* Filter Controls */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          {/* Animated Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              <span className="text-purple-400">🎬</span> Animated Content
+            </label>
+            <button
+              onClick={() => setShowAnimatedOnly(!showAnimatedOnly)}
+              className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border ${
+                showAnimatedOnly
+                  ? "bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-500/25"
+                  : "bg-slate-700/50 text-slate-300 border-slate-600/50 hover:bg-slate-600/50 hover:border-slate-500/50 hover:text-white"
+              }`}
+            >
+              {showAnimatedOnly ? "🎬 Animated Only" : "🎬 Show All"}
+            </button>
+          </div>
+
           {/* Color Filter */}
           {allColors.length > 0 && (
             <div>
@@ -480,7 +508,7 @@ export default function ProfilesGallery() {
         )}
 
         {/* Active Filters Summary */}
-        {(searchQuery || selectedTags.size > 0 || selectedColor !== "all") && (
+        {(searchQuery || selectedTags.size > 0 || selectedColor !== "all" || showAnimatedOnly) && (
           <div className="mt-6 pt-6 border-t border-slate-600/50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-slate-400">
@@ -493,6 +521,7 @@ export default function ProfilesGallery() {
                   setSearchQuery("")
                   setSelectedTags(new Set())
                   setSelectedColor("all")
+                  setShowAnimatedOnly(false)
                 } }
                 className="px-4 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200 border border-slate-600/50 hover:border-slate-500/50"
               >
@@ -528,12 +557,13 @@ export default function ProfilesGallery() {
             <Layout className="h-16 w-16 mx-auto text-gray-400 mb-4" />
             <h3 className="text-xl font-semibold mb-2 text-white">No profile combos found</h3>
             <p className="text-gray-400 mb-4">Try adjusting your search or filter criteria</p>
-            {(searchQuery || selectedTags.size > 0 || selectedColor !== "all") && (
+            {(searchQuery || selectedTags.size > 0 || selectedColor !== "all" || showAnimatedOnly) && (
               <button
                 onClick={() => {
                   setSearchQuery("")
                   setSelectedTags(new Set())
                   setSelectedColor("all")
+                  setShowAnimatedOnly(false)
                 } }
                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors"
               >
@@ -556,12 +586,55 @@ export default function ProfilesGallery() {
                 {/* Banner Display */}
                 <div
                   className={`relative overflow-hidden ${viewMode === "list" ? "w-48 h-32 flex-shrink-0" : "w-full h-40"}`}
+                  onMouseEnter={() => setHoveredProfileId(profile.id)}
+                  onMouseLeave={() => setHoveredProfileId(null)}
                 >
-                  <img
-                    src={profile.banner_url || "/placeholder.svg"}
-                    alt={`${profile.title} banner`}
-                    className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
-                    loading="lazy" />
+                  {profile.banner_url ? (
+                    isAnimatedImage(profile.banner_url) ? (
+                      <div className="relative w-full h-full">
+                        {hoveredProfileId !== profile.id ? (
+                          // Show static placeholder when not hovered
+                          <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center relative">
+                            <div className="text-center">
+                              <div className="text-3xl mb-2 text-purple-400">🎬</div>
+                            </div>
+                            <div className="absolute bottom-2 right-2">
+                              <div className="text-gray-300 text-xs bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">Hover to preview</div>
+                            </div>
+                          </div>
+                        ) : (
+                          // Show animated GIF when hovered
+                          <img
+                            src={profile.banner_url || "/placeholder.svg"}
+                            alt={`${profile.title} banner`}
+                            className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
+                            loading="lazy"
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      // Show static image
+                      <img
+                        src={profile.banner_url || "/placeholder.svg"}
+                        alt={`${profile.title} banner`}
+                        className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
+                        loading="lazy"
+                      />
+                    )
+                  ) : (
+                    // Show placeholder when no image
+                    <div className="w-full h-full bg-slate-700 flex items-center justify-center">
+                      <span className="text-slate-400">No Banner</span>
+                    </div>
+                  )}
+
+                  {/* Animated Badge for Banner */}
+                  {isAnimatedImage(profile.banner_url) && (
+                    <div className="absolute top-2 left-2 flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-full px-3 py-1">
+                      <div className="text-purple-400">✨</div>
+                      <div className="text-white font-medium text-xs">Animated</div>
+                    </div>
+                  )}
 
                   {/* Stats Overlay */}
                   <div className="absolute top-3 right-3 flex gap-2">
@@ -579,15 +652,45 @@ export default function ProfilesGallery() {
 
                 {/* Profile Picture - Only show in grid mode */}
                 {viewMode === "grid" && profile.pfp_url && (
-                  <img
-                    src={profile.pfp_url || "/placeholder.svg"}
-                    alt={`${profile.title} profile`}
-                    className="w-24 h-24 rounded-full border-4 border-purple-500 absolute top-28 left-1/2 transform -translate-x-1/2 bg-slate-900 shadow-lg group-hover:border-purple-400 transition-colors duration-300"
-                    loading="lazy" />
+                  <div className="relative">
+                    {isAnimatedImage(profile.pfp_url) ? (
+                      <div className="relative">
+                        {hoveredProfileId !== profile.id ? (
+                          // Show static placeholder when not hovered
+                          <div className="w-24 h-24 rounded-full border-4 border-purple-500 absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center shadow-lg">
+                            <div className="text-center">
+                              <div className="text-lg text-purple-400">🎬</div>
+                            </div>
+                          </div>
+                        ) : (
+                          // Show animated GIF when hovered
+                          <img
+                            src={profile.pfp_url || "/placeholder.svg"}
+                            alt={`${profile.title} profile`}
+                            className="w-24 h-24 rounded-full border-4 border-purple-500 absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-900 shadow-lg group-hover:border-purple-400 transition-colors duration-300"
+                            loading="lazy"
+                          />
+                        )}
+                        {/* Animated Badge for Profile Picture */}
+                        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-1">
+                          <div className="text-purple-400 text-xs">✨</div>
+                          <div className="text-white font-medium text-xs">Animated</div>
+                        </div>
+                      </div>
+                    ) : (
+                      // Show static image
+                      <img
+                        src={profile.pfp_url || "/placeholder.svg"}
+                        alt={`${profile.title} profile`}
+                        className="w-24 h-24 rounded-full border-4 border-purple-500 absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-900 shadow-lg group-hover:border-purple-400 transition-colors duration-300"
+                        loading="lazy"
+                      />
+                    )}
+                  </div>
                 )}
 
                 <div
-                  className={`text-center ${viewMode === "list" ? "flex-1 p-4 flex flex-col justify-center" : "pt-20 pb-6 px-6"}`}
+                  className={`text-center ${viewMode === "list" ? "flex-1 p-4 flex flex-col justify-center" : "pt-8 pb-6 px-6"}`}
                 >
                   <h3 className="text-white font-semibold text-xl truncate mb-3">{profile.title}</h3>
 

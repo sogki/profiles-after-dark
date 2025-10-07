@@ -168,3 +168,4 @@ export function useOptimizedGallery() {
     clearCache: () => galleryCache.clear()
   };
 }
+

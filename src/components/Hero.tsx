@@ -114,7 +114,7 @@ export default function Hero() {
   };
 
   return (
-    <section className="relative overflow-hidden" style={{ zIndex: 1000 }}>
+    <section className="relative overflow-hidden" style={{ zIndex: 1 }}>
       <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: 'url(https://zzywottwfffyddnorein.supabase.co/storage/v1/object/public/static-assets/hero-background.png)', filter: 'blur(4px)' }}></div>
       <div className="absolute inset-0 bg-black/40 z-0"></div>
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
@@ -192,7 +192,7 @@ export default function Hero() {
               {error}
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 mb-16 sm:mb-20 relative z-20">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 mb-16 sm:mb-20 relative z-10">
               {[
                 {
                   icon: ImageIcon,
@@ -219,7 +219,7 @@ export default function Hero() {
                   initial="hidden"
                   animate="visible"
                   transition={{ delay: index * 0.2 }}
-                  className="bg-[rgba(30,20,60,0.3)] backdrop-blur-md rounded-2xl p-6 border border-purple-600/40 hover:border-purple-500/60 transition-all duration-300 shadow-lg shadow-purple-900/30 relative z-30"
+                  className="bg-[rgba(30,20,60,0.3)] backdrop-blur-md rounded-2xl p-6 border border-purple-600/40 hover:border-purple-500/60 transition-all duration-300 shadow-lg shadow-purple-900/30 relative z-10"
                 >
                   <div className="flex items-center justify-center mb-4">
                     <div className="p-3 bg-gradient-to-br from-purple-700/30 to-blue-500/30 rounded-full">

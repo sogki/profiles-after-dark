@@ -54,6 +54,62 @@ export default function EmojiCombosGallery() {
   const [previewCombo, setPreviewCombo] = useState<EmojiCombo | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
+  useEffect(() => {
+    async function loadFavorites() {
+      if (user?.id) {
+        try {
+          // First try to load from database
+          const { data: dbFavorites, error } = await supabase
+            .from("favorites")
+            .select("profile_id")
+            .eq("user_id", user.id)
+
+          if (error) {
+            console.error("Error loading favorites from database:", error)
+            // Fallback to localStorage
+            const saved = localStorage.getItem(`${FAVORITES_STORAGE_KEY}_${user.id}`)
+            if (saved) {
+              try {
+                const favArray: string[] = JSON.parse(saved)
+                setFavorites(new Set(favArray))
+              } catch {
+                setFavorites(new Set())
+              }
+            }
+          } else {
+            // Use database favorites
+            const favoriteIds = dbFavorites?.map(fav => fav.profile_id).filter(Boolean) || []
+            setFavorites(new Set(favoriteIds))
+            // Update localStorage to match database
+            localStorage.setItem(`${FAVORITES_STORAGE_KEY}_${user.id}`, JSON.stringify(favoriteIds))
+          }
+        } catch (error) {
+          console.error("Error loading favorites:", error)
+          // Fallback to localStorage
+          const saved = localStorage.getItem(`${FAVORITES_STORAGE_KEY}_${user.id}`)
+          if (saved) {
+            try {
+              const favArray: string[] = JSON.parse(saved)
+              setFavorites(new Set(favArray))
+            } catch {
+              setFavorites(new Set())
+            }
+          }
+        }
+      } else {
+        setFavorites(new Set())
+      }
+    }
+
+    loadFavorites()
+  }, [user])
+
+  useEffect(() => {
+    if (user?.id) {
+      localStorage.setItem(`${FAVORITES_STORAGE_KEY}_${user.id}`, JSON.stringify(Array.from(favorites)))
+    }
+  }, [favorites, user])
+
   const handleFavorite = async (comboId: string) => {
     if (!user) {
       alert("Please log in to save favorites")
@@ -80,8 +136,7 @@ export default function EmojiCombosGallery() {
           .from("favorites")
           .delete()
           .eq("user_id", user.id)
-          .eq("emoji_combo_id", comboId)
-          .eq("content_type", "emoji_combo")
+          .eq("profile_id", comboId)
 
         if (error) {
           console.error("Error removing favorite:", error)
@@ -91,9 +146,7 @@ export default function EmojiCombosGallery() {
         // Add to favorites
         const { error } = await supabase.from("favorites").insert({
           user_id: user.id,
-          emoji_combo_id: comboId,
-          content_type: "emoji_combo",
-          profile_id: null, // Explicitly set to null for emoji combos
+          profile_id: comboId,
         })
 
         if (error) {

@@ -68,19 +68,53 @@ export default function ProfilesGallery() {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   useEffect(() => {
-    if (user?.id) {
-      const saved = localStorage.getItem(`${FAVORITES_STORAGE_KEY}_${user.id}`)
-      if (saved) {
+    async function loadFavorites() {
+      if (user?.id) {
         try {
-          const favArray: string[] = JSON.parse(saved)
-          setFavorites(new Set(favArray))
-        } catch {
-          setFavorites(new Set())
+          // First try to load from database
+          const { data: dbFavorites, error } = await supabase
+            .from("favorites")
+            .select("profile_id")
+            .eq("user_id", user.id)
+
+          if (error) {
+            console.error("Error loading favorites from database:", error)
+            // Fallback to localStorage
+            const saved = localStorage.getItem(`${FAVORITES_STORAGE_KEY}_${user.id}`)
+            if (saved) {
+              try {
+                const favArray: string[] = JSON.parse(saved)
+                setFavorites(new Set(favArray))
+              } catch {
+                setFavorites(new Set())
+              }
+            }
+          } else {
+            // Use database favorites
+            const favoriteIds = dbFavorites?.map(fav => fav.profile_id).filter(Boolean) || []
+            setFavorites(new Set(favoriteIds))
+            // Update localStorage to match database
+            localStorage.setItem(`${FAVORITES_STORAGE_KEY}_${user.id}`, JSON.stringify(favoriteIds))
+          }
+        } catch (error) {
+          console.error("Error loading favorites:", error)
+          // Fallback to localStorage
+          const saved = localStorage.getItem(`${FAVORITES_STORAGE_KEY}_${user.id}`)
+          if (saved) {
+            try {
+              const favArray: string[] = JSON.parse(saved)
+              setFavorites(new Set(favArray))
+            } catch {
+              setFavorites(new Set())
+            }
+          }
         }
+      } else {
+        setFavorites(new Set())
       }
-    } else {
-      setFavorites(new Set())
     }
+
+    loadFavorites()
   }, [user])
 
   useEffect(() => {

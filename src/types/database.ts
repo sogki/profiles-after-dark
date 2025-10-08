@@ -729,6 +729,83 @@ export type Database = {
           },
         ]
       }
+      follows: {
+        Row: {
+          created_at: string | null
+          follower_id: string
+          following_id: string
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          follower_id: string
+          following_id: string
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          follower_id?: string
+          following_id?: string
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follows_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "follows_following_id_fkey"
+            columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      user_stats: {
+        Row: {
+          followers_count: number
+          following_count: number
+          id: string
+          likes_received: number
+          posts_count: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          followers_count?: number
+          following_count?: number
+          id?: string
+          likes_received?: number
+          posts_count?: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          followers_count?: number
+          following_count?: number
+          id?: string
+          likes_received?: number
+          posts_count?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_stats_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

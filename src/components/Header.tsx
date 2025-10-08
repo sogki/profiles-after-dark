@@ -469,12 +469,12 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
 
                       {userProfile?.role === "admin" || userProfile?.role === "moderator" || userProfile?.role === "staff" ? (
                         <Link
-                          to="/moderation"
+                          to="/moderation/enhanced"
                           onClick={() => setIsMobileMenuOpen(false)}
                           className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
                         >
                           <ShieldCheck className="h-4 w-4" />
-                          <span>Moderation Panel</span>
+                          <span>Enhanced Moderation</span>
                         </Link>
                       ) : null}
 

@@ -322,26 +322,34 @@ export default function EnhancedModerationPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Header */}
+      {/* Mobile-First Header */}
       <div className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <button
                 onClick={() => navigate('/')}
                 className="flex items-center space-x-2 text-white hover:text-purple-400 transition-colors"
               >
-                <Shield className="w-6 h-6" />
-                <span className="font-bold text-lg">Enhanced Moderation</span>
+                <Shield className="w-5 h-5 sm:w-6 sm:h-6" />
+                <span className="font-bold text-base sm:text-lg">Enhanced Moderation</span>
               </button>
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 text-white" />
-                </div>
-                <div className="text-sm">
+                {userProfile?.avatar_url ? (
+                  <img
+                    src={userProfile.avatar_url}
+                    alt={`${userProfile.display_name || userProfile.username}'s avatar`}
+                    className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border-2 border-purple-500"
+                  />
+                ) : (
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 bg-purple-600 rounded-full flex items-center justify-center">
+                    <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                  </div>
+                )}
+                <div className="text-xs sm:text-sm hidden sm:block">
                   <div className="text-white font-medium">{userProfile?.display_name || userProfile?.username}</div>
                   <div className="text-slate-400 text-xs capitalize">{userProfile?.role}</div>
                 </div>
@@ -351,10 +359,43 @@ export default function EnhancedModerationPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex gap-8">
-          {/* Sidebar Navigation */}
-          <div className="w-64 flex-shrink-0">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Mobile Navigation */}
+        <div className="mb-6 md:hidden">
+          <div className="flex space-x-1 bg-white/5 backdrop-blur-sm rounded-xl p-1 overflow-x-auto no-scrollbar">
+            {navigationItems.slice(0, 6).map((item) => {
+              const IconComponent = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveView(item.id as any)}
+                  className={`flex items-center gap-1 px-3 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
+                    activeView === item.id
+                      ? 'bg-white text-gray-900 shadow-lg'
+                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <IconComponent className="h-3 w-3" />
+                  <span className="text-xs">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          
+          {/* More Menu for Additional Items */}
+          <div className="mt-2 flex justify-center">
+            <button
+              onClick={() => setActiveView('settings' as any)}
+              className="text-xs text-slate-400 hover:text-white px-3 py-1 rounded-lg hover:bg-white/10 transition-colors"
+            >
+              More Options
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-4 lg:gap-8">
+          {/* Desktop Sidebar Navigation */}
+          <div className="hidden lg:block w-64 flex-shrink-0">
             <nav className="space-y-2">
               {navigationItems.map((item) => {
                 const IconComponent = item.icon;
@@ -389,9 +430,9 @@ export default function EnhancedModerationPage() {
               <>
                 {/* Dashboard View */}
                 {activeView === 'dashboard' && (
-                  <div className="space-y-8">
+                  <div className="space-y-6 sm:space-y-8">
                     {/* Stats Overview */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
                       {[
                         {
                           title: 'Total Reports',
@@ -429,16 +470,16 @@ export default function EnhancedModerationPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.1 }}
-                            className="bg-slate-800 rounded-xl p-6 border border-slate-700"
+                            className="bg-slate-800 rounded-xl p-3 sm:p-6 border border-slate-700"
                           >
                             <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-slate-400 text-sm font-medium">{stat.title}</p>
-                                <p className="text-2xl font-bold text-white mt-1">{stat.value}</p>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-slate-400 text-xs sm:text-sm font-medium truncate">{stat.title}</p>
+                                <p className="text-lg sm:text-2xl font-bold text-white mt-1">{stat.value}</p>
                                 <p className="text-xs text-green-400 mt-1">{stat.change}</p>
                               </div>
-                              <div className={`w-12 h-12 rounded-lg bg-${stat.color}-500/20 flex items-center justify-center`}>
-                                <IconComponent className={`w-6 h-6 text-${stat.color}-400`} />
+                              <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-lg bg-${stat.color}-500/20 flex items-center justify-center flex-shrink-0`}>
+                                <IconComponent className={`w-4 h-4 sm:w-6 sm:h-6 text-${stat.color}-400`} />
                               </div>
                             </div>
                           </motion.div>
@@ -448,10 +489,10 @@ export default function EnhancedModerationPage() {
 
                     {/* Recent Activity */}
                     <div className="bg-slate-800 rounded-xl border border-slate-700">
-                      <div className="p-6 border-b border-slate-700">
-                        <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
+                      <div className="p-4 sm:p-6 border-b border-slate-700">
+                        <h3 className="text-base sm:text-lg font-semibold text-white">Recent Activity</h3>
                       </div>
-                      <div className="p-6">
+                      <div className="p-4 sm:p-6">
                         <div className="space-y-4">
                           {stats.recentActivity && stats.recentActivity.length > 0 ? (
                             stats.recentActivity.slice(0, 5).map((activity, index) => (
@@ -460,7 +501,7 @@ export default function EnhancedModerationPage() {
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: index * 0.1 }}
-                                className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg"
+                                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-slate-700/50 rounded-lg space-y-2 sm:space-y-0"
                               >
                                 <div className="flex items-center space-x-3">
                                   <div className={`w-2 h-2 rounded-full ${
@@ -468,9 +509,9 @@ export default function EnhancedModerationPage() {
                                     activity.color === 'green' ? 'bg-green-400' :
                                     activity.color === 'purple' ? 'bg-purple-400' : 'bg-blue-400'
                                   }`} />
-                                  <div>
-                                    <p className="text-white font-medium">{activity.action}</p>
-                                    <p className="text-slate-400 text-sm">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-white font-medium text-sm sm:text-base truncate">{activity.action}</p>
+                                    <p className="text-slate-400 text-xs sm:text-sm truncate">
                                       {activity.description}
                                     </p>
                                     <p className="text-slate-500 text-xs">
@@ -514,9 +555,9 @@ export default function EnhancedModerationPage() {
                 {/* Reports View */}
                 {activeView === 'reports' && (
                   <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-2xl font-bold text-white">Reports</h2>
-                      <div className="flex items-center space-x-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
+                      <h2 className="text-xl sm:text-2xl font-bold text-white">Reports</h2>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                         <div className="flex items-center space-x-2">
                           <Search className="w-4 h-4 text-slate-400" />
                           <input
@@ -524,64 +565,70 @@ export default function EnhancedModerationPage() {
                             placeholder="Search reports..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
                           />
                         </div>
-                        <select
-                          value={filterStatus}
-                          onChange={(e) => setFilterStatus(e.target.value)}
-                          className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        >
-                          <option value="all">All Status</option>
-                          <option value="pending">Pending</option>
-                          <option value="resolved">Resolved</option>
-                          <option value="dismissed">Dismissed</option>
-                        </select>
-                        <select
-                          value={filterPriority}
-                          onChange={(e) => setFilterPriority(e.target.value)}
-                          className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        >
-                          <option value="all">All Priority</option>
-                          <option value="high">High</option>
-                          <option value="medium">Medium</option>
-                          <option value="low">Low</option>
-                        </select>
+                        <div className="flex space-x-2">
+                          <select
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                          >
+                            <option value="all">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="dismissed">Dismissed</option>
+                          </select>
+                          <select
+                            value={filterPriority}
+                            onChange={(e) => setFilterPriority(e.target.value)}
+                            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                          >
+                            <option value="all">All Priority</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
 
                     <div className="bg-slate-800 rounded-xl border border-slate-700">
                       <div className="overflow-x-auto">
-                        <table className="w-full">
+                        <table className="w-full min-w-[600px]">
                           <thead className="bg-slate-700/50">
                             <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Report</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">User</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Status</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Priority</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Date</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Actions</th>
+                              <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Report</th>
+                              <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider hidden sm:table-cell">User</th>
+                              <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Status</th>
+                              <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider hidden md:table-cell">Priority</th>
+                              <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider hidden lg:table-cell">Date</th>
+                              <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-700">
                             {filteredReports.map((report) => (
                               <tr key={report.id} className="hover:bg-slate-700/50">
-                                <td className="px-6 py-4 whitespace-nowrap">
+                                <td className="px-3 sm:px-6 py-4">
                                   <div>
-                                    <div className="text-sm font-medium text-white">
+                                    <div className="text-sm font-medium text-white truncate">
                                       {report.title || report.description || 'Report'}
                                     </div>
-                                    <div className="text-sm text-slate-400 truncate max-w-xs">
+                                    <div className="text-xs sm:text-sm text-slate-400 truncate max-w-[200px] sm:max-w-xs">
                                       {report.reason && `Reason: ${report.reason}`}
                                     </div>
                                     {report.details && (
-                                      <div className="text-xs text-slate-500 truncate max-w-xs mt-1">
+                                      <div className="text-xs text-slate-500 truncate max-w-[200px] sm:max-w-xs mt-1">
                                         {report.details}
                                       </div>
                                     )}
+                                    {/* Mobile: Show user info inline */}
+                                    <div className="sm:hidden text-xs text-slate-400 mt-1">
+                                      User: {report.reported_user?.username || report.reported_user?.display_name || 'Unknown'}
+                                    </div>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
+                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap hidden sm:table-cell">
                                   <div className="text-sm text-white">
                                     {report.reported_user?.username || report.reported_user?.display_name || 'Unknown User'}
                                   </div>
@@ -589,7 +636,7 @@ export default function EnhancedModerationPage() {
                                     Reported by: {report.reporter?.username || report.reporter?.display_name || 'Unknown'}
                                   </div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
+                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                                   <span className={`px-2 py-1 text-xs rounded-full ${
                                     report.status === 'pending' ? 'bg-orange-500/20 text-orange-400' :
                                     report.status === 'resolved' ? 'bg-green-500/20 text-green-400' :
@@ -598,7 +645,7 @@ export default function EnhancedModerationPage() {
                                     {report.status}
                                   </span>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
+                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap hidden md:table-cell">
                                   <div className="flex items-center space-x-2">
                                     <span className={`px-2 py-1 text-xs rounded-full ${
                                       report.priority === 'high' ? 'bg-red-500/20 text-red-400' :
@@ -614,7 +661,7 @@ export default function EnhancedModerationPage() {
                                     )}
                                   </div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
+                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-400 hidden lg:table-cell">
                                   <div>
                                     <div>{new Date(report.created_at).toLocaleDateString()}</div>
                                     <div className="text-xs text-slate-500">
@@ -622,27 +669,28 @@ export default function EnhancedModerationPage() {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                  <div className="flex items-center space-x-2">
+                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                  <div className="flex items-center space-x-1 sm:space-x-2">
                                     <button
                                       onClick={() => setSelectedReport(report)}
-                                      className="text-purple-400 hover:text-purple-300"
+                                      className="text-purple-400 hover:text-purple-300 p-1"
+                                      title="View Report"
                                     >
-                                      <Eye className="w-4 h-4" />
+                                      <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                                     </button>
                                     <button
                                       onClick={() => handleReportAction(report.id, 'resolve', report.title || 'Report')}
-                                      className="text-green-400 hover:text-green-300"
+                                      className="text-green-400 hover:text-green-300 p-1"
                                       title="Resolve Report"
                                     >
-                                      <CheckCircle className="w-4 h-4" />
+                                      <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                                     </button>
                                     <button
                                       onClick={() => handleReportAction(report.id, 'dismiss', report.title || 'Report')}
-                                      className="text-red-400 hover:text-red-300"
+                                      className="text-red-400 hover:text-red-300 p-1"
                                       title="Dismiss Report"
                                     >
-                                      <XCircle className="w-4 h-4" />
+                                      <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                                     </button>
                                   </div>
                                 </td>

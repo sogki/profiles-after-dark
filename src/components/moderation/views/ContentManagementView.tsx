@@ -166,31 +166,32 @@ export default function ContentManagementView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
         <div>
-          <h2 className="text-2xl font-bold text-white">Content Management</h2>
-          <p className="text-slate-400">Manage uploaded profiles and banners with AI assistance</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-white">Content Management</h2>
+          <p className="text-slate-400 text-sm sm:text-base">Manage uploaded profiles and banners with AI assistance</p>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
           <button
             onClick={runAIScan}
             disabled={aiScanInProgress}
-            className="flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+            className="flex items-center px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg transition-colors text-sm sm:text-base"
           >
             {aiScanInProgress ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
               <Bot className="w-4 h-4 mr-2" />
             )}
-            {aiScanInProgress ? 'Scanning...' : 'AI Scan'}
+            <span className="hidden sm:inline">{aiScanInProgress ? 'Scanning...' : 'Run AI Scan'}</span>
+            <span className="sm:hidden">{aiScanInProgress ? 'Scanning...' : 'AI Scan'}</span>
           </button>
         </div>
       </div>
 
       {/* Search and Filters */}
-      <div className="flex items-center space-x-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
         <div className="flex items-center space-x-2 flex-1">
           <Search className="w-4 h-4 text-slate-400" />
           <input
@@ -198,32 +199,34 @@ export default function ContentManagementView() {
             placeholder="Search content..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 flex-1"
+            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 flex-1 text-sm"
           />
         </div>
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value as any)}
-          className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          <option value="all">All Types</option>
-          <option value="profile">Profiles</option>
-          <option value="banner">Banners</option>
-        </select>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as any)}
-          className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          <option value="all">All Status</option>
-          <option value="approved">Approved</option>
-          <option value="pending">Pending</option>
-          <option value="rejected">Rejected</option>
-        </select>
+        <div className="flex space-x-2">
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value as any)}
+            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+          >
+            <option value="all">All Types</option>
+            <option value="profile">Profiles</option>
+            <option value="banner">Banners</option>
+          </select>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as any)}
+            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+          >
+            <option value="all">All Status</option>
+            <option value="approved">Approved</option>
+            <option value="pending">Pending</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
       </div>
 
       {/* Content Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         {filteredContent.map((item, index) => (
           <motion.div
             key={item.id}

@@ -2,7 +2,7 @@
 
 > **Your aesthetic lives here** — A comprehensive platform for discovering and sharing aesthetic profile pictures, banners, wallpapers, and emoji combinations.
 
-![Profiles After Dark Logo](https://zzywottwfffyddnorein.supabase.co/storage/v1/object/public/static-assets/profiles_after_dark_logo.png)
+![Profiles After Dark Logo](https://zzywottwfffyddnorein.supabase.co/storage/v1/object/public/static-assets/profiles_after_dark_banner-full.png)
 
 ## ✨ Features
 

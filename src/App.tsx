@@ -7,6 +7,7 @@ import Hero from "./components/Hero"
 import Gallery from "./components/Gallery"
 import Footer from "./components/Footer"
 import DiscordCTA from "./components/DiscordCTA"
+// import MobileBottomNav from "./components/MobileBottomNav"
 
 // Lazy load heavy components
 const UploadModal = lazy(() => import("./components/UploadModal"))
@@ -246,11 +247,14 @@ function App() {
         </Suspense>
 
 
-        {/* Scroll to Top Button with fade and scale animation */}
+        {/* Mobile Bottom Navigation - Temporarily disabled */}
+        {/* <MobileBottomNav /> */}
+
+        {/* Scroll to Top Button with fade and scale animation - Desktop only */}
         <button
           onClick={scrollToTop}
           aria-label="Scroll to top"
-          className={`fixed bottom-8 right-8 z-50 p-3 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-purple-500/25 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-400 transform origin-center
+          className={`hidden md:block fixed bottom-8 right-8 z-50 p-3 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-purple-500/25 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-400 transform origin-center
     ${showScrollTop ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-75 pointer-events-none"}
   `}
           style={{ transitionProperty: "opacity, transform" }}

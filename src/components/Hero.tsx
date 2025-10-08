@@ -117,7 +117,7 @@ export default function Hero() {
     <section className="relative overflow-hidden" style={{ zIndex: 1 }}>
       <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: 'url(https://zzywottwfffyddnorein.supabase.co/storage/v1/object/public/static-assets/hero-background.png)', filter: 'blur(4px)' }}></div>
       <div className="absolute inset-0 bg-black/40 z-0"></div>
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-20">
         <div className="text-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}

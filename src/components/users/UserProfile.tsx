@@ -13,7 +13,7 @@ import {
 import { Fragment, useState } from "react";
 import { BsFillEmojiHeartEyesFill } from "react-icons/bs";
 import { Link } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
+// import { supabase } from "../../lib/supabase";
 import EnhancedReportModal from "../moderation/modals/EnhancedReportModal";
 
 import useRetrieveProfileFavorites from "@/hooks/users/profile-info/use-retrieve-profile-favorites";
@@ -160,11 +160,11 @@ export default function UserProfile() {
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
-        <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto px-4 py-4 md:py-8">
           {/* Profile Header */}
-          <div className="relative mb-8">
+          <div className="relative mb-6 md:mb-8">
             {/* Banner */}
-            <div className="relative h-64 md:h-80 rounded-2xl overflow-y-visible bg-gradient-to-r from-purple-600 to-blue-600">
+            <div className="relative h-48 sm:h-64 md:h-80 rounded-xl md:rounded-2xl overflow-y-visible bg-gradient-to-r from-purple-600 to-blue-600">
               {profile.banner_url ? (
                 <img
                   src={profile.banner_url || "/placeholder.svg"}
@@ -184,26 +184,27 @@ export default function UserProfile() {
               <img
                 src={profile.avatar_url || "/default-avatar.png"}
                 alt={`${profile.username}'s avatar`}
-                className="w-40 h-40 rounded-full border-4 border-white absolute top-60 left-40 transform -translate-x-1/2 border-solid bg-slate-900 shadow-xl object-cover"
+                className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full border-4 border-white absolute top-36 sm:top-48 md:top-60 left-1/2 sm:left-1/2 md:left-40 transform -translate-x-1/2 md:translate-x-0 border-solid bg-slate-900 shadow-xl object-cover"
               />
             </div>
 
             {/* Profile Info */}
-            <div className="relative px-6 pb-6">
+            <div className="relative px-4 sm:px-6 pb-4 sm:pb-6">
               {/* Action Button */}
-              <div className="absolute -top-4 right-6">
+              <div className="absolute -top-2 sm:-top-4 right-4 sm:right-6">
                 {isOwnProfile ? (
                   <Link
                     to="/profile-settings"
-                    className="inline-flex items-center gap-2 bg-white text-gray-900 px-4 py-3 rounded-full font-semibold hover:bg-gray-100 transition-colors shadow-lg"
+                    className="inline-flex items-center gap-2 bg-white text-gray-900 px-3 py-2 sm:px-4 sm:py-3 rounded-full font-semibold hover:bg-gray-100 transition-colors shadow-lg text-sm sm:text-base"
                   >
-                    <Settings className="h-4 w-4" />
-                    Edit Profile
+                    <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Edit Profile</span>
+                    <span className="sm:hidden">Edit</span>
                   </Link>
                 ) : (
                   <Menu as="div" className="relative">
-                    <Menu.Button className="inline-flex items-center justify-center w-12 h-12 bg-white/10 backdrop-blur-sm text-white rounded-full hover:bg-white/20 transition-colors">
-                      <MoreHorizontal className="h-5 w-5" />
+                    <Menu.Button className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-white/10 backdrop-blur-sm text-white rounded-full hover:bg-white/20 transition-colors">
+                      <MoreHorizontal className="h-4 w-4 sm:h-5 sm:w-5" />
                     </Menu.Button>
                     <Transition
                       as={Fragment}
@@ -237,9 +238,9 @@ export default function UserProfile() {
               </div>
 
               {/* Profile Details */}
-              <div className="pt-20 text-center">
-                <div className="flex items-center justify-center gap-3 mb-3">
-                  <h1 className="text-3xl md:text-4xl font-bold text-white">
+              <div className="pt-16 sm:pt-20 text-center">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 mb-3">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
                     @{profile.username}
                   </h1>
                   {profile.user_badges && profile.user_badges.length > 0 && (
@@ -271,12 +272,12 @@ export default function UserProfile() {
                               src={ub.badges.image_url || "/placeholder.svg"}
                               alt={ub.badges.name}
                               title={ub.badges.name}
-                              className="h-8 w-8 rounded-full border-2 border-white/20 cursor-pointer"
+                              className="h-6 w-6 sm:h-8 sm:w-8 rounded-full border-2 border-white/20 cursor-pointer"
                             />
                           </div>
                         ))}
                         {!showAllBadges && profile.user_badges.length > 3 && (
-                          <div className="h-8 w-8 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-xs text-white font-semibold cursor-pointer hover:bg-white/20 transition-colors">
+                          <div className="h-6 w-6 sm:h-8 sm:w-8 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-xs text-white font-semibold cursor-pointer hover:bg-white/20 transition-colors">
                             +{profile.user_badges.length - 3}
                           </div>
                         )}
@@ -308,12 +309,12 @@ export default function UserProfile() {
                 </div>
 
                 {profile.bio && (
-                  <p className="text-gray-300 text-lg mb-4 max-w-2xl mx-auto">
+                  <p className="text-gray-300 text-base sm:text-lg mb-4 max-w-2xl mx-auto px-4">
                     {profile.bio}
                   </p>
                 )}
 
-                <div className="flex items-center justify-center gap-6 text-gray-400">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 text-gray-400">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
                     <span className="text-sm">
@@ -341,8 +342,8 @@ export default function UserProfile() {
           </div>
 
           {/* Content Tabs */}
-          <div className="mb-8">
-            <div className="flex space-x-1 bg-white/5 backdrop-blur-sm rounded-xl p-1">
+          <div className="mb-6 md:mb-8">
+            <div className="flex space-x-1 bg-white/5 backdrop-blur-sm rounded-xl p-1 overflow-x-auto no-scrollbar">
               {[
                 {
                   id: "uploads",
@@ -380,16 +381,16 @@ export default function UserProfile() {
                         | "emojicombos"
                     )
                   }
-                  className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
+                  className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
                     activeTab === tab.id
                       ? "bg-white text-gray-900 shadow-lg"
                       : "text-white/70 hover:text-white hover:bg-white/10"
                   }`}
                 >
-                  <tab.icon className="h-4 w-4" />
-                  {tab.label}
+                  <tab.icon className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="text-sm sm:text-base">{tab.label}</span>
                   <span
-                    className={`text-xs px-2 py-1 rounded-full ${
+                    className={`text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ${
                       activeTab === tab.id
                         ? "bg-gray-100 text-gray-600"
                         : "bg-white/10 text-white/60"
@@ -420,7 +421,7 @@ export default function UserProfile() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
                     {uploads?.map((upload) => (
                       <div
                         key={upload.id}
@@ -434,11 +435,11 @@ export default function UserProfile() {
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                           />
                         </div>
-                        <div className="p-4">
-                          <h3 className="font-semibold text-white mb-1 truncate">
+                        <div className="p-2 sm:p-4">
+                          <h3 className="font-semibold text-white mb-1 truncate text-sm sm:text-base">
                             {upload.title || "Untitled"}
                           </h3>
-                          <p className="text-sm text-gray-400 mb-2">
+                          <p className="text-xs sm:text-sm text-gray-400 mb-2">
                             {upload.category || "No category"}
                           </p>
                           {upload.tags && upload.tags.length > 0 && (
@@ -446,7 +447,7 @@ export default function UserProfile() {
                               {upload.tags.slice(0, 2).map((tag, i) => (
                                 <span
                                   key={i}
-                                  className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full"
+                                  className="text-xs bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full"
                                 >
                                   {tag}
                                 </span>
@@ -482,7 +483,7 @@ export default function UserProfile() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                     {profilePairs?.map((pair) => (
                       <div
                         key={pair.id}
@@ -512,8 +513,8 @@ export default function UserProfile() {
                           />
                         )}
 
-                        <div className="pt-20 pb-6 px-6 text-center">
-                          <h3 className="text-white font-semibold text-xl truncate mb-3">
+                        <div className="pt-16 sm:pt-20 pb-4 sm:pb-6 px-4 sm:px-6 text-center">
+                          <h3 className="text-white font-semibold text-lg sm:text-xl truncate mb-2 sm:mb-3">
                             {pair.title || "Untitled"}
                           </h3>
 
@@ -551,7 +552,7 @@ export default function UserProfile() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
                     {favorites?.map((fav) => (
                       <div
                         key={fav.id}
@@ -568,11 +569,11 @@ export default function UserProfile() {
                             <Heart className="h-5 w-5 text-red-500 fill-current" />
                           </div>
                         </div>
-                        <div className="p-4">
-                          <h3 className="font-semibold text-white mb-1 truncate">
+                        <div className="p-2 sm:p-4">
+                          <h3 className="font-semibold text-white mb-1 truncate text-sm sm:text-base">
                             {fav?.upload?.title || "Untitled"}
                           </h3>
-                          <p className="text-sm text-gray-400">
+                          <p className="text-xs sm:text-sm text-gray-400">
                             {fav?.upload?.category || "No category"}
                           </p>
                         </div>
@@ -748,7 +749,7 @@ export default function UserProfile() {
           onClose={closeReportModal}
           reporterUserId={currentUserProfileId || ''}
           reportedUserId={profile?.id}
-          reportedUsername={profile?.username}
+          reportedUsername={profile?.username || ''}
           onReportSubmitted={() => {
             closeReportModal();
           }}

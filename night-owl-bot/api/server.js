@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { loadConfig } from '../utils/config.js';
 import rateLimit from 'express-rate-limit';
 import v1Router from './routes/v1/index.js';
+import { trackMetric } from './middleware/metrics.js';
 
 dotenv.config();
 
@@ -64,6 +65,9 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// Metrics tracking middleware (before rate limiting to track all requests)
+app.use('/api/', trackMetric);
 
 app.use('/api/', limiter);
 

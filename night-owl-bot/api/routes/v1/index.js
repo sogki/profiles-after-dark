@@ -6,6 +6,7 @@ import discordRouter from './discord.js';
 import moderationRouter from './moderation.js';
 import statsRouter from './stats.js';
 import searchRouter from './search.js';
+import monitoringRouter from './monitoring.js';
 
 const router = express.Router();
 
@@ -17,6 +18,7 @@ router.use('/discord', discordRouter);
 router.use('/moderation', moderationRouter);
 router.use('/stats', statsRouter);
 router.use('/search', searchRouter);
+router.use('/monitoring', monitoringRouter);
 
 /**
  * @route   GET /api/v1
@@ -35,7 +37,8 @@ router.get('/', (req, res) => {
       discord: '/api/v1/discord',
       moderation: '/api/v1/moderation',
       stats: '/api/v1/stats',
-      search: '/api/v1/search'
+      search: '/api/v1/search',
+      monitoring: '/api/v1/monitoring'
     },
     documentation: 'https://dev.profilesafterdark.com/api/v1'
   });

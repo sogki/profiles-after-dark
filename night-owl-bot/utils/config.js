@@ -4,9 +4,10 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Initialize Supabase client with minimal access for config retrieval
-// We'll use the service role key if available, otherwise fall back to env vars
-const supabaseUrl = process.env.SUPABASE_URL || getConfigFromEnv('SUPABASE_URL');
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || getConfigFromEnv('SUPABASE_SERVICE_ROLE_KEY');
+// We MUST use environment variables first to get Supabase credentials
+// Then we can load config from database
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 let supabase = null;
 let configCache = null;
@@ -15,16 +16,27 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 
 /**
  * Initialize Supabase client for config access
+ * Must use environment variables - no database dependency
  * Falls back to environment variables if database is not available
  */
 function initSupabase() {
   if (!supabase && supabaseUrl && supabaseServiceKey) {
     try {
       supabase = createClient(supabaseUrl, supabaseServiceKey);
+      // Test connection (non-blocking)
+      supabase.from('bot_config').select('key').limit(1).then(() => {
+        console.log('✅ Connected to Supabase for config');
+      }).catch((err) => {
+        console.warn('⚠️  Supabase connection test failed:', err.message);
+        console.warn('⚠️  Will fall back to environment variables');
+      });
     } catch (error) {
       console.warn('⚠️  Failed to initialize Supabase for config:', error.message);
       console.warn('⚠️  Falling back to environment variables');
     }
+  } else if (!supabaseUrl || !supabaseServiceKey) {
+    console.warn('⚠️  SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set in environment');
+    console.warn('⚠️  Cannot load config from database, using environment variables only');
   }
   return supabase;
 }
@@ -48,15 +60,16 @@ export async function loadConfig() {
 
   const config = {};
 
-  // Try to load from database
+  // Try to load from database (only if we have Supabase credentials)
   try {
     const client = initSupabase();
     
-    if (client) {
+    if (client && supabaseUrl && supabaseServiceKey) {
       const { data, error } = await client
         .from('bot_config')
         .select('key, value, category')
-        .order('category', { ascending: true });
+        .order('category', { ascending: true })
+        .timeout(5000); // 5 second timeout
 
       if (error) {
         console.warn('⚠️  Failed to load config from database:', error.message);
@@ -76,7 +89,12 @@ export async function loadConfig() {
         console.log(`   Keys: ${loadedKeys}`);
         
         return config;
+      } else {
+        console.warn('⚠️  No configuration found in database');
+        console.warn('⚠️  Using environment variables');
       }
+    } else {
+      console.warn('⚠️  Supabase not configured, using environment variables');
     }
   } catch (error) {
     console.warn('⚠️  Error loading config from database:', error.message);

@@ -101,12 +101,33 @@ async function loadCommands() {
     console.log('📋 Loading configuration...');
     config = await loadConfig();
     
+    // Log loaded config keys (without secret values)
+    const publicKeys = Object.keys(config).filter(key => 
+      !key.includes('TOKEN') && 
+      !key.includes('KEY') && 
+      !key.includes('SECRET') &&
+      !key.includes('PASSWORD')
+    );
+    console.log(`📦 Loaded config keys: ${publicKeys.join(', ')}`);
+    if (Object.keys(config).length - publicKeys.length > 0) {
+      console.log(`🔐 Loaded ${Object.keys(config).length - publicKeys.length} secret key(s) from database`);
+    }
+    
     // Verify required config values
     if (!config.DISCORD_TOKEN) {
       console.error('❌ DISCORD_TOKEN is not set in configuration or environment variables');
+      console.error('💡 Please run: npm run setup:config');
+      console.error('💡 Or set DISCORD_TOKEN in .env file');
       process.exit(1);
     }
 
+    // Verify Supabase config
+    if (!config.SUPABASE_URL || !config.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('❌ SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set');
+      console.error('💡 These are required to load commands and sync users');
+    }
+
+    console.log('✅ Configuration loaded successfully');
     await loadCommands();
 
     client.once("ready", async () => {
@@ -218,8 +239,18 @@ async function loadCommands() {
       }
     });
 
-    await client.login(config.DISCORD_TOKEN || process.env.DISCORD_TOKEN);
+    const token = config.DISCORD_TOKEN || process.env.DISCORD_TOKEN;
+    if (!token) {
+      console.error('❌ DISCORD_TOKEN is required to start the bot');
+      console.error('💡 Set it in .env file or in the database bot_config table');
+      process.exit(1);
+    }
+    
+    console.log('🚀 Starting bot...');
+    await client.login(token);
   } catch (error) {
-    console.error("Error during client setup:", error);
+    console.error("❌ Error during client setup:", error);
+    console.error(error.stack);
+    process.exit(1);
   }
 })();

@@ -28,6 +28,13 @@
 - **Audit Logs** - Complete moderation history and tracking
 - **Staff Messaging** - Internal communication system for moderators
 
+### 🤖 Discord Bot Integration
+- **Moderation Tools** - Ban, kick, warn, mute, and more moderation commands
+- **Gallery Access** - Browse profiles, emotes, and wallpapers directly from Discord
+- **Search Integration** - Search web app content from Discord
+- **Statistics** - View website statistics via Discord commands
+- **User Management** - Link Discord accounts with web profiles
+
 ### 🔧 Technical Features
 - **Real-time Updates** - Live statistics and notifications
 - **Responsive Design** - Optimized for all devices
@@ -35,12 +42,14 @@
 - **Search & Filter** - Advanced content discovery
 - **Upload System** - Easy content submission
 - **Authentication** - Secure user management with Supabase
+- **API Server** - Express.js REST API for bot and integrations
 
 ## 🚀 Tech Stack
 
 - **Frontend**: React 18 + TypeScript + Vite
 - **Styling**: Tailwind CSS + Framer Motion
 - **Backend**: Supabase (PostgreSQL + Auth + Storage)
+- **Discord Bot**: Discord.js v14 with Express.js API
 - **AI Integration**: OpenAI API for content moderation
 - **State Management**: React Query (TanStack Query)
 - **Routing**: React Router DOM
@@ -91,6 +100,52 @@
    npm run dev
    ```
 
+## 🤖 Discord Bot Setup
+
+The Discord bot is located in the `night-owl-bot/` directory. See the [Discord Bot README](night-owl-bot/README.md) for detailed setup instructions.
+
+### Quick Start
+
+1. **Navigate to bot directory**:
+   ```bash
+   cd night-owl-bot
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Configure environment variables** (create `.env` file):
+   ```
+   DISCORD_TOKEN=your_discord_bot_token
+   CLIENT_ID=your_discord_client_id
+   GUILD_ID=your_discord_guild_id
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+   API_URL=http://localhost:3000
+   WEB_URL=https://profilesafterdark.com
+   ```
+
+4. **Deploy commands**:
+   ```bash
+   npm run deploy
+   ```
+
+5. **Start the bot**:
+   ```bash
+   npm start
+   ```
+
+6. **Start the API server** (in another terminal):
+   ```bash
+   npm run start:api
+   ```
+
+### Railway Deployment
+
+The bot is configured for Railway deployment with dual processes (API server + Bot). See the [Discord Bot README](night-owl-bot/README.md) for Railway deployment instructions.
+
 ## 🗄️ Database Schema
 
 The application uses a comprehensive PostgreSQL schema with the following key tables:
@@ -106,6 +161,10 @@ The application uses a comprehensive PostgreSQL schema with the following key ta
 - **reports** - User reports and content flags
 - **appeals** - User appeal submissions
 - **announcements** - Site-wide announcements
+- **discord_users** - Discord user accounts linked to web profiles
+- **mod_cases** - Discord moderation cases
+- **mod_logs** - Discord moderation logs
+- **deleted_messages** - Cached deleted messages from Discord
 
 ## 🎯 Key Components
 

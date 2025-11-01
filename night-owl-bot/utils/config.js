@@ -69,7 +69,12 @@ export async function loadConfig() {
         
         configCache = config;
         lastCacheUpdate = Date.now();
+        
+        // Log which keys were loaded (without values for secrets)
+        const loadedKeys = data.map(item => item.key).join(', ');
         console.log(`✅ Loaded ${data.length} configuration value(s) from database`);
+        console.log(`   Keys: ${loadedKeys}`);
+        
         return config;
       }
     }
@@ -91,7 +96,11 @@ export async function loadConfig() {
     'API_URL',
     'BACKEND_URL',
     'WEB_URL',
-    'STAFF_LOG_CHANNEL_ID'
+    'STAFF_LOG_CHANNEL_ID',
+    'PORT',
+    'NODE_ENV',
+    'RAILWAY_PUBLIC_DOMAIN',
+    'RAILWAY_ENVIRONMENT'
   ];
 
   knownKeys.forEach(key => {
@@ -228,7 +237,7 @@ export async function initializeConfigFromEnv() {
     },
     {
       key: 'API_URL',
-      description: 'API server URL',
+      description: 'API server URL (e.g., https://dev.profilesafterdark.com)',
       category: 'api',
       isSecret: false
     },
@@ -240,7 +249,13 @@ export async function initializeConfigFromEnv() {
     },
     {
       key: 'WEB_URL',
-      description: 'Website URL',
+      description: 'Website URL (e.g., https://profilesafterdark.com)',
+      category: 'api',
+      isSecret: false
+    },
+    {
+      key: 'PORT',
+      description: 'Server port (default: 3000)',
       category: 'api',
       isSecret: false
     },

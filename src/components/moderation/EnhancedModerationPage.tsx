@@ -7,6 +7,7 @@ import {
   Settings,
   Bell,
   MessageSquare,
+  Megaphone,
   BarChart3,
   Users,
   Flag,
@@ -70,6 +71,9 @@ import {
   MoreVertical,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
+  Menu,
+  X,
   SortAsc,
   SortDesc,
   Grid,
@@ -118,7 +122,6 @@ import {
   Flash,
   FlashOff,
   Sun,
-  Moon,
   CloudRain,
   CloudSnow,
   CloudLightning,
@@ -155,7 +158,6 @@ import {
   Victory,
   Cross,
   Check,
-  X,
   Plus,
   Minus,
   Equal,
@@ -205,15 +207,81 @@ import AutomationView from './views/AutomationView';
 import MonitoringView from './views/MonitoringView';
 import AppealsView from './views/AppealsView';
 import EnhancedUserManagementView from './views/EnhancedUserManagementView';
+import AnnouncementsView from './views/AnnouncementsView';
 
 export default function EnhancedModerationPage() {
-  const { user, userProfile } = useAuth();
+  // ALL HOOKS MUST BE CALLED FIRST - before any conditional returns
+  const { user, userProfile, signOut } = useAuth();
   const navigate = useNavigate();
+  const [activeView, setActiveView] = useState<'dashboard' | 'reports' | 'content' | 'logs' | 'analytics' | 'users' | 'automation' | 'announcements' | 'settings' | 'monitoring' | 'appeals' | 'messaging' | 'notifications'>('dashboard');
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showMessaging, setShowMessaging] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterPriority, setFilterPriority] = useState<string>('all');
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'resolve' | 'dismiss';
+    reportId: string;
+    reportTitle: string;
+  } | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    moderation: true,
+    content: true,
+    users: true,
+    system: true
+  });
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   
-  // Check access first
+  // Call all hooks before any conditional returns
+  const {
+    reports,
+    logs,
+    users: moderationUsers,
+    stats,
+    loading,
+    error,
+    refreshData,
+    handleReport,
+    handleBulkAction,
+    exportData
+  } = useModerationSystem();
+  
+  // Memoize filtered reports to prevent unnecessary re-renders - MUST be called before any returns
+  const filteredReports = React.useMemo(() => {
+    return reports.filter(report => {
+      const matchesSearch = !searchQuery || 
+        report.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        report.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        report.reported_user?.username?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = filterStatus === 'all' || report.status === filterStatus;
+      const matchesPriority = filterPriority === 'all' || report.priority === filterPriority;
+      
+      return matchesSearch && matchesStatus && matchesPriority;
+    });
+  }, [reports, searchQuery, filterStatus, filterPriority]);
+
+  // Prevent body scroll when sidebar is open on mobile
+  useEffect(() => {
+    if (sidebarOpen && window.innerWidth < 1024) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [sidebarOpen]);
+  
+  // Now check access after all hooks are called
   const hasModerationAccess = userProfile?.role === 'admin' || userProfile?.role === 'moderator' || userProfile?.role === 'staff';
   
-  // Redirect if no access - do this before any other hooks
+  // Redirect if no access - but hooks must be called first
   if (!user) {
     navigate('/');
     return null;
@@ -236,52 +304,6 @@ export default function EnhancedModerationPage() {
       </div>
     );
   }
-
-  // Now call hooks after access checks
-  const [activeView, setActiveView] = useState<'dashboard' | 'reports' | 'content' | 'logs' | 'analytics' | 'users' | 'automation' | 'settings' | 'monitoring' | 'appeals' | 'messaging' | 'notifications'>('dashboard');
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [showMessaging, setShowMessaging] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showAnalytics, setShowAnalytics] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<any>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterPriority, setFilterPriority] = useState<string>('all');
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{
-    type: 'resolve' | 'dismiss';
-    reportId: string;
-    reportTitle: string;
-  } | null>(null);
-
-  const {
-    reports,
-    logs,
-    users: moderationUsers,
-    stats,
-    loading,
-    error,
-    refreshData,
-    handleReport,
-    handleBulkAction,
-    exportData
-  } = useModerationSystem();
-
-  // Memoize filtered reports to prevent unnecessary re-renders
-  const filteredReports = React.useMemo(() => {
-    return reports.filter(report => {
-      const matchesSearch = !searchQuery || 
-        report.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        report.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        report.reported_user?.username?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = filterStatus === 'all' || report.status === filterStatus;
-      const matchesPriority = filterPriority === 'all' || report.priority === filterPriority;
-      
-      return matchesSearch && matchesStatus && matchesPriority;
-    });
-  }, [reports, searchQuery, filterStatus, filterPriority]);
 
   const handleReportAction = (reportId: string, action: 'resolve' | 'dismiss', reportTitle: string) => {
     setConfirmAction({ type: action, reportId, reportTitle });
@@ -313,6 +335,7 @@ export default function EnhancedModerationPage() {
     { id: 'analytics', label: 'Analytics', icon: TrendingUp },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'automation', label: 'Automation', icon: Bot },
+    { id: 'announcements', label: 'Announcements', icon: Megaphone },
     { id: 'settings', label: 'Settings', icon: Settings },
     { id: 'monitoring', label: 'Monitoring', icon: Monitor },
     { id: 'appeals', label: 'Appeals', icon: AlertTriangle },
@@ -321,29 +344,43 @@ export default function EnhancedModerationPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Header */}
-      <div className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-40">
+    <div className="min-h-screen bg-[#1A1A1A]">
+      {/* Enhanced Header */}
+      <div className="bg-[#1A1A1A] border-b border-slate-800/30 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3 sm:space-x-4">
               <button
                 onClick={() => navigate('/')}
-                className="flex items-center space-x-2 text-white hover:text-purple-400 transition-colors"
+                className="flex items-center space-x-3 text-white hover:text-purple-400 transition-colors group"
               >
-                <Shield className="w-6 h-6" />
-                <span className="font-bold text-lg">Enhanced Moderation</span>
+                <div className="relative">
+                  <div className="absolute inset-0 bg-purple-600/20 rounded-lg blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <Shield className="w-6 h-6 sm:w-7 sm:h-7 relative z-10 text-purple-400" />
+                </div>
+                <div>
+                  <span className="font-bold text-base sm:text-lg block">Moderation Panel</span>
+                  <span className="text-xs text-slate-400 hidden sm:block">Enhanced Management System</span>
+                </div>
               </button>
             </div>
             
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 text-white" />
-                </div>
-                <div className="text-sm">
-                  <div className="text-white font-medium">{userProfile?.display_name || userProfile?.username}</div>
-                  <div className="text-slate-400 text-xs capitalize">{userProfile?.role}</div>
+            <div className="flex items-center space-x-3 sm:space-x-4">
+              <div className="flex items-center space-x-3 bg-slate-800/50 rounded-lg px-3 py-1.5 border border-slate-700/50">
+                {userProfile?.avatar_url ? (
+                  <img
+                    src={userProfile.avatar_url}
+                    alt={`${userProfile.display_name || userProfile.username}'s avatar`}
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border-2 border-purple-500/50 shadow-lg shadow-purple-500/20"
+                  />
+                ) : (
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-purple-500/30">
+                    <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  </div>
+                )}
+                <div className="text-xs sm:text-sm hidden sm:block">
+                  <div className="text-white font-semibold">{userProfile?.display_name || userProfile?.username}</div>
+                  <div className="text-purple-400 text-xs font-medium capitalize">{userProfile?.role}</div>
                 </div>
               </div>
             </div>
@@ -351,161 +388,401 @@ export default function EnhancedModerationPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex gap-8">
-          {/* Sidebar Navigation */}
-          <div className="w-64 flex-shrink-0">
-            <nav className="space-y-2">
-              {navigationItems.map((item) => {
-                const IconComponent = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveView(item.id as any)}
-                    className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
-                      activeView === item.id
-                        ? 'bg-purple-600 text-white'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                    }`}
-                  >
-                    <IconComponent className="w-5 h-5 mr-3" />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
+      <div className="flex h-[calc(100vh-4rem)] relative overflow-hidden">
+        {/* Mobile Sidebar Overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
 
-          {/* Main Content */}
-          <div className="flex-1 min-w-0">
-            {loading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
-                  <p className="text-slate-400">Loading moderation system...</p>
+        {/* Sidebar */}
+        <aside className={`fixed lg:static inset-y-16 lg:inset-y-0 left-0 z-50 lg:z-auto w-64 flex-shrink-0 bg-[#1A1A1A] border-r border-slate-800/30 flex-col transform transition-transform duration-300 h-full lg:h-auto ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}>
+          {/* Sidebar Header */}
+          <div className="p-4 lg:p-6 border-b border-slate-800/30 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg lg:text-xl font-bold text-white mb-1">Admin Panel</h2>
+              <p className="text-xs text-slate-400">Profiles After Dark</p>
+            </div>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          {/* Navigation Menu */}
+          <nav className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
+            {/* Dashboard - No Group */}
+            <button
+              onClick={() => {
+                setActiveView('dashboard');
+                setSidebarOpen(false);
+              }}
+              className={`w-full text-left px-4 py-2.5 rounded-lg transition-all duration-200 ${
+                activeView === 'dashboard'
+                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
+              }`}
+            >
+               <div className="flex items-center space-x-3">
+                 <BarChart3 className={`w-5 h-5 ${activeView === 'dashboard' ? 'text-white' : 'text-slate-400'}`} />
+                 <span className="font-medium text-sm">Dashboard</span>
+               </div>
+            </button>
+
+            {/* Moderation Group */}
+            <div>
+              <button
+                onClick={() => setExpandedGroups(prev => ({ ...prev, moderation: !prev.moderation }))}
+                className="w-full flex items-center justify-between px-2 py-2 text-slate-400 hover:text-white transition-colors"
+              >
+                <span className="text-xs font-semibold uppercase tracking-wider">Moderation</span>
+                {expandedGroups.moderation ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+              {expandedGroups.moderation && (
+                <div className="ml-2 space-y-1 mt-1">
+                  {[
+                    { id: 'reports', label: 'Reports', icon: Flag },
+                    { id: 'appeals', label: 'Appeals', icon: AlertTriangle },
+                    { id: 'logs', label: 'Logs', icon: Clock }
+                  ].map((item) => {
+                    const IconComponent = item.icon;
+                    const isActive = activeView === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setActiveView(item.id as any);
+                          setSidebarOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 rounded-lg transition-all duration-200 ${
+                          isActive
+                            ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <IconComponent className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                          <span className="text-sm">{item.label}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
+              )}
+            </div>
+
+            {/* Content Group */}
+            <div>
+              <button
+                onClick={() => setExpandedGroups(prev => ({ ...prev, content: !prev.content }))}
+                className="w-full flex items-center justify-between px-2 py-2 text-slate-400 hover:text-white transition-colors"
+              >
+                <span className="text-xs font-semibold uppercase tracking-wider">Content</span>
+                {expandedGroups.content ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+              {expandedGroups.content && (
+                <div className="ml-2 space-y-1 mt-1">
+                  {[
+                    { id: 'content', label: 'Content', icon: FileText },
+                    { id: 'announcements', label: 'Announcements', icon: Megaphone }
+                  ].map((item) => {
+                    const IconComponent = item.icon;
+                    const isActive = activeView === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setActiveView(item.id as any);
+                          setSidebarOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 rounded-lg transition-all duration-200 ${
+                          isActive
+                            ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <IconComponent className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                          <span className="text-sm">{item.label}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Users Group */}
+            <div>
+              <button
+                onClick={() => setExpandedGroups(prev => ({ ...prev, users: !prev.users }))}
+                className="w-full flex items-center justify-between px-2 py-2 text-slate-400 hover:text-white transition-colors"
+              >
+                <span className="text-xs font-semibold uppercase tracking-wider">Users</span>
+                {expandedGroups.users ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+              {expandedGroups.users && (
+                <div className="ml-2 space-y-1 mt-1">
+                  {[
+                    { id: 'users', label: 'User Management', icon: Users }
+                  ].map((item) => {
+                    const IconComponent = item.icon;
+                    const isActive = activeView === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setActiveView(item.id as any);
+                          setSidebarOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 rounded-lg transition-all duration-200 ${
+                          isActive
+                            ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <IconComponent className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                          <span className="text-sm">{item.label}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* System Group */}
+            <div>
+              <button
+                onClick={() => setExpandedGroups(prev => ({ ...prev, system: !prev.system }))}
+                className="w-full flex items-center justify-between px-2 py-2 text-slate-400 hover:text-white transition-colors"
+              >
+                <span className="text-xs font-semibold uppercase tracking-wider">System</span>
+                {expandedGroups.system ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+              {expandedGroups.system && (
+                <div className="ml-2 space-y-1 mt-1">
+                  {[
+                    { id: 'automation', label: 'AI Moderation', icon: Bot },
+                    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+                    { id: 'monitoring', label: 'Monitoring', icon: Monitor },
+                    { id: 'settings', label: 'Settings', icon: Settings }
+                  ].map((item) => {
+                    const IconComponent = item.icon;
+                    const isActive = activeView === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setActiveView(item.id as any);
+                          setSidebarOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 rounded-lg transition-all duration-200 ${
+                          isActive
+                            ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <IconComponent className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                          <span className="text-sm">{item.label}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </nav>
+        </aside>
+
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto min-w-0 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
+          <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+            {/* Mobile Header with Sidebar Toggle */}
+            <div className="mb-4 lg:hidden flex items-center justify-between">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 text-slate-400 hover:text-white transition-colors"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              <h1 className="text-xl font-bold text-white">Moderation Panel</h1>
+              <div className="w-10" /> {/* Spacer for centering */}
+            </div>
+
+            {/* Mobile Quick Actions - Icon Based */}
+            <div className="mb-6 lg:hidden">
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { id: 'dashboard', icon: BarChart3, label: 'Dashboard' },
+                  { id: 'reports', icon: Flag, label: 'Reports' },
+                  { id: 'content', icon: FileText, label: 'Content' },
+                  { id: 'users', icon: Users, label: 'Users' }
+                ].map((item) => {
+                  const IconComponent = item.icon;
+                  const isActive = activeView === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveView(item.id as any)}
+                      className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all ${
+                        isActive
+                          ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
+                          : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-800'
+                      }`}
+                      title={item.label}
+                    >
+                      <IconComponent className="w-5 h-5 mb-1" />
+                      <span className="text-xs font-medium">{item.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-            ) : (
-              <>
+              <div className="mt-2 flex justify-center">
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="text-xs text-slate-400 hover:text-purple-400 px-3 py-1.5 rounded-lg hover:bg-slate-800/50 transition-colors"
+                >
+                  More Options →
+                </button>
+              </div>
+            </div>
+
+            {/* Main Content */}
+              {loading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
+                    <p className="text-slate-400">Loading moderation system...</p>
+                  </div>
+                </div>
+              ) : (
+                <>
                 {/* Dashboard View */}
                 {activeView === 'dashboard' && (
-                  <div className="space-y-8">
-                    {/* Stats Overview */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="space-y-6">
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h1 className="text-3xl font-bold text-white mb-1">Dashboard</h1>
+                        <p className="text-slate-400 text-sm">Overview and quick stats</p>
+                      </div>
+                      <button
+                        onClick={() => signOut()}
+                        className="flex items-center space-x-2 px-4 py-2 bg-[#2D2D2D] hover:bg-slate-700 text-white rounded-lg transition-colors"
+                      >
+                        <span className="text-sm font-medium">Logout</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Quick Stats Cards */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                       {[
-                        {
-                          title: 'Total Reports',
-                          value: stats?.totalReports || 0,
-                          icon: Flag,
-                          color: 'blue',
-                          change: '+12%'
-                        },
-                        {
-                          title: 'Pending Reports',
-                          value: stats?.pendingReports || 0,
-                          icon: Clock,
-                          color: 'orange',
-                          change: '-5%'
-                        },
-                        {
-                          title: 'Resolved Reports',
-                          value: stats?.resolvedReports || 0,
-                          icon: CheckCircle,
-                          color: 'green',
-                          change: '+8%'
-                        },
-                        {
-                          title: 'Active Users',
-                          value: stats?.activeUsers || 0,
-                          icon: Users,
-                          color: 'purple',
-                          change: '+3%'
-                        }
+                        { title: 'Total Reports', value: stats?.totalReports || 0, icon: Flag },
+                        { title: 'Pending Reports', value: stats?.pendingReports || 0, icon: Clock },
+                        { title: 'Resolved Reports', value: stats?.resolvedReports || 0, icon: CheckCircle },
+                        { title: 'Active Users', value: stats?.activeUsers || 0, icon: Users }
                       ].map((stat, index) => {
                         const IconComponent = stat.icon;
                         return (
-                          <motion.div
+                          <div
                             key={stat.title}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.1 }}
-                            className="bg-slate-800 rounded-xl p-6 border border-slate-700"
+                            className="bg-[#2D2D2D] rounded-lg p-4 flex items-center justify-between"
                           >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-slate-400 text-sm font-medium">{stat.title}</p>
-                                <p className="text-2xl font-bold text-white mt-1">{stat.value}</p>
-                                <p className="text-xs text-green-400 mt-1">{stat.change}</p>
-                              </div>
-                              <div className={`w-12 h-12 rounded-lg bg-${stat.color}-500/20 flex items-center justify-center`}>
-                                <IconComponent className={`w-6 h-6 text-${stat.color}-400`} />
-                              </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-slate-400 text-xs mb-1">{stat.title}</p>
+                              <p className="text-2xl font-bold text-white">{stat.value}</p>
                             </div>
-                          </motion.div>
+                            <IconComponent className="w-8 h-8 text-slate-400 flex-shrink-0" />
+                          </div>
                         );
                       })}
                     </div>
 
                     {/* Recent Activity */}
-                    <div className="bg-slate-800 rounded-xl border border-slate-700">
-                      <div className="p-6 border-b border-slate-700">
-                        <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
-                      </div>
-                      <div className="p-6">
-                        <div className="space-y-4">
-                          {stats.recentActivity && stats.recentActivity.length > 0 ? (
-                            stats.recentActivity.slice(0, 5).map((activity, index) => (
-                              <motion.div
-                                key={activity.id}
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: index * 0.1 }}
-                                className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg"
+                    <div className="bg-[#1A1A1A] rounded-lg border border-slate-800/30 p-6">
+                      <h2 className="text-2xl font-bold text-white mb-6">Recent Activity</h2>
+                      <div className="space-y-3">
+                        {stats.recentActivity && stats.recentActivity.length > 0 ? (
+                          stats.recentActivity.slice(0, 5).map((activity, index) => {
+                            const activityType = activity.type || 'general';
+                            const IconComponent = activityType === 'fanart' ? Heart : FileText;
+                            const iconColor = activityType === 'fanart' ? 'text-pink-400' : 'text-purple-400';
+                            
+                            return (
+                              <div
+                                key={activity.id || index}
+                                className="bg-[#2D2D2D] rounded-lg p-4 flex items-center justify-between"
                               >
-                                <div className="flex items-center space-x-3">
-                                  <div className={`w-2 h-2 rounded-full ${
-                                    activity.color === 'orange' ? 'bg-orange-400' :
-                                    activity.color === 'green' ? 'bg-green-400' :
-                                    activity.color === 'purple' ? 'bg-purple-400' : 'bg-blue-400'
-                                  }`} />
-                                  <div>
-                                    <p className="text-white font-medium">{activity.action}</p>
-                                    <p className="text-slate-400 text-sm">
-                                      {activity.description}
+                                <div className="flex items-center space-x-4 flex-1 min-w-0">
+                                  <IconComponent className={`w-5 h-5 flex-shrink-0 ${iconColor}`} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-white font-medium text-sm truncate">
+                                      {typeof activity.action === 'string' 
+                                        ? activity.action 
+                                        : typeof activity.title === 'string'
+                                          ? activity.title
+                                          : activity.action?.title || activity.title?.title || 'Unknown activity'}
                                     </p>
-                                    <p className="text-slate-500 text-xs">
-                                      {new Date(activity.created_at).toLocaleDateString()} at {new Date(activity.created_at).toLocaleTimeString()}
+                                    <p className={`text-xs mt-1 ${
+                                      activityType === 'fanart' ? 'text-pink-400' : 'text-purple-400'
+                                    }`}>
+                                      {activityType === 'fanart' ? 'Fan art' : activity.description || 'Moderation action'}
                                     </p>
+                                    {activity.user && (
+                                      <p className="text-slate-400 text-xs mt-1">
+                                        User: {typeof activity.user === 'string' 
+                                          ? activity.user 
+                                          : activity.user.username || activity.user.display_name || 'Unknown'}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  <span className={`px-2 py-1 text-xs rounded-full ${
-                                    activity.type === 'report' ? 'bg-orange-500/20 text-orange-400' :
-                                    activity.type === 'moderation' ? 'bg-purple-500/20 text-purple-400' :
-                                    'bg-blue-500/20 text-blue-400'
-                                  }`}>
-                                    {activity.type}
-                                  </span>
-                                  <button
-                                    onClick={() => {
-                                      if (activity.type === 'report') {
-                                        setSelectedReport({ id: activity.id.replace('report-', '') });
+                                <div className="flex items-center space-x-3 flex-shrink-0">
+                                  <div className="flex items-center space-x-2">
+                                    <Clock className="w-4 h-4 text-slate-400" />
+                                    <span className="text-slate-400 text-xs">
+                                      {activity.created_at 
+                                        ? new Date(activity.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                        : 'N/A'
                                       }
-                                    }}
-                                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-600 rounded-lg transition-colors"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </button>
+                                    </span>
+                                  </div>
+                                  <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
                                 </div>
-                              </motion.div>
-                            ))
-                          ) : (
-                            <div className="text-center py-8">
-                              <Activity className="w-12 h-12 text-slate-500 mx-auto mb-4" />
-                              <p className="text-slate-400">No recent activity</p>
-                            </div>
-                          )}
-                        </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-center py-8">
+                            <p className="text-slate-400">No recent activity</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -685,6 +962,11 @@ export default function EnhancedModerationPage() {
                   <AppealsView />
                 )}
 
+                {/* Announcements View */}
+                {activeView === 'announcements' && (
+                  <AnnouncementsView />
+                )}
+
                 {/* Other Views */}
                 {activeView === 'messaging' && (
                   <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
@@ -750,7 +1032,7 @@ export default function EnhancedModerationPage() {
               </>
             )}
           </div>
-        </div>
+        </main>
       </div>
 
       {/* Confirmation Dialog */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "react-router-dom";
-import { Moon, Heart, Users, ImageIcon, Palette, Shield } from "lucide-react";
+import { Heart, Users, ImageIcon, Palette, Shield } from "lucide-react";
 import useFooterStats from "@/hooks/footer-stats/use-footer-stats";
 import useRealtimeFooterStats from "@/hooks/footer-stats/use-realtime-stats";
 
@@ -25,53 +25,45 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-12">
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-2 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl">
-                <Moon className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-                  Profiles After Dark
-                </h3>
-                <p className="text-sm text-purple-400 font-medium">
-                  Aesthetic profiles for the night owls
-                </p>
-              </div>
+            <div className="mb-8">
+              <img
+                src="https://zzywottwfffyddnorein.supabase.co/storage/v1/object/public/static-assets//profiles-after-dark-logomark.png"
+                className="h-8 w-auto object-contain mb-3"
+                alt="Profiles After Dark logo"
+              />
+              <p className="text-sm text-slate-400 leading-relaxed max-w-md">
+                Discover stunning profile pictures, banners, wallpapers, and emotes. Join our community of creators sharing aesthetic content for your digital presence.
+              </p>
             </div>
-            <p className="text-slate-300 mb-8 max-w-md leading-relaxed">
-              The ultimate destination for stunning profile pictures and
-              banners. Join our passionate community who've discovered their
-              perfect aesthetic in our curated collection.
-            </p>
 
             {/* Real-time Stats */}
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-slate-700/50">
-                <div className="flex items-center gap-2 mb-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-800/30 rounded-lg p-3 border border-slate-700/30">
+                <div className="flex items-center gap-2 mb-2">
                   <Users className="h-4 w-4 text-blue-400" />
-                  <span className="text-xs text-slate-400 uppercase tracking-wide">
+                  <span className="text-xs text-slate-400 uppercase tracking-wide font-medium">
                     Members
                   </span>
                 </div>
                 {isLoading ? (
-                  <div className="h-7 bg-slate-700 rounded animate-pulse"></div>
+                  <div className="h-6 bg-slate-700/50 rounded animate-pulse"></div>
                 ) : (
-                  <p className="text-xl font-bold text-white">
+                  <p className="text-lg font-bold text-white">
                     {formatNumber(stats?.members || 0)}+
                   </p>
                 )}
               </div>
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-slate-700/50">
-                <div className="flex items-center gap-2 mb-1">
+              <div className="bg-slate-800/30 rounded-lg p-3 border border-slate-700/30">
+                <div className="flex items-center gap-2 mb-2">
                   <ImageIcon className="h-4 w-4 text-purple-400" />
-                  <span className="text-xs text-slate-400 uppercase tracking-wide">
+                  <span className="text-xs text-slate-400 uppercase tracking-wide font-medium">
                     Assets
                   </span>
                 </div>
                 {isLoading ? (
-                  <div className="h-7 bg-slate-700 rounded animate-pulse"></div>
+                  <div className="h-6 bg-slate-700/50 rounded animate-pulse"></div>
                 ) : (
-                  <p className="text-xl font-bold text-white">
+                  <p className="text-lg font-bold text-white">
                     {formatNumber(stats?.assets || 0)}+
                   </p>
                 )}
@@ -81,44 +73,45 @@ export default function Footer() {
 
           {/* Quick Links */}
           <div>
-            <div className="flex items-center gap-2 mb-6">
-              <Palette className="h-5 w-5 text-purple-400" />
-              <h4 className="text-white font-bold text-lg">Galleries</h4>
-            </div>
-            <ul className="space-y-3">
+            <h4 className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Galleries</h4>
+            <ul className="space-y-2.5">
               <li>
                 <Link
                   to="/gallery/pfps"
-                  className="text-slate-400 hover:text-purple-400 transition-colors duration-200 flex items-center gap-2 group"
+                  className="text-slate-400 hover:text-purple-400 transition-colors duration-200 text-sm"
                 >
-                  <span className="w-1 h-1 bg-purple-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
                   Profile Pictures
                 </Link>
               </li>
               <li>
                 <Link
                   to="/gallery/banners"
-                  className="text-slate-400 hover:text-purple-400 transition-colors duration-200 flex items-center gap-2 group"
+                  className="text-slate-400 hover:text-purple-400 transition-colors duration-200 text-sm"
                 >
-                  <span className="w-1 h-1 bg-purple-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
                   Profile Banners
                 </Link>
               </li>
               <li>
                 <Link
                   to="/gallery/profiles"
-                  className="text-slate-400 hover:text-purple-400 transition-colors duration-200 flex items-center gap-2 group"
+                  className="text-slate-400 hover:text-purple-400 transition-colors duration-200 text-sm"
                 >
-                  <span className="w-1 h-1 bg-purple-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
                   Emoji Combos
                 </Link>
               </li>
               <li>
                 <Link
-                  to="/gallery/wallpapers"
-                  className="text-slate-400 hover:text-purple-400 transition-colors duration-200 flex items-center gap-2 group"
+                  to="/gallery/emotes"
+                  className="text-slate-400 hover:text-purple-400 transition-colors duration-200 text-sm"
                 >
-                  <span className="w-1 h-1 bg-purple-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                  Emotes
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/gallery/wallpapers"
+                  className="text-slate-400 hover:text-purple-400 transition-colors duration-200 text-sm"
+                >
                   Wallpapers
                 </Link>
               </li>
@@ -127,88 +120,60 @@ export default function Footer() {
 
           {/* Account */}
           <div>
-            <div className="flex items-center gap-2 mb-6">
-              <Users className="h-5 w-5 text-blue-400" />
-              <h4 className="text-white font-bold text-lg">Account</h4>
-            </div>
-            <ul className="space-y-3">
+            <h4 className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Account</h4>
+            <ul className="space-y-2.5">
               <li>
                 <Link
                   to="/profile-settings"
-                  className="text-slate-400 hover:text-blue-400 transition-colors duration-200 flex items-center gap-2 group"
+                  className="text-slate-400 hover:text-blue-400 transition-colors duration-200 text-sm"
                 >
-                  <span className="w-1 h-1 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
                   Account Settings
                 </Link>
+              </li>
+              <li>
                 <Link
                   to="/appeals"
-                  className="text-slate-400 hover:text-blue-400 transition-colors duration-200 flex items-center gap-2 group"
+                  className="text-slate-400 hover:text-blue-400 transition-colors duration-200 text-sm"
                 >
-                  <span className="w-1 h-1 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
                   Appeals
                 </Link>
-              </li>
-              {/* <li>
-                <Link
-                  to={`/user/${userProfile.username}`}
-                  className="text-slate-400 hover:text-blue-400 transition-colors duration-200 flex items-center gap-2 group"
-                >
-                  <span className="w-1 h-1 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  My Profile
-                </Link>
-              </li> */}
-              <li>
-                {/* <Link
-                  to="/favorites"
-                  className="text-slate-400 hover:text-blue-400 transition-colors duration-200 flex items-center gap-2 group"
-                >
-                  <span className="w-1 h-1 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  Favorites
-                </Link> */}
               </li>
             </ul>
           </div>
 
           {/* Legal */}
           <div>
-            <div className="flex items-center gap-2 mb-6">
-              <Shield className="h-5 w-5 text-green-400" />
-              <h4 className="text-white font-bold text-lg">Legal</h4>
-            </div>
-            <ul className="space-y-3">
+            <h4 className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Legal</h4>
+            <ul className="space-y-2.5">
               <li>
                 <Link
                   to="/terms"
-                  className="text-slate-400 hover:text-green-400 transition-colors duration-200 flex items-center gap-2 group"
+                  className="text-slate-400 hover:text-slate-300 transition-colors duration-200 text-sm"
                 >
-                  <span className="w-1 h-1 bg-green-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
                   Terms of Service
                 </Link>
               </li>
               <li>
                 <Link
                   to="/policies"
-                  className="text-slate-400 hover:text-green-400 transition-colors duration-200 flex items-center gap-2 group"
+                  className="text-slate-400 hover:text-slate-300 transition-colors duration-200 text-sm"
                 >
-                  <span className="w-1 h-1 bg-green-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
                   Privacy Policy
                 </Link>
               </li>
               <li>
                 <Link
                   to="/guidelines"
-                  className="text-slate-400 hover:text-green-400 transition-colors duration-200 flex items-center gap-2 group"
+                  className="text-slate-400 hover:text-slate-300 transition-colors duration-200 text-sm"
                 >
-                  <span className="w-1 h-1 bg-green-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
                   Community Guidelines
                 </Link>
               </li>
               <li>
                 <Link
                   to="/report-content"
-                  className="text-slate-400 hover:text-red-400 transition-colors duration-200 flex items-center gap-2 group"
+                  className="text-slate-400 hover:text-red-400 transition-colors duration-200 text-sm"
                 >
-                  <span className="w-1 h-1 bg-red-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
                   Report Content
                 </Link>
               </li>
@@ -217,27 +182,15 @@ export default function Footer() {
         </div>
 
         {/* Bottom Section */}
-        <div className="border-t border-slate-700/50 mt-16 pt-8">
-          <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
-            <div className="flex flex-col sm:flex-row items-center gap-6">
-              <p className="text-slate-400 text-sm">
-                © 2025 Profiles After Dark. All rights reserved.
-              </p>
-              <div className="flex items-center gap-4 text-xs text-slate-500">
-                <span>v2.1.0</span>
-                <span>•</span>
-                <span>Last updated: {new Date().toLocaleDateString()}</span>
-              </div>
-            </div>
-
-            {/* Made with love */}
-            <div className="flex items-center gap-2 text-slate-400 text-sm">
-              <span>Crafted with</span>
-              <Heart className="h-4 w-4 text-red-400 animate-pulse" />
-              <span>by</span>
-              <span className="text-white font-medium bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                Soggs
-              </span>
+        <div className="border-t border-slate-800/50 mt-12 pt-8">
+          <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
+            <p className="text-slate-500 text-xs">
+              © 2025 Profiles After Dark. All rights reserved.
+            </p>
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span>v2.1.0</span>
+              <span className="text-slate-600">•</span>
+              <span>Last updated: {new Date().toLocaleDateString()}</span>
             </div>
           </div>
         </div>

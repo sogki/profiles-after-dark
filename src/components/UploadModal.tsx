@@ -1,313 +1,138 @@
-import type React from "react"
-
 import { useState } from "react"
-
-import { X, Upload, ImageIcon, Loader, Camera, Plus, Check } from "lucide-react"
-
-import { useProfiles } from "../hooks/useProfiles"
-
+import { X } from "lucide-react"
 import { useAuth } from "../context/authContext"
-
-import { useEmojiCombos } from "../hooks/useEmojiCombos"
+import { supabase } from "../lib/supabase"
+import SingleUploadForm from "./upload/SingleUploadForm"
+import ProfilePairUploadForm from "./upload/ProfilePairUploadForm"
+import EmojiComboUploadForm from "./upload/EmojiComboUploadForm"
+import EmoteUploadForm from "./upload/EmoteUploadForm"
+import WallpaperUploadForm from "./upload/WallpaperUploadForm"
 
 interface UploadModalProps {
   isOpen: boolean
-
   onClose: () => void
 }
 
 export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
-  // Which upload form is active? 'single', 'profilePair', or 'emojiCombo'
+  const { user } = useAuth()
+  const [uploadMode, setUploadMode] = useState<"single" | "profilePair" | "emojiCombo" | "emote" | "wallpaper">("single")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
 
-  const [uploadMode, setUploadMode] = useState<"single" | "profilePair" | "emojiCombo">("single")
-
-  // Single upload form state
-
+  // Form states
   const [singleForm, setSingleForm] = useState({
     title: "",
-
     category: "general" as "discord" | "twitter" | "instagram" | "general",
-
     type: "profile" as "profile" | "banner",
-
     tags: [] as string[],
-
     file: null as File | null,
   })
 
-  // Profile pair upload form state
-
   const [pairForm, setPairForm] = useState({
     title: "",
-
     category: "general" as "discord" | "twitter" | "instagram" | "general",
-
     tags: [] as string[],
-
     pfpFile: null as File | null,
-
     bannerFile: null as File | null,
   })
 
-  // Emoji combo upload form state
-
   const [emojiForm, setEmojiForm] = useState({
     name: "",
-
     combo_text: "",
-
     description: "",
-
     tags: [] as string[],
+    file: null as File | null,
   })
 
-  // Common states
+  const [emoteForm, setEmoteForm] = useState({
+    title: "",
+    category: "general",
+    customCategory: "",
+    tags: [] as string[],
+    file: null as File | null,
+  })
 
-  const [dragActive, setDragActive] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [tagInput, setTagInput] = useState("")
-  const [error, setError] = useState<string | null>(null)
-
-  const { uploadProfile, uploadImage, uploadProfilePair } = useProfiles()
-
-  const { addEmojiCombo } = useEmojiCombos()
-
-  const { user } = useAuth()
-
-  const isLikelyAsciiArt = (text: string) => {
-    if (text.includes("\n")) return true
-    if (/[│┌┐└┘├┤┬┴┼═║╔╗╚╝╠╣╦╩╬▀▄█▌▐░▒▓■□▪▫◆◇○●◦‣⁃]/.test(text)) return true
-    if (/(.)\1{4,}/.test(text)) return true
-    if (
-      text.length > 50 &&
-      !/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]/u.test(text)
-    )
-      return true
-    return false
-  }
+  const [wallpaperForm, setWallpaperForm] = useState({
+    title: "",
+    category: "general",
+    customCategory: "",
+    resolution: "",
+    tags: [] as string[],
+    file: null as File | null,
+  })
 
   if (!isOpen) return null
 
-  // Drag handlers for single file upload (reused for both single & pair, separate file inputs)
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-
-    e.stopPropagation()
-
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
-    } else if (e.type === "dragleave") {
-      setDragActive(false)
-    }
+  const sanitizeFilename = (filename: string) => {
+    return filename.replace(/[^a-zA-Z0-9.-]/g, "_")
   }
 
-  // Single form handlers
-
-  const handleSingleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        setError("File is too large. Maximum size is 10MB.")
-
-        return
-      }
-
-      setSingleForm({ ...singleForm, file })
-
-      setError(null)
-    }
-  }
-
-  // Profile pair handlers
-
-  const handlePfpFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        setError("File is too large. Maximum size is 10MB.")
-
-        return
-      }
-
-      setPairForm({ ...pairForm, pfpFile: file })
-
-      setError(null)
-    }
-  }
-
-  const handleBannerFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        setError("File is too large. Maximum size is 10MB.")
-
-        return
-      }
-
-      setPairForm({ ...pairForm, bannerFile: file })
-
-      setError(null)
-    }
-  }
-
-  // Tag add/remove helpers for single, pair, or emoji
-
-  const addTag = () => {
-    const currentTags =
-      uploadMode === "single" ? singleForm.tags : uploadMode === "profilePair" ? pairForm.tags : emojiForm.tags
-
-    if (currentTags.length >= 10) {
-      setError("Maximum 10 tags allowed")
-
-      return
-    }
-
-    if (uploadMode === "single") {
-      if (tagInput.trim() && !singleForm.tags.includes(tagInput.trim())) {
-        setSingleForm({
-          ...singleForm,
-
-          tags: [...singleForm.tags, tagInput.trim()],
-        })
-
-        setTagInput("")
-
-        setError(null)
-      }
-    } else if (uploadMode === "profilePair") {
-      if (tagInput.trim() && !pairForm.tags.includes(tagInput.trim())) {
-        setPairForm({
-          ...pairForm,
-
-          tags: [...pairForm.tags, tagInput.trim()],
-        })
-
-        setTagInput("")
-
-        setError(null)
-      }
-    } else {
-      if (tagInput.trim() && !emojiForm.tags.includes(tagInput.trim())) {
-        setEmojiForm({
-          ...emojiForm,
-
-          tags: [...emojiForm.tags, tagInput.trim()],
-        })
-
-        setTagInput("")
-
-        setError(null)
-      }
-    }
-  }
-
-  const removeTag = (tagToRemove: string) => {
-    if (uploadMode === "single") {
-      setSingleForm({
-        ...singleForm,
-
-        tags: singleForm.tags.filter((tag) => tag !== tagToRemove),
+  const uploadImage = async (file: File, fileName: string) => {
+    const { data, error } = await supabase.storage
+      .from("images")
+      .upload(fileName, file, {
+        cacheControl: "3600",
+        upsert: false,
       })
-    } else if (uploadMode === "profilePair") {
-      setPairForm({
-        ...pairForm,
 
-        tags: pairForm.tags.filter((tag) => tag !== tagToRemove),
-      })
-    } else {
-      setEmojiForm({
-        ...emojiForm,
+    if (error) return { error: error.message }
 
-        tags: emojiForm.tags.filter((tag) => tag !== tagToRemove),
-      })
-    }
+    const { data: { publicUrl } } = supabase.storage
+      .from("images")
+      .getPublicUrl(fileName)
+
+    return { url: publicUrl }
   }
-
-  // Submission handlers
-
-  const sanitizeFilename = (name: string) => name.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9._-]/g, "")
 
   const handleSubmitSingle = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (isSubmitting) return
-
-    if (!singleForm.file || !singleForm.title || !user) return
-
-    if (singleForm.file.size > 10 * 1024 * 1024) {
-      setError("File is too large. Maximum size is 10MB.")
-
-      return
-    }
+    if (isSubmitting || !singleForm.file || !singleForm.title || !user) return
 
     setIsSubmitting(true)
-
     setError(null)
-
     setUploadProgress(0)
 
     try {
-      // Simulate progress
-
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => Math.min(prev + 10, 90))
       }, 200)
 
       const cleanFileName = sanitizeFilename(singleForm.file.name)
-
-      const fileName = `${Date.now()}-${cleanFileName}`
-
+      const fileName = `${Date.now()}-${singleForm.type}-${cleanFileName}`
       const { url, error: uploadError } = await uploadImage(singleForm.file, fileName)
 
       clearInterval(progressInterval)
-
       setUploadProgress(100)
 
       if (uploadError || !url) {
         throw new Error(uploadError || "Failed to upload image")
       }
 
-      const { error: profileError } = await uploadProfile({
+      const { error: insertError } = await supabase.from("single_uploads").insert([
+        {
         title: singleForm.title,
-
         category: singleForm.category,
-
         type: singleForm.type,
-
         image_url: url,
-
         tags: singleForm.tags,
-
         user_id: user.id,
-      })
+        },
+      ])
 
-      if (profileError) throw new Error(profileError)
-
-      // reset form and close
+      if (insertError) throw new Error(insertError.message)
 
       onClose()
-
       setSingleForm({
         title: "",
-
         category: "general",
-
         type: "profile",
-
         tags: [],
-
         file: null,
       })
-
       setUploadProgress(0)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed")
-
       setUploadProgress(0)
     } finally {
       setIsSubmitting(false)
@@ -316,92 +141,62 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
 
   const handleSubmitPair = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (isSubmitting) return
-
-    if (!pairForm.pfpFile || !pairForm.bannerFile || !pairForm.title || !user) return
-
-    if (pairForm.pfpFile.size > 10 * 1024 * 1024 || pairForm.bannerFile.size > 10 * 1024 * 1024) {
-      setError("One or both files are too large. Maximum size is 10MB each.")
-
-      return
-    }
+    if (isSubmitting || !pairForm.pfpFile || !pairForm.bannerFile || !pairForm.title || !user) return
 
     setIsSubmitting(true)
-
     setError(null)
-
     setUploadProgress(0)
 
     try {
-      // Simulate progress
-
       const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => Math.min(prev + 5, 90))
-      }, 300)
+        setUploadProgress((prev) => Math.min(prev + 10, 90))
+      }, 200)
 
       // Upload PFP
+      const pfpCleanFileName = sanitizeFilename(pairForm.pfpFile.name)
+      const pfpFileName = `${Date.now()}-pfp-${pfpCleanFileName}`
+      const { url: pfpUrl, error: pfpError } = await uploadImage(pairForm.pfpFile, pfpFileName)
 
-      const cleanPfpName = sanitizeFilename(pairForm.pfpFile.name)
-
-      const pfpFileName = `${Date.now()}-pfp-${cleanPfpName}`
-
-      const { url: pfpUrl, error: pfpUploadError } = await uploadImage(pairForm.pfpFile, pfpFileName)
-
-      if (pfpUploadError || !pfpUrl) throw new Error(pfpUploadError || "Failed to upload profile picture")
+      if (pfpError || !pfpUrl) {
+        throw new Error(pfpError || "Failed to upload profile picture")
+      }
 
       // Upload Banner
-
-      const cleanBannerName = sanitizeFilename(pairForm.bannerFile.name)
-
-      const bannerFileName = `${Date.now()}-banner-${cleanBannerName}`
-
-      const { url: bannerUrl, error: bannerUploadError } = await uploadImage(pairForm.bannerFile, bannerFileName)
-
-      if (bannerUploadError || !bannerUrl) throw new Error(bannerUploadError || "Failed to upload banner")
+      const bannerCleanFileName = sanitizeFilename(pairForm.bannerFile.name)
+      const bannerFileName = `${Date.now()}-banner-${bannerCleanFileName}`
+      const { url: bannerUrl, error: bannerError } = await uploadImage(pairForm.bannerFile, bannerFileName)
 
       clearInterval(progressInterval)
-
       setUploadProgress(100)
 
-      // Create profile pair record (assuming uploadProfilePair handles pair creation)
+      if (bannerError || !bannerUrl) {
+        throw new Error(bannerError || "Failed to upload banner")
+      }
 
-      const { error: pairError } = await uploadProfilePair({
+      const { error: insertError } = await supabase.from("profile_pairs").insert([
+        {
         title: pairForm.title,
-
         category: pairForm.category,
-
-        user_id: user.id,
-
         pfp_url: pfpUrl,
-
         banner_url: bannerUrl,
-
         tags: pairForm.tags,
-      })
+          user_id: user.id,
+        },
+      ])
 
-      if (pairError) throw new Error(pairError)
-
-      // reset form and close
+      if (insertError) throw new Error(insertError.message)
 
       onClose()
-
       setPairForm({
         title: "",
-
         category: "general",
-
         tags: [],
-
         pfpFile: null,
-
         bannerFile: null,
       })
-
       setUploadProgress(0)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed")
-
       setUploadProgress(0)
     } finally {
       setIsSubmitting(false)
@@ -410,167 +205,185 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
 
   const handleSubmitEmoji = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (isSubmitting) return
-
-    if (!emojiForm.name || !emojiForm.combo_text || !user) return
+    if (isSubmitting || !emojiForm.file || !emojiForm.name || !emojiForm.combo_text || !user) return
 
     setIsSubmitting(true)
-
     setError(null)
-
     setUploadProgress(0)
 
     try {
-      // Simulate progress
-
       const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => Math.min(prev + 20, 90))
+        setUploadProgress((prev) => Math.min(prev + 10, 90))
       }, 200)
 
-      // Don't pass user_id - let the hook handle authentication
-      await addEmojiCombo({
-        name: emojiForm.name,
-
-        combo_text: emojiForm.combo_text,
-
-        description: emojiForm.description || null,
-
-        tags: emojiForm.tags,
-      })
+      const cleanFileName = sanitizeFilename(emojiForm.file.name)
+      const fileName = `${Date.now()}-emoji-${cleanFileName}`
+      const { url, error: uploadError } = await uploadImage(emojiForm.file, fileName)
 
       clearInterval(progressInterval)
-
       setUploadProgress(100)
 
-      // reset form and close
+      if (uploadError || !url) {
+        throw new Error(uploadError || "Failed to upload emoji combo")
+      }
+
+      const { error: insertError } = await supabase.from("emoji_combos").insert([
+        {
+          name: emojiForm.name,
+          combo_text: emojiForm.combo_text,
+          description: emojiForm.description,
+          image_url: url,
+        tags: emojiForm.tags,
+          user_id: user.id,
+        },
+      ])
+
+      if (insertError) throw new Error(insertError.message)
 
       onClose()
-
       setEmojiForm({
         name: "",
-
         combo_text: "",
-
         description: "",
-
         tags: [],
+        file: null,
       })
-
       setUploadProgress(0)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed")
-
       setUploadProgress(0)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const FileUploadArea = ({
-    file,
+  const handleSubmitEmote = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (isSubmitting || !emoteForm.file || !emoteForm.title || !user) return
 
-    onFileSelect,
+    setIsSubmitting(true)
+    setError(null)
+    setUploadProgress(0)
 
-    inputId,
+    try {
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => Math.min(prev + 10, 90))
+      }, 200)
 
-    label,
+      const cleanFileName = sanitizeFilename(emoteForm.file.name)
+      const fileName = `${Date.now()}-emote-${cleanFileName}`
+      const { url, error: uploadError } = await uploadImage(emoteForm.file, fileName)
 
-    icon: Icon = Upload,
+      clearInterval(progressInterval)
+      setUploadProgress(100)
 
-    compact = false,
-  }: {
-    file: File | null
+      if (uploadError || !url) {
+        throw new Error(uploadError || "Failed to upload emote")
+      }
 
-    onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void
+      const { error: insertError } = await supabase.from("emotes").insert([
+        {
+          title: emoteForm.title,
+          category: emoteForm.category === "custom" ? emoteForm.customCategory : emoteForm.category,
+          image_url: url,
+          tags: emoteForm.tags,
+          user_id: user.id,
+        },
+      ])
 
-    inputId: string
+      if (insertError) throw new Error(insertError.message)
 
-    label: string
+      onClose()
+      setEmoteForm({
+        title: "",
+        category: "general",
+        customCategory: "",
+        tags: [],
+        file: null,
+      })
+      setUploadProgress(0)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed")
+      setUploadProgress(0)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
-    icon?: React.ComponentType<{ className?: string }>
-
-    compact?: boolean
-  }) => (
-    <div>
-      <label className="block text-sm font-medium text-white mb-2">{label}</label>
-
-      <div
-        className={`relative border-2 border-dashed rounded-lg text-center transition-all duration-200 ${
-          compact ? "p-4" : "p-6"
-        } ${
-          dragActive
-            ? "border-purple-500 bg-purple-500/10 scale-105"
-            : file
-              ? "border-green-500 bg-green-500/10"
-              : "border-slate-600 hover:border-slate-500 hover:bg-slate-800/50"
-        }`}
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
-        onDrop={(e) => {
+  const handleSubmitWallpaper = async (e: React.FormEvent) => {
           e.preventDefault()
+    if (isSubmitting || !wallpaperForm.file || !wallpaperForm.title || !user) return
 
-          setDragActive(false)
+    setIsSubmitting(true)
+    setError(null)
+    setUploadProgress(0)
 
-          const files = Array.from(e.dataTransfer.files)
+    try {
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => Math.min(prev + 10, 90))
+      }, 200)
 
-          if (files.length > 0 && files[0].type.startsWith("image/")) {
-            const mockEvent = {
-              target: { files: [files[0]] },
-            } as React.ChangeEvent<HTMLInputElement>
+      const cleanFileName = sanitizeFilename(wallpaperForm.file.name)
+      const fileName = `${Date.now()}-wallpaper-${cleanFileName}`
+      const { url, error: uploadError } = await uploadImage(wallpaperForm.file, fileName)
 
-            onFileSelect(mockEvent)
-          }
-        }}
-      >
-        {file ? (
-          <div className="flex flex-col items-center gap-2">
-            <div className="relative">
-              <Check className={`${compact ? "w-8 h-8" : "w-12 h-12"} text-green-500 mx-auto animate-pulse`} />
-            </div>
+      clearInterval(progressInterval)
+      setUploadProgress(100)
 
-            <span className={`${compact ? "text-xs" : "text-sm"} text-green-400 font-medium truncate max-w-full`}>
-              {file.name}
-            </span>
+      if (uploadError || !url) {
+        throw new Error(uploadError || "Failed to upload wallpaper")
+      }
 
-            <span className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
-          </div>
-        ) : (
-          <>
-            <Icon className={`${compact ? "w-8 h-8" : "w-12 h-12"} mx-auto text-slate-400 mb-2`} />
+      const { error: insertError } = await supabase.from("wallpapers").insert([
+        {
+          title: wallpaperForm.title,
+          category: wallpaperForm.category === "custom" ? wallpaperForm.customCategory : wallpaperForm.category,
+          image_url: url,
+          resolution: wallpaperForm.resolution || null,
+          tags: wallpaperForm.tags,
+          user_id: user.id,
+        },
+      ])
 
-            <p className={`${compact ? "text-xs" : "text-sm"} text-slate-400`}>
-              Drag and drop or{" "}
-              <label
-                htmlFor={inputId}
-                className="text-purple-400 cursor-pointer underline hover:text-purple-300 transition-colors"
-              >
-                browse files
-              </label>
-            </p>
+      if (insertError) throw new Error(insertError.message)
 
-            <input id={inputId} type="file" accept="image/*" className="hidden" onChange={onFileSelect} />
-          </>
-        )}
-      </div>
-    </div>
-  )
+      onClose()
+      setWallpaperForm({
+        title: "",
+        category: "general",
+        customCategory: "",
+        resolution: "",
+        tags: [],
+        file: null,
+      })
+      setUploadProgress(0)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed")
+      setUploadProgress(0)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const getModeTitle = () => {
+    switch (uploadMode) {
+      case "single": return "Upload Single"
+      case "profilePair": return "Upload Profile Pair"
+      case "emojiCombo": return "Upload Emoji Combo"
+      case "emote": return "Upload Emote"
+      case "wallpaper": return "Upload Wallpaper"
+      default: return "Upload"
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl max-w-4xl w-full border border-slate-700 shadow-2xl">
         {/* Header */}
-
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
           <h2 className="text-2xl font-bold text-white">
-            {uploadMode === "single"
-              ? "Upload Single"
-              : uploadMode === "profilePair"
-                ? "Upload Profile Pair"
-                : "Upload Emoji Combo"}
+            {getModeTitle()}
           </h2>
-
           <button
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all duration-200"
@@ -580,15 +393,11 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         </div>
 
         {/* Mode Switch Buttons */}
-
         <div className="flex space-x-4 p-4 border-b border-slate-700">
           <button
             onClick={() => {
               setError(null)
-
               setUploadMode("single")
-
-              setTagInput("")
             }}
             className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
               uploadMode === "single"
@@ -598,14 +407,10 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
           >
             Single Upload
           </button>
-
           <button
             onClick={() => {
               setError(null)
-
               setUploadMode("profilePair")
-
-              setTagInput("")
             }}
             className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
               uploadMode === "profilePair"
@@ -615,14 +420,10 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
           >
             Profile Pair Upload
           </button>
-
           <button
             onClick={() => {
               setError(null)
-
               setUploadMode("emojiCombo")
-
-              setTagInput("")
             }}
             className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
               uploadMode === "emojiCombo"
@@ -632,532 +433,106 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
           >
             Emoji Combo Upload
           </button>
+          <button
+            onClick={() => {
+              setError(null)
+              setUploadMode("emote")
+            }}
+            className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
+              uploadMode === "emote"
+                ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg"
+                : "bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white"
+            }`}
+          >
+            Emote Upload
+          </button>
+          <button
+            onClick={() => {
+              setError(null)
+              setUploadMode("wallpaper")
+            }}
+            className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
+              uploadMode === "wallpaper"
+                ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg"
+                : "bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white"
+            }`}
+          >
+            Wallpaper Upload
+          </button>
         </div>
 
         {/* Progress Bar */}
-
         {isSubmitting && (
-          <div className="px-6 py-2 border-b border-slate-700">
-            <div className="flex items-center gap-3">
-              <div className="flex-1 bg-slate-700 rounded-full h-2">
+          <div className="px-6 py-2">
+            <div className="w-full bg-slate-700 rounded-full h-2">
                 <div
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-purple-600 to-purple-700 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${uploadProgress}%` }}
                 />
-              </div>
-
-              <span className="text-sm text-slate-400">{uploadProgress}%</span>
             </div>
           </div>
         )}
 
         {/* Error Message */}
-
         {error && (
-          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm mx-6 mt-4">
+          <div className="px-6 py-2">
+            <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg">
             {error}
+            </div>
           </div>
         )}
 
         {/* Form Content */}
-
         <div className="p-6">
-          {uploadMode === "single" ? (
-            <form onSubmit={handleSubmitSingle} className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* File Upload */}
-
-                <FileUploadArea
-                  file={singleForm.file}
-                  onFileSelect={handleSingleFileSelect}
-                  inputId="singleFileInput"
-                  label="Upload Image"
-                  icon={singleForm.type === "profile" ? Camera : ImageIcon}
-                />
-
-                {/* Form Fields */}
-
-                <div className="space-y-4">
-                  {/* Title */}
-
-                  <div>
-                    <label htmlFor="singleTitle" className="block text-sm font-medium text-white mb-2">
-                      Title
-                    </label>
-
-                    <input
-                      id="singleTitle"
-                      type="text"
-                      value={singleForm.title}
-                      onChange={(e) => setSingleForm({ ...singleForm, title: e.target.value })}
-                      className="w-full rounded-lg border border-slate-600 bg-slate-800 p-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                      placeholder="Enter a descriptive title"
-                      required
-                    />
-                  </div>
-
-                  {/* Category */}
-
-                  <div>
-                    <label htmlFor="singleCategory" className="block text-sm font-medium text-white mb-2">
-                      Category
-                    </label>
-
-                    <select
-                      id="singleCategory"
-                      value={singleForm.category}
-                      onChange={(e) =>
-                        setSingleForm({
-                          ...singleForm,
-
-                          category: e.target.value as "discord" | "twitter" | "instagram" | "general",
-                        })
-                      }
-                      className="w-full rounded-lg border border-slate-600 bg-slate-800 p-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    >
-                      <option value="general">General</option>
-
-                      <option value="discord">Discord</option>
-
-                      <option value="twitter">Twitter</option>
-
-                      <option value="instagram">Instagram</option>
-                    </select>
-                  </div>
-
-                  {/* Type */}
-
-                  <div>
-                    <label className="block text-sm font-medium text-white mb-2">Type</label>
-
-                    <select
-                      value={singleForm.type}
-                      onChange={(e) =>
-                        setSingleForm({
-                          ...singleForm,
-
-                          type: e.target.value as "profile" | "banner",
-                        })
-                      }
-                      className="w-full rounded-lg border border-slate-600 bg-slate-800 p-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    >
-                      <option value="profile">Profile Picture</option>
-
-                      <option value="banner">Banner Image</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tags */}
-
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">Tags ({singleForm.tags.length}/10)</label>
-
-                {singleForm.tags.length > 0 && (
-                  <div className="flex gap-2 flex-wrap mb-3">
-                    {singleForm.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="flex items-center gap-1 bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 py-1 rounded-full text-sm font-medium"
-                      >
-                        {tag}
-
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="hover:text-red-300 transition-colors"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-
-                        addTag()
-                      }
-                    }}
-                    placeholder="Add a tag and press Enter"
-                    className="flex-1 rounded-lg border border-slate-600 bg-slate-800 p-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    disabled={singleForm.tags.length >= 10}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={addTag}
-                    disabled={singleForm.tags.length >= 10}
-                    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed px-4 rounded-lg text-white transition-all duration-200 flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit */}
-
-              <button
-                type="submit"
-                disabled={isSubmitting || !singleForm.file || !singleForm.title}
-                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed py-4 rounded-lg text-white font-semibold transition-all duration-200 flex items-center justify-center gap-2"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader className="animate-spin w-5 h-5" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-5 h-5" />
-                    Upload {singleForm.type === "profile" ? "Profile" : "Banner"}
-                  </>
-                )}
-              </button>
-            </form>
-          ) : uploadMode === "profilePair" ? (
-            <form onSubmit={handleSubmitPair} className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* PFP Upload */}
-
-                <FileUploadArea
-                  file={pairForm.pfpFile}
-                  onFileSelect={handlePfpFileSelect}
-                  inputId="pfpFileInput"
-                  label="Profile Picture"
-                  icon={Camera}
-                  compact
-                />
-
-                {/* Banner Upload */}
-
-                <FileUploadArea
-                  file={pairForm.bannerFile}
-                  onFileSelect={handleBannerFileSelect}
-                  inputId="bannerFileInput"
-                  label="Banner Image"
-                  icon={ImageIcon}
-                  compact
-                />
-
-                {/* Form Fields */}
-
-                <div className="space-y-4">
-                  {/* Title */}
-
-                  <div>
-                    <label htmlFor="pairTitle" className="block text-sm font-medium text-white mb-2">
-                      Title
-                    </label>
-
-                    <input
-                      id="pairTitle"
-                      type="text"
-                      value={pairForm.title}
-                      onChange={(e) => setPairForm({ ...pairForm, title: e.target.value })}
-                      className="w-full rounded-lg border border-slate-600 bg-slate-800 p-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                      placeholder="Enter pair title"
-                      required
-                    />
-                  </div>
-
-                  {/* Category */}
-
-                  <div>
-                    <label htmlFor="pairCategory" className="block text-sm font-medium text-white mb-2">
-                      Category
-                    </label>
-
-                    <select
-                      id="pairCategory"
-                      value={pairForm.category}
-                      onChange={(e) =>
-                        setPairForm({
-                          ...pairForm,
-
-                          category: e.target.value as "discord" | "twitter" | "instagram" | "general",
-                        })
-                      }
-                      className="w-full rounded-lg border border-slate-600 bg-slate-800 p-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    >
-                      <option value="general">General</option>
-
-                      <option value="discord">Discord</option>
-
-                      <option value="twitter">Twitter</option>
-
-                      <option value="instagram">Instagram</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tags */}
-
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">Tags ({pairForm.tags.length}/10)</label>
-
-                {pairForm.tags.length > 0 && (
-                  <div className="flex gap-2 flex-wrap mb-3">
-                    {pairForm.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="flex items-center gap-1 bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 py-1 rounded-full text-sm font-medium"
-                      >
-                        {tag}
-
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="hover:text-red-300 transition-colors"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-
-                        addTag()
-                      }
-                    }}
-                    placeholder="Add a tag and press Enter"
-                    className="flex-1 rounded-lg border border-slate-600 bg-slate-800 p-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    disabled={pairForm.tags.length >= 10}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={addTag}
-                    disabled={pairForm.tags.length >= 10}
-                    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed px-4 rounded-lg text-white transition-all duration-200 flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit */}
-
-              <button
-                type="submit"
-                disabled={isSubmitting || !pairForm.pfpFile || !pairForm.bannerFile || !pairForm.title}
-                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed py-4 rounded-lg text-white font-semibold transition-all duration-200 flex items-center justify-center gap-2"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader className="animate-spin w-5 h-5" />
-                    Uploading Pair...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-5 h-5" />
-                    Upload Profile Pair
-                  </>
-                )}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleSubmitEmoji} className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Emoji Preview */}
-
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">Emoji Preview</label>
-
-                  <div
-                    className={`border-2 border-dashed border-slate-600 rounded-lg p-8 bg-slate-800/50 hover:bg-slate-800/70 transition-all duration-200 ${
-                      emojiForm.combo_text && isLikelyAsciiArt(emojiForm.combo_text)
-                        ? "text-left min-h-[300px]"
-                        : "text-center min-h-[200px]"
-                    } flex ${emojiForm.combo_text && isLikelyAsciiArt(emojiForm.combo_text) ? "items-start justify-start" : "items-center justify-center"}`}
-                    style={{
-                      fontFamily:
-                        emojiForm.combo_text && isLikelyAsciiArt(emojiForm.combo_text)
-                          ? "'Courier New', 'Monaco', 'Menlo', 'Consolas', monospace"
-                          : "inherit",
-                      fontSize:
-                        emojiForm.combo_text && isLikelyAsciiArt(emojiForm.combo_text)
-                          ? emojiForm.combo_text.length > 1000
-                            ? "10px"
-                            : emojiForm.combo_text.length > 500
-                              ? "12px"
-                              : emojiForm.combo_text.length > 200
-                                ? "14px"
-                                : "16px"
-                          : "3rem",
-                      whiteSpace: emojiForm.combo_text && isLikelyAsciiArt(emojiForm.combo_text) ? "pre" : "normal",
-                      lineHeight: emojiForm.combo_text && isLikelyAsciiArt(emojiForm.combo_text) ? "1.1" : "1.3",
-                      letterSpacing: emojiForm.combo_text && isLikelyAsciiArt(emojiForm.combo_text) ? "-0.5px" : "0",
-                      fontWeight: "400",
-                      color: "white",
-                      overflow: "hidden",
-                      wordBreak: "normal",
-                    }}
-                  >
-                    {emojiForm.combo_text ? (
-                      <div className="w-full">{emojiForm.combo_text}</div>
-                    ) : (
-                      <div className="flex flex-col items-center">
-                        <div className="text-slate-400 text-4xl mb-4">🎨✨</div>
-                        <p className="text-slate-400 text-sm">Enter emojis to see preview</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Form Fields */}
-
-                <div className="space-y-4">
-                  {/* Name */}
-
-                  <div>
-                    <label htmlFor="emojiName" className="block text-sm font-medium text-white mb-2">
-                      Combo Name
-                    </label>
-
-                    <input
-                      id="emojiName"
-                      type="text"
-                      value={emojiForm.name}
-                      onChange={(e) => setEmojiForm({ ...emojiForm, name: e.target.value })}
-                      className="w-full rounded-lg border border-slate-600 bg-slate-800 p-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                      placeholder="e.g., Happy Vibes, Love Hearts"
-                      required
-                    />
-                  </div>
-
-                  {/* Emoji Text */}
-
-                  <div>
-                    <label htmlFor="emojiText" className="block text-sm font-medium text-white mb-2">
-                      Emoji Combination
-                    </label>
-
-                    <textarea
-                      id="emojiText"
-                      value={emojiForm.combo_text}
-                      onChange={(e) => setEmojiForm({ ...emojiForm, combo_text: e.target.value })}
-                      className="w-full rounded-lg border border-slate-600 bg-slate-800 p-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
-                      placeholder="😊😄😃✨🎉"
-                      rows={3}
-                      required
-                    />
-                  </div>
-
-                  {/* Description */}
-
-                  <div>
-                    <label htmlFor="emojiDescription" className="block text-sm font-medium text-white mb-2">
-                      Description (Optional)
-                    </label>
-
-                    <textarea
-                      id="emojiDescription"
-                      value={emojiForm.description}
-                      onChange={(e) => setEmojiForm({ ...emojiForm, description: e.target.value })}
-                      className="w-full rounded-lg border border-slate-600 bg-slate-800 p-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
-                      placeholder="Describe when to use this emoji combo..."
-                      rows={2}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Tags */}
-
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">Tags ({emojiForm.tags.length}/10)</label>
-
-                {emojiForm.tags.length > 0 && (
-                  <div className="flex gap-2 flex-wrap mb-3">
-                    {emojiForm.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="flex items-center gap-1 bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 py-1 rounded-full text-sm font-medium"
-                      >
-                        {tag}
-
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="hover:text-red-300 transition-colors"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-
-                        addTag()
-                      }
-                    }}
-                    placeholder="Add a tag and press Enter"
-                    className="flex-1 rounded-lg border border-slate-600 bg-slate-800 p-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    disabled={emojiForm.tags.length >= 10}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={addTag}
-                    disabled={emojiForm.tags.length >= 10}
-                    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed px-4 rounded-lg text-white transition-all duration-200 flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit */}
-
-              <button
-                type="submit"
-                disabled={isSubmitting || !emojiForm.name || !emojiForm.combo_text}
-                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed py-4 rounded-lg text-white font-semibold transition-all duration-200 flex items-center justify-center gap-2"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader className="animate-spin w-5 h-5" />
-                    Uploading Emoji Combo...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-5 h-5" />
-                    Upload Emoji Combo
-                  </>
-                )}
-              </button>
-            </form>
+          {uploadMode === "single" && (
+            <SingleUploadForm
+              form={singleForm}
+              onFormChange={setSingleForm}
+              onFileSelect={(e) => setSingleForm({ ...singleForm, file: e.target.files?.[0] || null })}
+              onSubmit={handleSubmitSingle}
+              isSubmitting={isSubmitting}
+            />
+          )}
+
+          {uploadMode === "profilePair" && (
+            <ProfilePairUploadForm
+              form={pairForm}
+              onFormChange={setPairForm}
+              onPfpFileSelect={(e) => setPairForm({ ...pairForm, pfpFile: e.target.files?.[0] || null })}
+              onBannerFileSelect={(e) => setPairForm({ ...pairForm, bannerFile: e.target.files?.[0] || null })}
+              onSubmit={handleSubmitPair}
+              isSubmitting={isSubmitting}
+            />
+          )}
+
+          {uploadMode === "emojiCombo" && (
+            <EmojiComboUploadForm
+              form={emojiForm}
+              onFormChange={setEmojiForm}
+              onFileSelect={(e) => setEmojiForm({ ...emojiForm, file: e.target.files?.[0] || null })}
+              onSubmit={handleSubmitEmoji}
+              isSubmitting={isSubmitting}
+            />
+          )}
+
+          {uploadMode === "emote" && (
+            <EmoteUploadForm
+              form={emoteForm}
+              onFormChange={setEmoteForm}
+              onFileSelect={(e) => setEmoteForm({ ...emoteForm, file: e.target.files?.[0] || null })}
+              onSubmit={handleSubmitEmote}
+              isSubmitting={isSubmitting}
+            />
+          )}
+
+          {uploadMode === "wallpaper" && (
+            <WallpaperUploadForm
+              form={wallpaperForm}
+              onFormChange={setWallpaperForm}
+              onFileSelect={(e) => setWallpaperForm({ ...wallpaperForm, file: e.target.files?.[0] || null })}
+              onSubmit={handleSubmitWallpaper}
+              isSubmitting={isSubmitting}
+            />
           )}
         </div>
       </div>

@@ -20,6 +20,7 @@ const PfpGallery = lazy(() => import("./components/gallery/PfpGallery"))
 const BannersGallery = lazy(() => import("./components/gallery/BannersGallery"))
 const EmotesGallery = lazy(() => import("./components/gallery/EmotesGallery"))
 const EmojiCombosGallery = lazy(() => import("./components/gallery/EmojiCombosGallery"))
+const WallpaperGallery = lazy(() => import("./components/gallery/WallpaperGallery"))
 const TrendingPage = lazy(() => import("./components/gallery/Trending"))
 const ModerationPanel = lazy(() => import("./components/users/moderation/ModerationPanel"))
 const ModerationLogs = lazy(() => import("./components/users/moderation/ModerationLogs"))
@@ -29,7 +30,6 @@ const Terms = lazy(() => import("./components/legal/Terms"))
 const Policies = lazy(() => import("./components/legal/Policies"))
 const Guidelines = lazy(() => import("./components/legal/Guidelines"))
 const ReportContent = lazy(() => import("./components/legal/ReportContent"))
-const WallpaperGallery = lazy(() => import("./components/gallery/WallpaperGallery"))
 const AppealsFormSystem = lazy(() => import("./components/appeal/AppealsForm"))
 
 import { useAuth } from "./context/authContext"
@@ -138,7 +138,7 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+        <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
 
@@ -150,7 +150,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col relative">
+        <div className="min-h-screen bg-background flex flex-col relative">
         <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
 
         <Header
@@ -199,9 +199,9 @@ function App() {
               <Route path="/gallery/profiles" element={<ProfilesGallery />} />
               <Route path="/gallery/pfps" element={<PfpGallery />} />
               <Route path="/gallery/banners" element={<BannersGallery />} />
-              <Route path="/gallery/emotes" element={<EmotesGallery />} />
-              <Route path="/gallery/emoji-combos" element={<EmojiCombosGallery />} />
-              <Route path="gallery/wallpapers" element={<WallpaperGallery/>} />
+                  <Route path="/gallery/emotes" element={<EmotesGallery />} />
+                  <Route path="/gallery/emoji-combos" element={<EmojiCombosGallery />} />
+                  <Route path="/gallery/wallpapers" element={<WallpaperGallery />} />
               <Route path="/trending" element={<TrendingPage />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/policies" element={<Policies />} />

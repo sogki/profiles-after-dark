@@ -3,7 +3,6 @@ import { Link, useNavigate, useLocation } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Bell,
-  Moon,
   Search,
   Upload,
   Menu,
@@ -140,24 +139,19 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
         notifications={notifications}
       />
       
-      <header className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-50">
+          <header className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Enhanced Logo */}
             <Link to="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity group">
-              <div className="relative">
-                <div className="absolute -inset-2 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-full blur-lg group-hover:blur-xl transition-all duration-300 opacity-0 group-hover:opacity-100"></div>
-                <Moon className="h-8 w-8 text-white relative z-10 group-hover:text-purple-300 transition-colors" />
-                <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
-              </div>
-              <div>
+              <div className="relative flex flex-col">
                 <img
                   src="https://zzywottwfffyddnorein.supabase.co/storage/v1/object/public/static-assets//profiles-after-dark-logomark.png"
-                  className="h-8 group-hover:scale-105 transition-transform duration-300"
+                  className="h-8 w-auto group-hover:scale-105 transition-transform duration-300 object-contain"
                   alt="Profiles After Dark logo"
                 />
-                <p className="text-xs text-slate-400 hidden sm:block group-hover:text-slate-300 transition-colors">
-                  Aesthetic profiles for the night owls
+                <p className="text-xs text-slate-400 mt-1 hidden sm:block group-hover:text-slate-300 transition-colors">
+                  For the night owls
                 </p>
               </div>
             </Link>
@@ -173,19 +167,19 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
                   onFocus={() => searchQuery.length > 1 && setShowSearchSuggestions(true)}
-                  className="pl-10 pr-4 py-2 w-80 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                      className="pl-10 pr-4 py-2 w-80 bg-surface border border-surface-light rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                 />
 
                 {/* Search Suggestions */}
                 {showSearchSuggestions && searchSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-surface-light rounded-lg shadow-lg z-50">
                     {searchSuggestions.map((suggestion, index) => (
                       <button
                         key={index}
                         onClick={() => handleSearchSuggestionClick(suggestion)}
-                        className="w-full text-left px-4 py-2 text-white hover:bg-slate-700 transition-colors first:rounded-t-lg last:rounded-b-lg"
+                        className="w-full text-left px-4 py-2 text-text-primary hover:bg-surface-light transition-colors first:rounded-t-lg last:rounded-b-lg"
                       >
-                        <Search className="inline h-3 w-3 mr-2 text-slate-400" />
+                        <Search className="inline h-3 w-3 mr-2 text-text-muted" />
                         {suggestion}
                       </button>
                     ))}
@@ -198,7 +192,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                   {/* Upload Button */}
                   <button
                     onClick={onUploadClick}
-                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-purple-500/25"
+                        className="flex items-center space-x-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-purple-700 transition-all transform hover:scale-105 shadow-lg"
                   >
                     <Upload className="h-4 w-4" />
                     <span>Upload</span>
@@ -322,7 +316,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
               ) : (
                 <button
                   onClick={onAuthClick}
-                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-purple-500/25"
+                        className="flex items-center space-x-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-purple-700 transition-all transform hover:scale-105 shadow-lg"
                 >
                   <UserIcon className="h-4 w-4" />
                   <span>Sign In</span>
@@ -358,7 +352,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3 }}
-                className="md:hidden border-t border-slate-700/50 bg-slate-800/95 backdrop-blur-sm"
+                className="md:hidden border-t border-surface-light bg-surface"
               >
                 <div className="p-4">
                   <div className="relative">
@@ -411,7 +405,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3 }}
-                className="md:hidden border-t border-slate-700/50 bg-slate-800/95 backdrop-blur-sm"
+                className="md:hidden border-t border-surface-light bg-surface"
               >
                 <div className="p-4">
                   {/* Quick Actions */}
@@ -419,7 +413,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                     <Link
                       to="/users"
                       onClick={() => setIsMobileMenuOpen(false)}
-                      className="flex items-center space-x-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors"
+                      className="flex items-center space-x-2 p-3 rounded-lg bg-surface-light hover:bg-neutral transition-colors"
                     >
                       <Users className="h-5 w-5 text-blue-400" />
                       <span className="text-sm text-white">Community</span>
@@ -428,7 +422,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                     <Link
                       to="/trending"
                       onClick={() => setIsMobileMenuOpen(false)}
-                      className="flex items-center space-x-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors"
+                      className="flex items-center space-x-2 p-3 rounded-lg bg-surface-light hover:bg-neutral transition-colors"
                     >
                       <TrendingUp className="h-5 w-5 text-green-400" />
                       <span className="text-sm text-white">Trending</span>
@@ -437,7 +431,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                     <Link
                       to="/gallery/profiles"
                       onClick={() => setIsMobileMenuOpen(false)}
-                      className="flex items-center space-x-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors"
+                      className="flex items-center space-x-2 p-3 rounded-lg bg-surface-light hover:bg-neutral transition-colors"
                     >
                       <ImageIcon className="h-5 w-5 text-purple-400" />
                       <span className="text-sm text-white">Profiles</span>
@@ -446,10 +440,28 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                     <Link
                       to="/gallery/pfps"
                       onClick={() => setIsMobileMenuOpen(false)}
-                      className="flex items-center space-x-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors"
+                      className="flex items-center space-x-2 p-3 rounded-lg bg-surface-light hover:bg-neutral transition-colors"
                     >
                       <ImageIcon className="h-5 w-5 text-pink-400" />
                       <span className="text-sm text-white">PFPs</span>
+                    </Link>
+
+                    <Link
+                      to="/gallery/emotes"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center space-x-2 p-3 rounded-lg bg-surface-light hover:bg-neutral transition-colors"
+                    >
+                      <Sticker className="h-5 w-5 text-orange-400" />
+                      <span className="text-sm text-white">Emotes</span>
+                    </Link>
+
+                    <Link
+                      to="/gallery/wallpapers"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center space-x-2 p-3 rounded-lg bg-surface-light hover:bg-neutral transition-colors"
+                    >
+                      <ImageIcon className="h-5 w-5 text-indigo-400" />
+                      <span className="text-sm text-white">Wallpapers</span>
                     </Link>
                   </div>
 
@@ -461,7 +473,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                           onUploadClick()
                           setIsMobileMenuOpen(false)
                         }}
-                        className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all"
+                        className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-primary text-white rounded-lg hover:bg-purple-700 transition-all"
                       >
                         <Upload className="h-4 w-4" />
                         <span>Upload Content</span>
@@ -512,7 +524,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                         onAuthClick()
                         setIsMobileMenuOpen(false)
                       }}
-                      className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all"
+                        className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-primary text-white rounded-lg hover:bg-purple-700 transition-all"
                     >
                       <UserIcon className="h-4 w-4" />
                       <span>Sign In</span>
@@ -526,21 +538,21 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
       </header>
 
       {/* Enhanced Sub Navigation - Desktop Only */}
-      <nav
-        className={`
-          hidden md:block bg-slate-800/90 backdrop-blur-sm border-b border-slate-700/50 sticky top-16 z-40
-          transition-transform duration-300 ease-in-out
-          ${showSubNav ? "translate-y-0" : "-translate-y-full"}
-        `}
-      >
+          <nav
+            className={`
+              hidden md:block bg-slate-800/90 backdrop-blur-sm border-b border-slate-700/50 sticky top-16 z-40
+              transition-transform duration-300 ease-in-out
+              ${showSubNav ? "translate-y-0" : "-translate-y-full"}
+            `}
+          >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-6 overflow-x-auto no-scrollbar py-2">
             <Link
               to="/users"
               className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
                 isActive("/users")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                  ? "bg-primary text-white shadow-lg"
+                  : "text-text-secondary hover:bg-surface hover:text-text-primary"
               }`}
             >
               <Users className="inline h-4 w-4 mr-1" />
@@ -550,8 +562,8 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
               to="/gallery/profiles"
               className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
                 isActive("/gallery/profiles")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                  ? "bg-primary text-white shadow-lg"
+                  : "text-text-secondary hover:bg-surface hover:text-text-primary"
               }`}
             >
               <UserIcon className="inline h-4 w-4 mr-1" />
@@ -561,8 +573,8 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
               to="/gallery/pfps"
               className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
                 isActive("/gallery/pfps")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                  ? "bg-primary text-white shadow-lg"
+                  : "text-text-secondary hover:bg-surface hover:text-text-primary"
               }`}
             >
               <ImageIcon className="inline h-4 w-4 mr-1" />
@@ -572,8 +584,8 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
               to="/gallery/banners"
               className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
                 isActive("/gallery/banners")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                  ? "bg-primary text-white shadow-lg"
+                  : "text-text-secondary hover:bg-surface hover:text-text-primary"
               }`}
             >
               <Layout className="inline h-4 w-4 mr-1" />
@@ -583,41 +595,41 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
               to="/gallery/emoji-combos"
               className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
                 isActive("/gallery/emoji-combos")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                  ? "bg-primary text-white shadow-lg"
+                  : "text-text-secondary hover:bg-surface hover:text-text-primary"
               }`}
             >
               <Smile className="inline h-4 w-4 mr-1" />
               Emoji Combos
             </Link>
-            <Link
-              to="/gallery/emotes"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                isActive("/gallery/emotes")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <Sticker className="inline h-4 w-4 mr-1" />
-              Emotes
-            </Link>
-             <Link
-              to="/gallery/wallpapers"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                isActive("/gallery/wallpapers")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <ImageIcon className="inline h-4 w-4 mr-1" />
-              Wallpapers
-            </Link>
+                <Link
+                  to="/gallery/emotes"
+                  className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                    isActive("/gallery/emotes")
+                      ? "bg-purple-600 text-white shadow-lg"
+                      : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                  }`}
+                >
+                  <Sticker className="inline h-4 w-4 mr-1" />
+                  Emotes
+                </Link>
+                <Link
+                  to="/gallery/wallpapers"
+                  className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                    isActive("/gallery/wallpapers")
+                      ? "bg-purple-600 text-white shadow-lg"
+                      : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                  }`}
+                >
+                  <ImageIcon className="inline h-4 w-4 mr-1" />
+                  Wallpapers
+                </Link>
             <Link
               to="/trending"
               className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
                 isActive("/trending")
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                  ? "bg-primary text-white shadow-lg"
+                  : "text-text-secondary hover:bg-surface hover:text-text-primary"
               }`}
             >
               <TrendingUp className="inline h-4 w-4 mr-1" />

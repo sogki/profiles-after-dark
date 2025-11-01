@@ -110,7 +110,6 @@ import {
   Flash,
   FlashOff,
   Sun,
-  Moon,
   CloudRain,
   CloudSnow,
   CloudLightning,

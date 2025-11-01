@@ -18,6 +18,10 @@ interface ProfilePair {
   created_at?: string
   updated_at?: string
   color?: string
+  user_profiles?: {
+    username: string | null
+    avatar_url: string | null
+  }
 }
 
 const FAVORITES_STORAGE_KEY = "profile_favorites"
@@ -96,7 +100,13 @@ export default function ProfilesGallery() {
       try {
         const { data, error } = await supabase
           .from("profile_pairs")
-          .select("*")
+          .select(`
+            *,
+            user_profiles (
+              username,
+              avatar_url
+            )
+          `)
           .not("pfp_url", "is", null)
           .not("banner_url", "is", null)
           .neq("pfp_url", "")
@@ -235,10 +245,10 @@ export default function ProfilesGallery() {
 
     // Update download count in database
     try {
-      const { error } = await supabase
-        .from("profile_pairs")
-        .update({ download_count: (profile.download_count || 0) + 1 })
-        .eq("id", profile.id)
+      const { error } = await supabase.rpc("increment_download_count", {
+        table_name: "profile_pairs",
+        record_id: profile.id,
+      })
 
       if (!error) {
         // Update local state
@@ -693,6 +703,28 @@ export default function ProfilesGallery() {
                   className={`text-center ${viewMode === "list" ? "flex-1 p-4 flex flex-col justify-center" : "pt-8 pb-6 px-6"}`}
                 >
                   <h3 className="text-white font-semibold text-xl truncate mb-3">{profile.title}</h3>
+
+                  {/* Uploader Information */}
+                  {profile.user_profiles?.username && (
+                    <div className="flex items-center justify-center gap-2 mb-3 text-slate-400 text-sm">
+                      <div className="w-6 h-6 rounded-full overflow-hidden">
+                        {profile.user_profiles.avatar_url ? (
+                          <img
+                            src={profile.user_profiles.avatar_url}
+                            alt={profile.user_profiles.username}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                            <span className="text-white text-xs font-semibold">
+                              {profile.user_profiles.username.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <span>by {profile.user_profiles.username}</span>
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap justify-center gap-1 mb-4 max-h-16 overflow-auto px-2">
                     {(profile.tags || []).map((tag) => (

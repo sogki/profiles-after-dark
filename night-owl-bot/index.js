@@ -7,11 +7,16 @@ import {
 import fs from "fs";
 import path from "path";
 import { pathToFileURL } from "url";
+import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import { loadConfig, getConfig } from "./utils/config.js";
 import { cacheDeletedMessage } from "./commands/staff/modlogs.js";
 import { syncDiscordUser } from "./utils/webhooks.js";
 
 dotenv.config();
+
+// Load configuration from database (falls back to env vars)
+let config = {};
 
 const intentsArray = [
   GatewayIntentBits.Guilds,
@@ -37,8 +42,20 @@ const client = new Client({
 client.commands = new Collection();
 
 async function loadCommands() {
-  const foldersPath = path.join("./commands");
-  const commandFolders = fs.readdirSync(foldersPath);
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const foldersPath = path.join(__dirname, "commands");
+  
+  if (!fs.existsSync(foldersPath)) {
+    console.error(`❌ Commands directory does not exist: ${foldersPath}`);
+    return;
+  }
+
+  const commandFolders = fs.readdirSync(foldersPath, { withFileTypes: true })
+    .filter(item => item.isDirectory())
+    .map(item => item.name);
+
+  console.log(`📂 Loading commands from ${commandFolders.length} category(ies)...`);
 
   for (const folder of commandFolders) {
     const commandsPath = path.join(foldersPath, folder);
@@ -46,21 +63,50 @@ async function loadCommands() {
       .readdirSync(commandsPath)
       .filter((file) => file.endsWith(".js"));
 
+    console.log(`  📁 ${folder}: ${commandFiles.length} command(s)`);
+
     for (const file of commandFiles) {
-      const filePath = path.resolve(commandsPath, file);
-      const commandModule = await import(pathToFileURL(filePath).href);
+      try {
+        const filePath = path.resolve(commandsPath, file);
+        const commandModule = await import(pathToFileURL(filePath).href);
 
-      // Assign category if exists, else 'Uncategorized'
-      commandModule.category ??= "Uncategorized";
+        if (!commandModule.data) {
+          console.warn(`    ⚠️  ${file}: Missing 'data' export`);
+          continue;
+        }
 
-      // Store command and category on the object for help command usage
-      client.commands.set(commandModule.data.name, commandModule);
+        if (!commandModule.execute) {
+          console.warn(`    ⚠️  ${file}: Missing 'execute' function`);
+          continue;
+        }
+
+        // Assign category if exists, else use folder name
+        commandModule.category ??= folder.charAt(0).toUpperCase() + folder.slice(1);
+
+        // Store command and category on the object for help command usage
+        client.commands.set(commandModule.data.name, commandModule);
+        console.log(`    ✅ Loaded: /${commandModule.data.name}`);
+      } catch (error) {
+        console.error(`    ❌ Error loading ${file}:`, error.message);
+      }
     }
   }
+
+  console.log(`✨ Loaded ${client.commands.size} command(s) total.`);
 }
 
 (async () => {
   try {
+    // Load configuration from database
+    console.log('📋 Loading configuration...');
+    config = await loadConfig();
+    
+    // Verify required config values
+    if (!config.DISCORD_TOKEN) {
+      console.error('❌ DISCORD_TOKEN is not set in configuration or environment variables');
+      process.exit(1);
+    }
+
     await loadCommands();
 
     client.once("ready", async () => {
@@ -172,7 +218,7 @@ async function loadCommands() {
       }
     });
 
-    await client.login(process.env.DISCORD_TOKEN);
+    await client.login(config.DISCORD_TOKEN || process.env.DISCORD_TOKEN);
   } catch (error) {
     console.error("Error during client setup:", error);
   }

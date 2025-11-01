@@ -42,21 +42,56 @@ A Discord bot for Profiles After Dark, featuring moderation tools, gallery brows
 5. Fill in your environment variables:
    - `DISCORD_TOKEN`: Your Discord bot token
    - `CLIENT_ID`: Your Discord bot client ID
-   - `GUILD_ID`: Your Discord server ID
+   - `GUILD_ID`: Your Discord server ID (optional - for guild commands)
    - `SUPABASE_URL`: Your Supabase project URL
    - `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key
    - `API_URL`: API server URL (for production)
    - `WEB_URL`: Website URL (defaults to https://profilesafterdark.com)
 
-6. Deploy slash commands:
+6. **Deploy slash commands**:
    ```bash
    npm run deploy
    ```
+   
+   **Important**: You must deploy commands before starting the bot!
 
 7. Start the bot:
    ```bash
    npm start
    ```
+
+## Command Deployment
+
+The bot uses an improved command deployment system that:
+- ✅ Automatically finds all commands in subdirectories
+- ✅ Validates command structure before deploying
+- ✅ Provides detailed error messages
+- ✅ Shows which commands are being deployed
+- ✅ Supports both guild and global commands
+
+### Deploy to Guild (Development - Faster)
+
+If `GUILD_ID` is set in your `.env`, commands will deploy to that guild only (instant updates):
+```bash
+npm run deploy
+```
+
+### Deploy Globally (Production - Slower)
+
+If `GUILD_ID` is not set, commands will deploy globally (takes up to 1 hour):
+```bash
+# Remove or comment out GUILD_ID in .env
+npm run deploy
+```
+
+### Command Deployment Output
+
+The deployment script provides detailed feedback:
+- 📋 Lists all commands found
+- ✅ Shows successfully loaded commands
+- ⚠️ Warns about missing exports or invalid commands
+- ❌ Displays errors with file paths
+- 📊 Shows summary of valid commands
 
 ## Railway Deployment
 
@@ -73,11 +108,16 @@ The bot is configured for Railway deployment with two services:
 4. Add environment variables in Railway dashboard:
    - `DISCORD_TOKEN`
    - `CLIENT_ID`
-   - `GUILD_ID`
+   - `GUILD_ID` (optional - for guild commands)
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `API_URL` (your Railway API URL)
    - `WEB_URL`
+
+5. **Important**: Deploy commands after setting environment variables:
+   ```bash
+   npm run deploy
+   ```
 
 ### Railway Configuration
 
@@ -105,10 +145,11 @@ The `Procfile` defines two processes:
 - `/info` - Bot information
 - `/stats` - Website statistics
 - `/userinfo [user]` - Get user information
+- `/ping` - Check bot latency
 
 ### General Commands
-- `/ping` - Check bot latency
 - `/help` - View all available commands
+- `/latest` - Get latest website updates
 
 ## API Endpoints
 
@@ -151,6 +192,23 @@ The bot uses the following Supabase tables:
 - `deleted_messages` - Deleted message cache
 - `discord_webhooks` - Webhook configurations
 - `guild_settings` - Per-guild bot settings
+
+## Troubleshooting
+
+### Commands Not Appearing
+
+1. **Check deployment**: Run `npm run deploy` and check for errors
+2. **Verify environment variables**: Make sure `DISCORD_TOKEN` and `CLIENT_ID` are set
+3. **Check bot permissions**: Ensure bot has `applications.commands` scope
+4. **Wait for propagation**: Global commands can take up to 1 hour
+5. **Check guild**: If using `GUILD_ID`, ensure bot is in that guild
+
+### Common Errors
+
+- **"Missing 'data' export"**: Command file doesn't export a `SlashCommandBuilder`
+- **"Missing 'execute' function"**: Command file doesn't export an execute function
+- **"Unauthorized (401)"**: Check your `DISCORD_TOKEN`
+- **"Forbidden (403)"**: Bot missing permissions or not in guild
 
 ## Development
 

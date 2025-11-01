@@ -1,4 +1,9 @@
 web: node api/server.js
 worker: node index.js
 
+# For Railway deployment:
+# - 'web' process runs the API server (port 3000)
+# - 'worker' process runs the Discord bot
+# Railway will automatically route traffic to the 'web' process
+
 

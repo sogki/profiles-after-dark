@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { supabase } from './supabase.js';
+import { getSupabase } from './supabase.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -11,8 +11,9 @@ dotenv.config();
  */
 export async function sendWebhookNotification(guildId, eventType, payload) {
     try {
+        const db = await getSupabase();
         // Get webhook configuration from Supabase
-        const { data: webhooks, error } = await supabase
+        const { data: webhooks, error } = await db
             .from('discord_webhooks')
             .select('webhook_url')
             .eq('guild_id', guildId)
@@ -54,9 +55,10 @@ export async function sendWebhookNotification(guildId, eventType, payload) {
  */
 export async function syncDiscordUser(discordId, userData) {
     try {
+        const db = await getSupabase();
         const { guild_id, username, discriminator, avatar_url, web_user_id } = userData;
 
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('discord_users')
             .upsert({
                 discord_id: discordId,

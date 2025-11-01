@@ -1,11 +1,11 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } from 'discord.js';
-import { setModlogsChannel, getModlogsChannel } from '../../utils/supabase.js';
-import { supabase } from '../../utils/supabase.js';
+import { setModlogsChannel, getModlogsChannel, getSupabase } from '../../utils/supabase.js';
 
 // Function to cache deleted messages to Supabase
 export async function cacheDeletedMessage(guildId, message) {
   try {
-    await supabase
+    const db = await getSupabase();
+    await db
       .from('deleted_messages')
       .insert({
         message_id: message.id,
@@ -80,7 +80,8 @@ export async function execute(interaction) {
     }
 
     // Fetch recent deleted messages from Supabase
-    const { data: cachedMessages, error } = await supabase
+    const db = await getSupabase();
+    const { data: cachedMessages, error } = await db
       .from('deleted_messages')
       .select('*')
       .eq('guild_id', guildId)

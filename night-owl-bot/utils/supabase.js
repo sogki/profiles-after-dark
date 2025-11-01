@@ -1,16 +1,73 @@
 import { createClient } from '@supabase/supabase-js';
+import { loadConfig, getConfig } from './config.js';
+import dotenv from 'dotenv';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+dotenv.config();
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Initialize Supabase client with config from database or env vars
+let supabase = null;
+let supabaseInitialized = false;
+
+/**
+ * Initialize Supabase client
+ * Loads configuration from database first, falls back to environment variables
+ */
+export async function initSupabase() {
+  if (supabaseInitialized && supabase) {
+    return supabase;
+  }
+
+  try {
+    // Try to load from database first
+    const config = await loadConfig();
+    
+    const supabaseUrl = config.SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = config.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase URL or Service Role Key not found in configuration or environment variables');
+    }
+
+    supabase = createClient(supabaseUrl, supabaseKey);
+    supabaseInitialized = true;
+    
+    return supabase;
+  } catch (error) {
+    console.error('❌ Failed to initialize Supabase:', error.message);
+    throw error;
+  }
+}
+
+// Initialize on import (async, but we'll handle it)
+let initPromise = null;
+
+/**
+ * Get Supabase client (initializes if needed)
+ */
+export async function getSupabase() {
+  if (!initPromise) {
+    initPromise = initSupabase();
+  }
+  return await initPromise;
+}
+
+// For backwards compatibility, export a getter
+let _supabase = null;
+initSupabase().then(client => {
+  _supabase = client;
+}).catch(() => {
+  // Fallback - will be handled by getSupabase
+});
+
+export { getSupabase as supabase };
 
 /**
  * Inserts a mod case into Supabase `mod_cases` table.
  * @param {Object} caseData - The mod case details.
  */
 export async function insertModCase(caseData) {
-  const { data, error } = await supabase
+  const db = await getSupabase();
+  const { data, error } = await db
     .from('mod_cases')
     .insert([caseData]);
 
@@ -28,7 +85,8 @@ export async function insertModCase(caseData) {
  * @returns {Promise<number>} next case_id
  */
 export async function getNextCaseId(guildId) {
-  const { data, error } = await supabase
+  const db = await getSupabase();
+  const { data, error } = await db
     .from('mod_cases')
     .select('case_id')
     .eq('guild_id', guildId)
@@ -52,7 +110,8 @@ export async function getNextCaseId(guildId) {
  * @param {Object} logData - The log details.
  */
 export async function insertModLog(logData) {
-  const { data, error } = await supabase
+  const db = await getSupabase();
+  const { data, error } = await db
     .from('mod_logs')
     .insert([logData]);
 
@@ -68,7 +127,8 @@ export async function insertModLog(logData) {
  * @param {string} channelId - Channel ID
  */
 export async function setModlogsChannel(guildId, channelId) {
-  const { error } = await supabase
+  const db = await getSupabase();
+  const { error } = await db
     .from('modlogs_channels')
     .upsert({ guild_id: guildId, channel_id: channelId }, { onConflict: 'guild_id' });
 
@@ -83,7 +143,8 @@ export async function setModlogsChannel(guildId, channelId) {
  * @returns {Promise<string|null>} Channel ID or null
  */
 export async function getModlogsChannel(guildId) {
-  const { data, error } = await supabase
+  const db = await getSupabase();
+  const { data, error } = await db
     .from('modlogs_channels')
     .select('channel_id')
     .eq('guild_id', guildId)

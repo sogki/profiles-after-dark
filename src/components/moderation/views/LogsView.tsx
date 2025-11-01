@@ -229,7 +229,6 @@ export default function LogsView() {
             </option>
           ))}
         </select>
-        </div>
       </div>
 
       {/* Logs Table */}

@@ -74,7 +74,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
       .upload(fileName, file, {
         cacheControl: "3600",
         upsert: false,
-      })
+        })
 
     if (error) return { error: error.message }
 
@@ -229,8 +229,8 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
 
       const { error: insertError } = await supabase.from("emoji_combos").insert([
         {
-          name: emojiForm.name,
-          combo_text: emojiForm.combo_text,
+        name: emojiForm.name,
+        combo_text: emojiForm.combo_text,
           description: emojiForm.description,
           image_url: url,
         tags: emojiForm.tags,
@@ -492,7 +492,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
               onSubmit={handleSubmitSingle}
               isSubmitting={isSubmitting}
             />
-          )}
+                )}
 
           {uploadMode === "profilePair" && (
             <ProfilePairUploadForm
@@ -513,7 +513,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
               onSubmit={handleSubmitEmoji}
               isSubmitting={isSubmitting}
             />
-          )}
+                    )}
 
           {uploadMode === "emote" && (
             <EmoteUploadForm

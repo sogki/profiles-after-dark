@@ -199,8 +199,8 @@ function App() {
               <Route path="/gallery/profiles" element={<ProfilesGallery />} />
               <Route path="/gallery/pfps" element={<PfpGallery />} />
               <Route path="/gallery/banners" element={<BannersGallery />} />
-                  <Route path="/gallery/emotes" element={<EmotesGallery />} />
-                  <Route path="/gallery/emoji-combos" element={<EmojiCombosGallery />} />
+              <Route path="/gallery/emotes" element={<EmotesGallery />} />
+              <Route path="/gallery/emoji-combos" element={<EmojiCombosGallery />} />
                   <Route path="/gallery/wallpapers" element={<WallpaperGallery />} />
               <Route path="/trending" element={<TrendingPage />} />
               <Route path="/terms" element={<Terms />} />

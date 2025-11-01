@@ -1,0 +1,23 @@
+{
+  "name": "night-owl-bot",
+  "version": "1.0.0",
+  "description": "NightOwl Discord Bot with dynamic slash commands",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "start:api": "node api/server.js",
+    "deploy": "node deploy-commands.js",
+    "dev": "node index.js",
+    "dev:api": "node api/server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.4",
+    "discord.js": "^14.21.0",
+    "dotenv": "^17.1.0",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "cors": "^2.8.5",
+    "node-fetch": "^3.3.2"
+  }
+}

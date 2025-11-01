@@ -1,0 +1,41 @@
+name: Deploy Discord Bot
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'night-owl-bot/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          working-directory: ./night-owl-bot
+      
+      - name: Install dependencies
+        working-directory: ./night-owl-bot
+        run: npm ci
+      
+      - name: Deploy commands
+        working-directory: ./night-owl-bot
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          GUILD_ID: ${{ secrets.GUILD_ID }}
+        run: npm run deploy
+      
+      - name: Check bot health
+        working-directory: ./night-owl-bot
+        run: |
+          echo "Bot commands deployed successfully"
+          echo "Bot should be running on Railway or your hosting service"
+

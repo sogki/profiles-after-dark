@@ -1,10 +1,11 @@
 import type React from "react"
 import { useEffect, useState, useRef } from "react"
 import { supabase } from "../../lib/supabase"
-import { Loader2, Save, User, Mail, Lock, Bell, Camera, Upload, Trash2, Shield, AlertTriangle, CheckCircle, Settings, Eye, EyeOff, Palette, Globe, Download, MessageSquare, Database, HelpCircle, X, Copy, RefreshCw, Zap, Key, History, Users, Smartphone, Monitor, MapPin, LogOut, Volume, VolumeX } from 'lucide-react'
+import { Loader2, Save, User, Mail, Lock, Bell, Camera, Upload, Trash2, Shield, AlertTriangle, CheckCircle, Settings, Eye, EyeOff, Palette, Globe, Download, MessageSquare, Database, HelpCircle, X, Copy, RefreshCw, Zap, Key, History, Users, Smartphone, Monitor, MapPin, LogOut, Volume, VolumeX, Clock, Filter } from 'lucide-react'
 import toast from "react-hot-toast"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { useNavigate } from "react-router-dom"
+import { useNotifications } from "../../hooks/useNotifications"
 
 import Footer from "../Footer"
 
@@ -115,25 +116,25 @@ export default function ProfileSettings() {
   const bannerInputRef = useRef<HTMLInputElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
-  // Notifications state
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [loadingNotifications, setLoadingNotifications] = useState(false)
+  // Notifications state - use the hook
+  const { 
+    notifications: hookNotifications, 
+    loading: loadingNotifications, 
+    markAsRead, 
+    markAllAsRead, 
+    deleteNotification, 
+    deleteNotifications: deleteMultipleNotifications 
+  } = useNotifications()
   const [isDeleting, setIsDeleting] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [uploadingBanner, setUploadingBanner] = useState(false)
+  const [notificationFilter, setNotificationFilter] = useState<"all" | "unread" | "read">("all")
+  const [selectedNotifications, setSelectedNotifications] = useState<Set<string>>(new Set())
 
   // Essential feature states
   const [selectedTheme, setSelectedTheme] = useState("dark")
   const [selectedLanguage, setSelectedLanguage] = useState("en")
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
-  const [showQRCode, setShowQRCode] = useState(false)
-  const [backupCodes, setBackupCodes] = useState<string[]>([])
   const [loginSessions, setLoginSessions] = useState<LoginSession[]>([])
-  const [recoveryEmail, setRecoveryEmail] = useState("")
-  const [securityQuestions, setSecurityQuestions] = useState([
-    { question: "What was your first pet's name?", answer: "" },
-    { question: "What city were you born in?", answer: "" },
-  ])
 
   // Notification preferences
   const [emailNotifications, setEmailNotifications] = useState(true)
@@ -178,8 +179,6 @@ export default function ProfileSettings() {
           // Load user preferences
           setSelectedTheme(data.theme || "dark")
           setSelectedLanguage(data.language || "en")
-          setTwoFactorEnabled(data.two_factor_enabled || false)
-          setRecoveryEmail(data.recovery_email || "")
           setEmailNotifications(data.email_notifications ?? true)
           setPushNotifications(data.push_notifications ?? true)
           setQuietHoursEnabled(data.quiet_hours_enabled || false)
@@ -193,7 +192,7 @@ export default function ProfileSettings() {
         }
 
         // Fetch login sessions
-        fetchLoginSessions()
+        await fetchLoginSessions(user)
       } catch (error) {
         console.error("Fetch profile error:", error)
         toast.error("Unexpected error fetching profile")
@@ -205,55 +204,69 @@ export default function ProfileSettings() {
     fetchProfile()
   }, [])
 
-  const fetchLoginSessions = async () => {
-    // Mock data for demonstration
-    setLoginSessions([
-      {
-        id: "1",
-        device: "Chrome on Windows",
-        location: "New York, US",
-        ip_address: "192.168.1.1",
-        last_active: new Date().toISOString(),
-        current: true,
-      },
-      {
-        id: "2",
-        device: "Safari on iPhone",
-        location: "New York, US",
-        ip_address: "192.168.1.2",
-        last_active: new Date(Date.now() - 86400000).toISOString(),
-        current: false,
-      },
-    ])
+  const fetchLoginSessions = async (currentUser: SupabaseUser | null) => {
+    if (!currentUser) {
+      setLoginSessions([])
+      return
+    }
+
+    try {
+      // Get current session info from Supabase auth
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (session) {
+        // Get user agent and device info from browser
+        const userAgent = navigator.userAgent
+        let device = "Unknown Device"
+        
+        if (userAgent.includes("iPhone") || userAgent.includes("iPad")) {
+          device = "iOS Device"
+        } else if (userAgent.includes("Android")) {
+          device = "Android Device"
+        } else if (userAgent.includes("Windows")) {
+          device = "Windows Device"
+        } else if (userAgent.includes("Mac")) {
+          device = "Mac Device"
+        } else if (userAgent.includes("Linux")) {
+          device = "Linux Device"
+        }
+
+        // Get browser info
+        let browser = "Unknown Browser"
+        if (userAgent.includes("Chrome") && !userAgent.includes("Edg")) {
+          browser = "Chrome"
+        } else if (userAgent.includes("Firefox")) {
+          browser = "Firefox"
+        } else if (userAgent.includes("Safari") && !userAgent.includes("Chrome")) {
+          browser = "Safari"
+        } else if (userAgent.includes("Edg")) {
+          browser = "Edge"
+        }
+
+        const deviceInfo = `${browser} on ${device}`
+        
+        // Create a session entry for the current session
+        setLoginSessions([
+          {
+            id: session.access_token.substring(0, 8),
+            device: deviceInfo,
+            location: "Unknown", // IP geolocation would require an external service
+            ip_address: "Unknown", // IP address is not available from client-side
+            last_active: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : new Date().toISOString(),
+            current: true,
+          },
+        ])
+      } else {
+        setLoginSessions([])
+      }
+    } catch (error) {
+      console.error("Error fetching login sessions:", error)
+      setLoginSessions([])
+    }
   }
 
-  useEffect(() => {
-    if (activeTab === "notifications" && user) {
-      const fetchNotifications = async () => {
-        setLoadingNotifications(true)
-        try {
-          const { data, error } = await supabase
-            .from("notifications")
-            .select("*")
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false })
-
-          if (error) {
-            toast.error("Failed to fetch notifications")
-          } else if (data) {
-            setNotifications(data)
-          }
-        } catch (error) {
-          console.error("Fetch notifications error:", error)
-          toast.error("Unexpected error fetching notifications")
-        } finally {
-          setLoadingNotifications(false)
-        }
-      }
-
-      fetchNotifications()
-    }
-  }, [activeTab, user])
+  // Notifications are now managed by the useNotifications hook
+  // No need for separate fetching
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: "avatar_url" | "banner_url") => {
     const file = e.target.files?.[0]
@@ -404,21 +417,49 @@ export default function ProfileSettings() {
     }
   }
 
-  const enable2FA = async () => {
-    setShowQRCode(true)
-    // Generate backup codes
-    const codes = Array.from({ length: 8 }, () => Math.random().toString(36).substring(2, 8).toUpperCase())
-    setBackupCodes(codes)
-    setTwoFactorEnabled(true)
-    toast.success("Two-factor authentication enabled!")
+  const toggleNotificationSelection = (notificationId: string) => {
+    setSelectedNotifications((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(notificationId)) {
+        newSet.delete(notificationId)
+      } else {
+        newSet.add(notificationId)
+      }
+      return newSet
+    })
   }
 
-  const disable2FA = async () => {
-    setTwoFactorEnabled(false)
-    setShowQRCode(false)
-    setBackupCodes([])
-    toast.success("Two-factor authentication disabled!")
+  const handleDeleteSelected = async () => {
+    if (selectedNotifications.size === 0) return
+    try {
+      await deleteMultipleNotifications(Array.from(selectedNotifications))
+      setSelectedNotifications(new Set())
+      toast.success(`Deleted ${selectedNotifications.size} notifications`)
+    } catch (error) {
+      toast.error("Failed to delete notifications")
+    }
   }
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+    const diffInMinutes = Math.floor(diffInSeconds / 60)
+    const diffInHours = Math.floor(diffInSeconds / 3600)
+    const diffInDays = Math.floor(diffInSeconds / 86400)
+    
+    if (diffInSeconds < 60) return "just now"
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`
+    if (diffInHours < 24) return `${diffInHours}h ago`
+    if (diffInDays < 7) return `${diffInDays}d ago`
+    return date.toLocaleDateString()
+  }
+
+  const filteredNotifications = hookNotifications.filter((notification) => {
+    if (notificationFilter === "unread" && notification.read) return false
+    if (notificationFilter === "read" && !notification.read) return false
+    return true
+  })
 
   const saveNotificationSettings = async () => {
     if (!user) return
@@ -794,118 +835,7 @@ export default function ProfileSettings() {
                     </button>
                   </div>
 
-                  {/* Two-Factor Authentication */}
-                  <div className="border-t border-gray-700 pt-8">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold flex items-center gap-2">
-                          <Zap className="h-5 w-5 text-yellow-400" />
-                          Two-Factor Authentication (In Development)
-                        </h3>
-                        <p className="text-gray-400 text-sm">Add an extra layer of security to your account</p>
-                      </div>
-                      <div
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${twoFactorEnabled ? "bg-green-600 text-white" : "bg-gray-600 text-gray-300"}`}
-                      >
-                        {twoFactorEnabled ? "Enabled" : "Disabled"}
-                      </div>
-                    </div>
-
-                    {!twoFactorEnabled ? (
-                      <button
-                        onClick={enable2FA}
-                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-medium transition-colors"
-                      >
-                        <Shield className="h-4 w-4" />
-                        Enable 2FA
-                      </button>
-                    ) : (
-                      <div className="space-y-4">
-                        {showQRCode && (
-                          <div className="bg-gray-700 p-4 rounded-lg">
-                            <p className="text-sm text-gray-300 mb-3">Scan this QR code with your authenticator app:</p>
-                            <div className="bg-white p-4 rounded-lg inline-block">
-                              <div className="w-32 h-32 bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
-                                QR Code Placeholder
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {backupCodes.length > 0 && (
-                          <div className="bg-yellow-900/20 border border-yellow-700 p-4 rounded-lg">
-                            <h4 className="font-medium text-yellow-400 mb-2">Backup Codes</h4>
-                            <p className="text-sm text-gray-300 mb-3">
-                              Save these codes in a safe place. You can use them to access your account if you lose your
-                              authenticator device.
-                            </p>
-                            <div className="grid grid-cols-2 gap-2 text-sm font-mono">
-                              {backupCodes.map((code, index) => (
-                                <div key={index} className="bg-gray-700 p-2 rounded flex items-center justify-between">
-                                  <span>{code}</span>
-                                  <button
-                                    onClick={() => navigator.clipboard.writeText(code)}
-                                    className="text-gray-400 hover:text-white"
-                                  >
-                                    <Copy className="h-4 w-4" />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        <button
-                          onClick={disable2FA}
-                          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-medium transition-colors"
-                        >
-                          <X className="h-4 w-4" />
-                          Disable 2FA
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Account Recovery
-                  <div className="border-t border-gray-700 pt-8">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <Key className="h-5 w-5 text-blue-400" />
-                      Account Recovery
-                    </h3>
-
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Recovery Email</label>
-                        <input
-                          type="email"
-                          value={recoveryEmail}
-                          onChange={(e) => setRecoveryEmail(e.target.value)}
-                          className="w-full bg-gray-700 border border-gray-600 p-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Enter recovery email" />
-                      </div>
-
-                      <div className="space-y-3">
-                        <label className="block text-sm font-medium text-gray-300">Security Questions</label>
-                        {securityQuestions.map((sq, index) => (
-                          <div key={index} className="space-y-2">
-                            <p className="text-sm text-gray-400">{sq.question}</p>
-                            <input
-                              type="text"
-                              value={sq.answer}
-                              onChange={(e) => {
-                                const newQuestions = [...securityQuestions]
-                                newQuestions[index].answer = e.target.value
-                                setSecurityQuestions(newQuestions)
-                              } }
-                              className="w-full bg-gray-700 border border-gray-600 p-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              placeholder="Enter your answer" />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div> */}
-
-                  {/* Login Activity
+                  {/* Login Activity */}
                   <div className="border-t border-gray-700 pt-8">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                       <History className="h-5 w-5 text-green-400" />
@@ -913,43 +843,48 @@ export default function ProfileSettings() {
                     </h3>
 
                     <div className="space-y-3">
-                      {loginSessions.map((session) => (
-                        <div key={session.id} className="bg-gray-700 p-4 rounded-lg flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gray-600 rounded-lg">
-                              {session.device.includes("iPhone") ? (
-                                <Smartphone className="h-5 w-5" />
-                              ) : (
-                                <Monitor className="h-5 w-5" />
+                      {loginSessions.length > 0 ? (
+                        loginSessions.map((session) => (
+                          <div key={session.id} className="bg-gray-700 p-4 rounded-lg flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-gray-600 rounded-lg">
+                                {session.device.includes("iPhone") || session.device.includes("iOS") || session.device.includes("Android") ? (
+                                  <Smartphone className="h-5 w-5" />
+                                ) : (
+                                  <Monitor className="h-5 w-5" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-medium">{session.device}</p>
+                                {session.location !== "Unknown" && session.ip_address !== "Unknown" && (
+                                  <p className="text-sm text-gray-400 flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" />
+                                    {session.location} • {session.ip_address}
+                                  </p>
+                                )}
+                                <p className="text-xs text-gray-500">
+                                  {session.current ? "Current session" : `Last active: ${new Date(session.last_active).toLocaleString()}`}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {session.current && (
+                                <span className="bg-green-600 text-white px-2 py-1 rounded text-xs font-medium">
+                                  Current
+                                </span>
                               )}
                             </div>
-                            <div>
-                              <p className="font-medium">{session.device}</p>
-                              <p className="text-sm text-gray-400 flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
-                                {session.location} • {session.ip_address}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                Last active: {new Date(session.last_active).toLocaleString()}
-                              </p>
-                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {session.current && (
-                              <span className="bg-green-600 text-white px-2 py-1 rounded text-xs font-medium">
-                                Current
-                              </span>
-                            )}
-                            {!session.current && (
-                              <button className="text-red-400 hover:text-red-300">
-                                <LogOut className="h-4 w-4" />
-                              </button>
-                            )}
-                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <History className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                          <p className="text-gray-400 text-sm">No active sessions found</p>
+                          <p className="text-gray-500 text-xs mt-1">Session tracking will be available soon</p>
                         </div>
-                      ))}
+                      )}
                     </div>
-                  </div> */}
+                  </div>
 
                   {/* Danger Zone */}
                   <div className="border-t border-gray-700 pt-8">
@@ -976,54 +911,53 @@ export default function ProfileSettings() {
 
               {/* Notifications Tab */}
               {activeTab === "notifications" && (
-                  <div className="space-y-8">
-                    {/* Notification Preferences */}
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                        <Bell className="h-5 w-5 text-blue-400" />
-                        Notification Preferences
-                      </h3>
+                <div className="space-y-8">
+                  {/* Notification Preferences */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Bell className="h-5 w-5 text-blue-400" />
+                      Notification Preferences
+                    </h3>
 
-                      {/* <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <Mail className="h-5 w-5 text-gray-400" />
-                            <div>
-                              <p className="font-medium">Email Notifications</p>
-                              <p className="text-sm text-gray-400">Receive notifications via email</p>
-                            </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Mail className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <p className="font-medium">Email Notifications</p>
+                            <p className="text-sm text-gray-400">Receive notifications via email</p>
                           </div>
-                          <button
-                            onClick={() => setEmailNotifications(!emailNotifications)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${emailNotifications ? "bg-blue-600" : "bg-gray-600"}`}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${emailNotifications ? "translate-x-6" : "translate-x-1"}`} />
-                          </button>
                         </div>
+                        <button
+                          onClick={() => setEmailNotifications(!emailNotifications)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${emailNotifications ? "bg-blue-600" : "bg-gray-600"}`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${emailNotifications ? "translate-x-6" : "translate-x-1"}`} />
+                        </button>
+                      </div>
 
-                        <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <Smartphone className="h-5 w-5 text-gray-400" />
-                            <div>
-                              <p className="font-medium">Push Notifications</p>
-                              <p className="text-sm text-gray-400">Receive push notifications on your devices</p>
-                            </div>
+                      <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Smartphone className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <p className="font-medium">Push Notifications</p>
+                            <p className="text-sm text-gray-400">Receive push notifications on your devices</p>
                           </div>
-                          <button
-                            onClick={() => setPushNotifications(!pushNotifications)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${pushNotifications ? "bg-blue-600" : "bg-gray-600"}`}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${pushNotifications ? "translate-x-6" : "translate-x-1"}`} />
-                          </button>
                         </div>
-                    </div> */}
-                    <p>Coming Soon</p>
+                        <button
+                          onClick={() => setPushNotifications(!pushNotifications)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${pushNotifications ? "bg-blue-600" : "bg-gray-600"}`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${pushNotifications ? "translate-x-6" : "translate-x-1"}`} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Quiet Hours */}
-                  {/* <div className="border-t border-gray-700 pt-8">
+                  <div className="border-t border-gray-700 pt-8">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                       {quietHoursEnabled ? (
                         <VolumeX className="h-5 w-5 text-purple-400" />
@@ -1069,51 +1003,145 @@ export default function ProfileSettings() {
                         </div>
                       )}
                     </div>
-                  </div> */}
+                  </div>
 
                   {/* Save Button */}
-                  {/* <button
+                  <button
                     onClick={saveNotificationSettings}
                     disabled={loading}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-medium transition-colors"
                   >
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                     Save Notification Settings
-                  </button> */}
+                  </button>
 
-                  {/* Recent Notifications */}
+                  {/* Notifications List */}
                   <div className="border-t border-gray-700 pt-8">
-                    <h3 className="text-lg font-semibold mb-4">Recent Notifications</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <Bell className="h-5 w-5 text-blue-400" />
+                        Recent Notifications
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 bg-gray-700 rounded-lg p-1">
+                          {(["all", "unread", "read"] as const).map((filter) => (
+                            <button
+                              key={filter}
+                              onClick={() => setNotificationFilter(filter)}
+                              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                                notificationFilter === filter
+                                  ? "bg-blue-600 text-white"
+                                  : "text-gray-300 hover:text-white"
+                              }`}
+                            >
+                              {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                            </button>
+                          ))}
+                        </div>
+                        {hookNotifications.filter((n) => !n.read).length > 0 && (
+                          <button
+                            onClick={markAllAsRead}
+                            className="flex items-center gap-1 px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+                          >
+                            <Check className="h-3 w-3" />
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
                     {loadingNotifications ? (
                       <div className="flex items-center justify-center py-12">
                         <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
                       </div>
-                    ) : notifications.length === 0 ? (
+                    ) : filteredNotifications.length === 0 ? (
                       <div className="text-center py-12">
                         <Bell className="h-16 w-16 mx-auto text-gray-400 mb-4" />
                         <h3 className="text-lg font-medium mb-2">No notifications</h3>
-                        <p className="text-gray-400">You're all caught up! New notifications will appear here.</p>
+                        <p className="text-gray-400">
+                          {notificationFilter === "all" 
+                            ? "You're all caught up! New notifications will appear here."
+                            : `No ${notificationFilter} notifications found.`}
+                        </p>
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        {notifications.map((notification) => (
+                      <div className="space-y-3">
+                        {selectedNotifications.size > 0 && (
+                          <div className="flex items-center justify-between p-3 bg-gray-700 rounded-lg mb-4">
+                            <span className="text-sm text-gray-300">
+                              {selectedNotifications.size} notification{selectedNotifications.size !== 1 ? "s" : ""} selected
+                            </span>
+                            <button
+                              onClick={handleDeleteSelected}
+                              className="flex items-center gap-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition-colors"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              Delete Selected
+                            </button>
+                          </div>
+                        )}
+                        {filteredNotifications.map((notification) => (
                           <div
                             key={notification.id}
-                            className={`p-4 rounded-lg border transition-colors ${notification.read ? "border-gray-600 bg-gray-700" : "border-blue-500 bg-blue-900/20"}`}
+                            className={`group p-4 rounded-lg border transition-colors ${
+                              notification.read 
+                                ? "border-gray-600 bg-gray-700" 
+                                : "border-blue-500 bg-blue-900/20"
+                            }`}
                           >
                             <div className="flex items-start gap-3">
-                              <div className={`mt-1 ${notification.read ? "text-gray-400" : "text-blue-400"}`}>
+                              <input
+                                type="checkbox"
+                                checked={selectedNotifications.has(notification.id)}
+                                onChange={() => toggleNotificationSelection(notification.id)}
+                                className="mt-1 w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 cursor-pointer"
+                              />
+                              <div className={`mt-1 flex-shrink-0 ${notification.read ? "text-gray-400" : "text-blue-400"}`}>
                                 {notification.read ? <CheckCircle className="h-5 w-5" /> : <Bell className="h-5 w-5" />}
                               </div>
-                              <div className="flex-1">
-                                <p className={`${notification.read ? "text-gray-300" : "text-white"}`}>
-                                  {notification.message}
-                                </p>
-                                <p className="text-sm text-gray-400 mt-1">
-                                  {new Date(notification.created_at).toLocaleString()}
-                                </p>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`font-medium ${notification.read ? "text-gray-300" : "text-white"}`}>
+                                      {notification.title || "Notification"}
+                                    </p>
+                                    <p className={`text-sm mt-1 ${notification.read ? "text-gray-400" : "text-gray-300"}`}>
+                                      {notification.message || notification.content || "No message content"}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                                      <Clock className="h-3 w-3" />
+                                      {formatTimeAgo(notification.created_at)}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    {!notification.read && (
+                                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                                    )}
+                                    <button
+                                      onClick={() => markAsRead(notification.id)}
+                                      className={`p-1.5 rounded transition-colors opacity-0 group-hover:opacity-100 ${
+                                        notification.read 
+                                          ? "hover:bg-gray-600" 
+                                          : "hover:bg-blue-600"
+                                      }`}
+                                      title={notification.read ? "Mark as unread" : "Mark as read"}
+                                    >
+                                      {notification.read ? (
+                                        <Bell className="h-3.5 w-3.5 text-gray-400" />
+                                      ) : (
+                                        <CheckCircle className="h-3.5 w-3.5 text-blue-400" />
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={() => deleteNotification(notification.id)}
+                                      className="p-1.5 rounded hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                                      title="Delete notification"
+                                    >
+                                      <X className="h-3.5 w-3.5 text-gray-400 hover:text-white" />
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
-                              {!notification.read && <div className="h-2 w-2 bg-blue-500 rounded-full mt-2"></div>}
                             </div>
                           </div>
                         ))}

@@ -158,10 +158,10 @@ BEGIN
   FROM user_profiles
   WHERE user_id = NEW.follower_id;
 
-  -- Create notification for the followed user
+  -- Create notification for the followed user (using following_id)
   INSERT INTO public.notifications (user_id, title, message, type, metadata)
   VALUES (
-    NEW.followed_id,
+    NEW.following_id,
     'New Follower! 👤',
     COALESCE(follower_username, 'Someone') || ' started following you!',
     'follow',

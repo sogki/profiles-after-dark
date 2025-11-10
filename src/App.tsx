@@ -14,6 +14,7 @@ const UploadModal = lazy(() => import("./components/UploadModal"))
 const AuthModal = lazy(() => import("./components/AuthModal"))
 const ProfileSettings = lazy(() => import("./components/users/ProfileSettings"))
 const UsersList = lazy(() => import("./components/users/UserList"))
+const CommunityPage = lazy(() => import("./components/users/CommunityPage"))
 const UserProfile = lazy(() => import("./components/users/UserProfile"))
 const ProfilesGallery = lazy(() => import("./components/gallery/ProfilesGallery"))
 const PfpGallery = lazy(() => import("./components/gallery/PfpGallery"))
@@ -190,7 +191,8 @@ function App() {
                 }
               />
               <Route path="/profile-settings" element={<ProfileSettings />} />
-              <Route path="/users" element={<UsersList />} />
+              <Route path="/users" element={<CommunityPage />} />
+              <Route path="/community" element={<CommunityPage />} />
               <Route path="/user/:username" element={<UserProfile />} />
               <Route path="/moderation" element={<EnhancedModerationPage />} />
               <Route path="/moderation/logs" element={<ModerationLogs />} />

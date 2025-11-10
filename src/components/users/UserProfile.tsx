@@ -9,12 +9,18 @@ import {
   Tag,
   User,
   X,
+  UserPlus,
+  UserMinus,
+  Share2,
+  Users,
 } from "lucide-react";
 import { Fragment, useState } from "react";
 import { BsFillEmojiHeartEyesFill } from "react-icons/bs";
 import { Link } from "react-router-dom";
 // import { supabase } from "../../lib/supabase";
 import EnhancedReportModal from "../moderation/modals/EnhancedReportModal";
+import { useFollows } from "../../hooks/useFollows";
+import { useShare } from "../../hooks/useShare";
 
 import useRetrieveProfileFavorites from "@/hooks/users/profile-info/use-retrieve-profile-favorites";
 import useRetrieveProfilePairs from "@/hooks/users/profile-info/use-retrieve-profile-pairs";
@@ -104,6 +110,10 @@ export default function UserProfile() {
   >("uploads");
   const [showAllBadges, setShowAllBadges] = useState(false);
 
+  // Follow functionality
+  const { stats: followStats, toggleFollow, loading: followLoading } = useFollows(profile?.user_id);
+  const { shareProfile } = useShare();
+
   const openPreview = (item: UserUpload | ProfilePair) => {
     setPreviewItem(item);
     setIsModalOpen(true);
@@ -190,8 +200,40 @@ export default function UserProfile() {
 
             {/* Profile Info */}
             <div className="relative px-4 sm:px-6 pb-4 sm:pb-6">
-              {/* Action Button */}
-              <div className="absolute -top-2 sm:-top-4 right-4 sm:right-6">
+              {/* Action Buttons */}
+              <div className="absolute -top-2 sm:-top-4 right-4 sm:right-6 flex items-center gap-2">
+                {!isOwnProfile && (
+                  <>
+                    <button
+                      onClick={() => profile?.username && shareProfile(profile.username)}
+                      className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-white/10 backdrop-blur-sm text-white rounded-full hover:bg-white/20 transition-colors"
+                      title="Share profile"
+                    >
+                      <Share2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </button>
+                    <button
+                      onClick={() => profile?.user_id && toggleFollow(profile.user_id)}
+                      disabled={followLoading}
+                      className={`inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-full font-semibold transition-colors shadow-lg text-sm sm:text-base ${
+                        followStats.isFollowing
+                          ? "bg-slate-700 text-white hover:bg-slate-600"
+                          : "bg-purple-600 text-white hover:bg-purple-700"
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {followStats.isFollowing ? (
+                        <>
+                          <UserMinus className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="hidden sm:inline">Unfollow</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="hidden sm:inline">Follow</span>
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
                 {isOwnProfile ? (
                   <Link
                     to="/profile-settings"
@@ -216,6 +258,21 @@ export default function UserProfile() {
                       leaveTo="transform opacity-0 scale-95"
                     >
                       <Menu.Items className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg ring-1 ring-black/5 focus:outline-none z-50">
+                        <Menu.Item>
+                          {({ active }) => (
+                            <button
+                              onClick={() => profile?.username && shareProfile(profile.username)}
+                              className={`${
+                                active
+                                  ? "bg-gray-50 text-gray-900"
+                                  : "text-gray-700"
+                              } flex items-center gap-3 w-full px-4 py-3 text-left text-sm rounded-xl`}
+                            >
+                              <Share2 className="h-4 w-4" />
+                              Share Profile
+                            </button>
+                          )}
+                        </Menu.Item>
                         <Menu.Item>
                           {({ active }) => (
                             <button
@@ -314,7 +371,7 @@ export default function UserProfile() {
                   </p>
                 )}
 
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 text-gray-400">
+                <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-gray-400">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
                     <span className="text-sm">
@@ -334,6 +391,18 @@ export default function UserProfile() {
                     <Heart className="h-4 w-4" />
                     <span className="text-sm">
                       {favorites?.length || 0} favorites
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    <span className="text-sm">
+                      {followStats.followers} followers
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <UserPlus className="h-4 w-4" />
+                    <span className="text-sm">
+                      {followStats.following} following
                     </span>
                   </div>
                 </div>

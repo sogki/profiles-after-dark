@@ -37,7 +37,7 @@ export async function getConfig(): Promise<Config> {
   try {
     const response = await fetch(`${defaultApiUrl}/config`);
     
-    if (response.ok) {
+    if (response.ok && response.status !== 404) {
       const data = await response.json();
       
       if (data.success && data.data?.config) {

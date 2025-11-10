@@ -86,32 +86,11 @@ const EmotesGallery = memo(function EmotesGallery() {
       setLoading(true)
       setError(null)
       
-      // Try to fetch with user_profiles join first
-      let query = supabase
+      // Fetch without join to avoid relationship errors
+      const { data, error } = await supabase
         .from("emotes")
-        .select(`
-          *,
-          user_profiles (
-            username,
-            avatar_url
-          )
-        `)
+        .select("*")
         .order("created_at", { ascending: false })
-
-      let { data, error } = await query
-
-      // If join fails, try without user_profiles
-      if (error && (error.message?.includes("relation") || error.message?.includes("does not exist"))) {
-        console.warn("User profiles join failed, fetching without join:", error.message)
-        const simpleQuery = supabase
-          .from("emotes")
-          .select("*")
-          .order("created_at", { ascending: false })
-        
-        const result = await simpleQuery
-        data = result.data
-        error = result.error
-      }
 
       if (error) {
         console.error("Error fetching emotes:", error)

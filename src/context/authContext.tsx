@@ -89,6 +89,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error('Signup error:', error);
       }
       
+      // If error is about email confirmation, the account was likely created
+      // but email sending failed. Supabase requires email confirmation before sign-in.
+      if (error && error.message?.includes('confirmation email')) {
+        // Check if user data was returned (account was created)
+        if (data?.user) {
+          // Account was created successfully, but email confirmation is required
+          // Return success with a helpful message
+          return { 
+            data, 
+            error: { 
+              message: 'Account created! However, the confirmation email could not be sent. Please contact support or try signing in - your account may still work.' 
+            } 
+          };
+        } else {
+          // Account creation might have failed, return error
+          return { 
+            data, 
+            error: { 
+              message: 'Account creation may have failed due to email service issues. Please try again or contact support.' 
+            } 
+          };
+        }
+      }
+      
       return { data, error };
     } catch (err: any) {
       console.error('Signup exception:', err);

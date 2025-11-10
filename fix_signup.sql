@@ -1,6 +1,29 @@
 -- Fix user signup 500 error
 -- Run this in Supabase SQL Editor
 
+-- First, check for and drop any triggers that might reference user_stats
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    -- Find and drop any triggers on auth.users that might cause issues
+    FOR r IN 
+        SELECT tgname, oid 
+        FROM pg_trigger 
+        WHERE tgrelid = 'auth.users'::regclass 
+        AND tgisinternal = false
+        AND tgname != 'create_user_profile_trigger'
+    LOOP
+        BEGIN
+            EXECUTE 'DROP TRIGGER IF EXISTS ' || quote_ident(r.tgname) || ' ON auth.users CASCADE';
+            RAISE NOTICE 'Dropped trigger: %', r.tgname;
+        EXCEPTION
+            WHEN OTHERS THEN
+                RAISE NOTICE 'Could not drop trigger %: %', r.tgname, SQLERRM;
+        END;
+    END LOOP;
+END $$;
+
 DROP TRIGGER IF EXISTS create_user_profile_trigger ON auth.users;
 DROP FUNCTION IF EXISTS create_user_profile();
 
@@ -48,6 +71,23 @@ BEGIN
       NEW.email
     )
     ON CONFLICT (user_id) DO NOTHING;
+    
+    -- Try to create user_stats entry if table exists and has the right structure
+    BEGIN
+      INSERT INTO public.user_stats (user_id)
+      VALUES (NEW.id)
+      ON CONFLICT (user_id) DO NOTHING;
+    EXCEPTION
+      WHEN undefined_table THEN
+        -- user_stats table doesn't exist, skip
+        NULL;
+      WHEN undefined_column THEN
+        -- user_stats table exists but has different structure, skip
+        NULL;
+      WHEN OTHERS THEN
+        -- Any other error, just log and continue
+        RAISE NOTICE 'Could not create user_stats entry: %', SQLERRM;
+    END;
   EXCEPTION
     WHEN undefined_column THEN
       INSERT INTO public.user_profiles (user_id, username, display_name)

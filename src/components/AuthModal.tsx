@@ -34,6 +34,16 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         // Handle specific error cases
         if (result.error.message?.includes('database error') || result.error.message?.includes('500')) {
           errorMessage = 'Server error during signup. Please try again or contact support.';
+        } else if (result.error.message?.includes('confirmation email') && result.data?.user) {
+          // User was created but email sending failed
+          // Show message and allow them to try signing in
+          errorMessage = 'Account created! Confirmation email could not be sent. You can try signing in - your account may work without confirmation.';
+          // Switch to sign in mode after showing message
+          setTimeout(() => {
+            setIsSignUp(false); // Switch to sign in mode
+            setError(null); // Clear error so they can try signing in
+          }, 3000);
+          return;
         } else if (result.error.message?.includes('User already registered')) {
           errorMessage = 'An account with this email already exists. Please sign in instead.';
         } else if (result.error.message?.includes('Password')) {

@@ -74,14 +74,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signUp = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
-    return { data, error };
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      
+      // Log for debugging
+      if (error) {
+        console.error('Signup error:', error);
+      }
+      
+      return { data, error };
+    } catch (err: any) {
+      console.error('Signup exception:', err);
+      return { 
+        data: null, 
+        error: { 
+          message: err?.message || 'Failed to create account. Please try again.' 
+        } 
+      };
+    }
   };
 
   const signIn = async (email: string, password: string) => {

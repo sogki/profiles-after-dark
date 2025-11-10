@@ -23,19 +23,41 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setError(null);
 
     try {
-      const { error } = isSignUp 
+      const result = isSignUp 
         ? await signUp(email, password)
         : await signIn(email, password);
 
-      if (error) {
-        setError(error.message);
+      if (result.error) {
+        // Provide more helpful error messages
+        let errorMessage = result.error.message;
+        
+        // Handle specific error cases
+        if (result.error.message?.includes('database error') || result.error.message?.includes('500')) {
+          errorMessage = 'Server error during signup. Please try again or contact support.';
+        } else if (result.error.message?.includes('User already registered')) {
+          errorMessage = 'An account with this email already exists. Please sign in instead.';
+        } else if (result.error.message?.includes('Password')) {
+          errorMessage = 'Password must be at least 6 characters long.';
+        } else if (result.error.message?.includes('Email')) {
+          errorMessage = 'Please enter a valid email address.';
+        }
+        
+        setError(errorMessage);
       } else {
+        // Success - close modal and reset form
         onClose();
         setEmail('');
         setPassword('');
+        
+        // If signup was successful, show success message
+        if (isSignUp && result.data?.user) {
+          // User created successfully (even if email confirmation is required)
+          // The info message already tells them about the confirmation email
+        }
       }
-    } catch (err) {
-      setError('An unexpected error occurred');
+    } catch (err: any) {
+      console.error('Signup/Signin error:', err);
+      setError(err?.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabase"
 import { Loader2, Save, User, Mail, Lock, Bell, Camera, Upload, Trash2, Shield, AlertTriangle, CheckCircle, Settings, Eye, EyeOff, Palette, Globe, Download, MessageSquare, Database, HelpCircle, X, Copy, RefreshCw, Zap, Key, History, Users, Smartphone, Monitor, MapPin, LogOut, Volume, VolumeX, Clock, Filter } from 'lucide-react'
 import toast from "react-hot-toast"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { useNotifications } from "../../hooks/useNotifications"
 
 import Footer from "../Footer"
@@ -153,6 +153,35 @@ export default function ProfileSettings() {
   const [feedbackType, setFeedbackType] = useState("general")
 
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const usernameInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    // Check if user came from email confirmation setup
+    const setup = searchParams.get('setup')
+    const tab = searchParams.get('tab')
+    
+    if (setup === 'true') {
+      // Switch to account tab if not already there
+      if (tab !== 'account') {
+        setActiveTab('account')
+      }
+      
+      // Auto-focus on username input after a short delay
+      setTimeout(() => {
+        if (usernameInputRef.current) {
+          usernameInputRef.current.focus()
+          usernameInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 500)
+      
+      // Show welcome message
+      toast.success('Welcome! Please set your username to complete your profile.')
+    } else if (tab) {
+      // If tab is specified, switch to it
+      setActiveTab(tab as any)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -731,6 +760,7 @@ export default function ProfileSettings() {
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
                         <input
+                          ref={usernameInputRef}
                           value={profile.username}
                           onChange={(e) => setProfile({ ...profile, username: e.target.value })}
                           className="w-full bg-gray-700 border border-gray-600 p-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"

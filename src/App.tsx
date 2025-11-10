@@ -1,5 +1,5 @@
 import { useState, useEffect, Suspense, lazy } from "react"
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route, useSearchParams, useLocation } from "react-router-dom"
 
 // Core components (loaded immediately)
 import Header from "./components/Header"
@@ -31,8 +31,14 @@ const Policies = lazy(() => import("./components/legal/Policies"))
 const Guidelines = lazy(() => import("./components/legal/Guidelines"))
 const ReportContent = lazy(() => import("./components/legal/ReportContent"))
 const AppealsFormSystem = lazy(() => import("./components/appeal/AppealsForm"))
+const AuthCallback = lazy(() => import("./components/AuthCallback"))
 
 import { useAuth } from "./context/authContext"
+
+// Wrapper component for AuthCallback to pass props
+function AuthCallbackWrapper({ onEmailConfirmed }: { onEmailConfirmed: () => void }) {
+  return <AuthCallback onEmailConfirmed={onEmailConfirmed} />
+}
 
 import { Toaster } from "react-hot-toast"
 
@@ -52,6 +58,7 @@ function App() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [showEmailConfirmed, setShowEmailConfirmed] = useState(false)
 
   const [announcement, setAnnouncement] = useState<string | null>(null)
 
@@ -70,7 +77,6 @@ function App() {
   } | null>(null)
 
   // Fetch announcement on mount
-
   useEffect(() => {
     const fetchAnnouncement = async () => {
       const { data, error } = await supabase
@@ -93,6 +99,17 @@ function App() {
     }
 
     fetchAnnouncement()
+  }, [])
+
+  // Check for email confirmation in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('emailConfirmed') === 'true') {
+      setShowEmailConfirmed(true)
+      setIsAuthModalOpen(true)
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname)
+    }
   }, [])
 
   // Scroll listener to show/hide scroll to top button
@@ -209,6 +226,10 @@ function App() {
               <Route path="/guidelines" element={<Guidelines />} />
               <Route path="/report-content" element={<ReportContent />} />
               <Route path="/appeals" element={<AppealsFormSystem/>} />
+              <Route path="/auth/callback" element={<AuthCallbackWrapper onEmailConfirmed={() => {
+                setShowEmailConfirmed(true);
+                setIsAuthModalOpen(true);
+              }} />} />
             </Routes>
           </Suspense>
         </div>
@@ -222,7 +243,14 @@ function App() {
         <Suspense fallback={<div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
         </div>}>
-          <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+          <AuthModal 
+            isOpen={isAuthModalOpen} 
+            onClose={() => {
+              setIsAuthModalOpen(false);
+              setShowEmailConfirmed(false);
+            }}
+            showEmailConfirmed={showEmailConfirmed}
+          />
         </Suspense>
 
         <Suspense fallback={<div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50">

@@ -92,7 +92,9 @@ const WallpaperGallery = memo(function WallpaperGallery() {
     try {
       setLoading(true)
       setError(null)
-      const { data, error } = await supabase
+      
+      // Try to fetch with user_profiles join first
+      let query = supabase
         .from("wallpapers")
         .select(`
           *,
@@ -103,16 +105,41 @@ const WallpaperGallery = memo(function WallpaperGallery() {
         `)
         .order("created_at", { ascending: false })
 
-      if (error) throw error
+      let { data, error } = await query
+
+      // If join fails, try without user_profiles
+      if (error && (error.message?.includes("relation") || error.message?.includes("does not exist"))) {
+        console.warn("User profiles join failed, fetching without join:", error.message)
+        const simpleQuery = supabase
+          .from("wallpapers")
+          .select("*")
+          .order("created_at", { ascending: false })
+        
+        const result = await simpleQuery
+        data = result.data
+        error = result.error
+      }
+
+      if (error) {
+        console.error("Error fetching wallpapers:", error)
+        if (error.message?.includes("relation") && error.message?.includes("does not exist")) {
+          setError("Wallpapers table not found. Please run the database migration first.")
+        } else {
+          setError(`Failed to fetch wallpapers: ${error.message || "Unknown error"}`)
+        }
+        setWallpapers([])
+        return
+      }
+
       setWallpapers(data || [])
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching wallpapers:", error)
-      // Check if it's a table doesn't exist error
-      if (error instanceof Error && error.message.includes("relation") && error.message.includes("does not exist")) {
+      if (error?.message?.includes("relation") && error?.message?.includes("does not exist")) {
         setError("Wallpapers table not found. Please run the database migration first.")
       } else {
-        setError("Failed to fetch wallpapers")
+        setError(`Failed to fetch wallpapers: ${error?.message || "Unknown error"}`)
       }
+      setWallpapers([])
     } finally {
       setLoading(false)
     }

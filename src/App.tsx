@@ -22,7 +22,6 @@ const EmotesGallery = lazy(() => import("./components/gallery/EmotesGallery"))
 const EmojiCombosGallery = lazy(() => import("./components/gallery/EmojiCombosGallery"))
 const WallpaperGallery = lazy(() => import("./components/gallery/WallpaperGallery"))
 const TrendingPage = lazy(() => import("./components/gallery/Trending"))
-const ModerationPanel = lazy(() => import("./components/users/moderation/ModerationPanel"))
 const ModerationLogs = lazy(() => import("./components/users/moderation/ModerationLogs"))
 const EnhancedModerationPage = lazy(() => import("./components/moderation/EnhancedModerationPage"))
 const EnhancedReportModal = lazy(() => import("./components/moderation/modals/EnhancedReportModal"))
@@ -193,7 +192,7 @@ function App() {
               <Route path="/profile-settings" element={<ProfileSettings />} />
               <Route path="/users" element={<UsersList />} />
               <Route path="/user/:username" element={<UserProfile />} />
-              <Route path="/moderation" element={<ModerationPanel />} />
+              <Route path="/moderation" element={<EnhancedModerationPage />} />
               <Route path="/moderation/logs" element={<ModerationLogs />} />
               <Route path="/moderation/enhanced" element={<EnhancedModerationPage />} />
               <Route path="/gallery/profiles" element={<ProfilesGallery />} />

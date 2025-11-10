@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import toast from 'react-hot-toast';
+import { getConfigValue } from '../../../lib/config';
 
 interface ServiceStatus {
   id: string;
@@ -49,8 +50,6 @@ interface MetricsData {
   };
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://dev.profilesafterdark.com/api/v1';
-
 export default function AnalyticsMonitoringView() {
   const [services, setServices] = useState<ServiceStatus[]>([]);
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
@@ -58,13 +57,25 @@ export default function AnalyticsMonitoringView() {
   const [isLive, setIsLive] = useState(true);
   const [timeRange, setTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('1h');
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [apiUrl, setApiUrl] = useState<string>(import.meta.env.VITE_API_URL || 'https://dev.profilesafterdark.com/api/v1');
+
+  // Initialize API URL from config
+  useEffect(() => {
+    getConfigValue('VITE_API_URL').then(url => {
+      if (url) {
+        setApiUrl(url);
+      }
+    }).catch(() => {
+      // Fallback already set
+    });
+  }, []);
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
 
       // Fetch service health
-      const healthResponse = await fetch(`${API_URL}/monitoring/health`);
+      const healthResponse = await fetch(`${apiUrl}/monitoring/health`);
       const healthData = await healthResponse.json();
       
       if (healthData.success) {
@@ -72,7 +83,7 @@ export default function AnalyticsMonitoringView() {
       }
 
       // Fetch metrics
-      const metricsResponse = await fetch(`${API_URL}/monitoring/metrics?timeRange=${timeRange}`);
+      const metricsResponse = await fetch(`${apiUrl}/monitoring/metrics?timeRange=${timeRange}`);
       const metricsData = await metricsResponse.json();
       
       if (metricsData.success) {
@@ -86,7 +97,7 @@ export default function AnalyticsMonitoringView() {
     } finally {
       setLoading(false);
     }
-  }, [timeRange]);
+  }, [timeRange, apiUrl]);
 
   useEffect(() => {
     loadData();

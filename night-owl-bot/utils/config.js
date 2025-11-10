@@ -65,11 +65,36 @@ export async function loadConfig() {
     const client = initSupabase();
     
     if (client && supabaseUrl && supabaseServiceKey) {
-      const { data, error } = await client
+      // Use Promise.race for timeout (Supabase doesn't have .timeout())
+      const queryPromise = client
         .from('bot_config')
         .select('key, value, category')
-        .order('category', { ascending: true })
-        .timeout(5000); // 5 second timeout
+        .order('category', { ascending: true });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database query timeout after 5 seconds')), 5000)
+      );
+      
+      let queryResult;
+      try {
+        // Race the query against a timeout
+        const result = await Promise.race([
+          queryPromise.then(result => ({ success: true, result })),
+          timeoutPromise.then(() => ({ success: false, error: new Error('Timeout') }))
+        ]);
+        
+        if (result.success) {
+          queryResult = result.result;
+        } else {
+          queryResult = { data: null, error: result.error };
+        }
+      } catch (err) {
+        // Query error or timeout
+        console.warn('⚠️  Database query failed:', err.message);
+        queryResult = { data: null, error: err };
+      }
+      
+      const { data, error } = queryResult || { data: null, error: null };
 
       if (error) {
         console.warn('⚠️  Failed to load config from database:', error.message);

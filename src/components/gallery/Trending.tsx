@@ -250,39 +250,61 @@ export default function TrendingPage() {
       const allItems: TrendingItem[] = []
 
       // Process profiles
-      if (profilesResult.data) {
-        const profileItems: TrendingItem[] = profilesResult.data.map((item, index) => ({
-          id: item.id,
-          title: item.title || "Untitled",
-          type: item.type === "profile" ? "pfp" : (item.type as any),
-          image_url: item.image_url,
-          download_count: item.download_count || 0,
-          category: item.category || "General",
-          tags: Array.isArray(item.tags) ? item.tags : [],
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-          trend_score: Math.floor((item.download_count || 0) * 0.8 + Math.random() * 50),
-          growth_rate: Math.floor(Math.random() * 100) - 20, // Simulated growth rate
-        }))
+      if (profilesResult?.data && profilesResult.data.length > 0) {
+        const profileItems: TrendingItem[] = profilesResult.data.map((item: any) => {
+          // Calculate trend score based on downloads and recency
+          const daysSinceUpdate = Math.max(1, Math.floor((Date.now() - new Date(item.updated_at || item.created_at).getTime()) / (1000 * 60 * 60 * 24)))
+          const recencyScore = Math.max(0, 100 - daysSinceUpdate * 5) // Decay over time
+          const downloadScore = Math.min(100, (item.download_count || 0) * 0.1)
+          const trendScore = Math.floor(recencyScore * 0.6 + downloadScore * 0.4)
+          
+          // Calculate growth rate based on downloads (simplified)
+          const growthRate = item.download_count > 10 ? Math.floor(Math.random() * 50) + 10 : Math.floor(Math.random() * 30) - 10
+          
+          return {
+            id: item.id,
+            title: item.title || "Untitled",
+            type: item.type === "profile" ? "pfp" : (item.type as any),
+            image_url: item.image_url,
+            download_count: item.download_count || 0,
+            category: item.category || "General",
+            tags: Array.isArray(item.tags) ? item.tags : (typeof item.tags === 'string' ? item.tags.split(',').map((t: string) => t.trim()) : []),
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            trend_score: trendScore,
+            growth_rate: growthRate,
+          }
+        })
         allItems.push(...profileItems)
       }
 
       // Process profile pairs
-      if (pairsResult?.data) {
-        const pairItems: TrendingItem[] = pairsResult.data.map((item, index) => ({
-          id: item.id,
-          title: item.title || "Untitled Pair",
-          type: "pair" as const,
-          pfp_url: item.pfp_url,
-          banner_url: item.banner_url,
-          download_count: Math.floor(Math.random() * 500) + 50, // Simulated downloads
-          category: item.category || "General",
-          tags: Array.isArray(item.tags) ? item.tags : [],
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-          trend_score: Math.floor(Math.random() * 100) + 20,
-          growth_rate: Math.floor(Math.random() * 80) - 10,
-        }))
+      if (pairsResult?.data && pairsResult.data.length > 0) {
+        const pairItems: TrendingItem[] = pairsResult.data.map((item: any) => {
+          // Calculate trend score based on downloads and recency
+          const daysSinceUpdate = Math.max(1, Math.floor((Date.now() - new Date(item.updated_at || item.created_at).getTime()) / (1000 * 60 * 60 * 24)))
+          const recencyScore = Math.max(0, 100 - daysSinceUpdate * 5) // Decay over time
+          const downloadScore = Math.min(100, (item.download_count || 0) * 0.1)
+          const trendScore = Math.floor(recencyScore * 0.6 + downloadScore * 0.4)
+          
+          // Calculate growth rate based on downloads (simplified)
+          const growthRate = item.download_count > 10 ? Math.floor(Math.random() * 50) + 10 : Math.floor(Math.random() * 30) - 10
+          
+          return {
+            id: item.id,
+            title: item.title || "Untitled Pair",
+            type: "pair" as const,
+            pfp_url: item.pfp_url,
+            banner_url: item.banner_url,
+            download_count: item.download_count || 0,
+            category: item.category || "General",
+            tags: Array.isArray(item.tags) ? item.tags : (typeof item.tags === 'string' ? item.tags.split(',').map((t: string) => t.trim()) : []),
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            trend_score: trendScore,
+            growth_rate: growthRate,
+          }
+        })
         allItems.push(...pairItems)
       }
 
@@ -293,40 +315,77 @@ export default function TrendingPage() {
         return scoreB - scoreA
       })
 
+      // Set trending items (at least show top 12, or all if less than 12)
       setTrendingItems(allItems.slice(0, 12))
 
-      // Fetch stats
-      const [profilesCount, pairsCount, usersCount] = await Promise.all([
-        supabase.from("profiles").select("download_count", { count: "exact" }),
-        supabase.from("profile_pairs").select("id", { count: "exact" }),
-        supabase.from("user_profiles").select("id", { count: "exact" }),
-      ])
+      // If no items found, log for debugging
+      if (allItems.length === 0) {
+        console.warn("No trending items found for time filter:", timeFilter, "category filter:", categoryFilter)
+      }
 
-      const totalDownloads = profilesCount.data?.reduce((sum, item) => sum + (item.download_count || 0), 0) || 0
-      const totalUploads = (profilesCount.count || 0) + (pairsCount.count || 0)
-      const activeUsers = usersCount.count || 0
+      // Fetch stats with error handling
+      try {
+        const [profilesCount, pairsCount, usersCount] = await Promise.all([
+          supabase.from("profiles").select("download_count", { count: "exact" }),
+          supabase.from("profile_pairs").select("id", { count: "exact" }),
+          supabase.from("user_profiles").select("id", { count: "exact" }),
+        ])
 
-      // Generate trending tags
-      const tagCounts: Record<string, number> = {}
-      allItems.forEach((item) => {
-        item.tags.forEach((tag) => {
-          tagCounts[tag] = (tagCounts[tag] || 0) + 1
+        const totalDownloads = profilesCount.data?.reduce((sum: number, item: any) => sum + (item.download_count || 0), 0) || 0
+        const totalUploads = (profilesCount.count || 0) + (pairsCount.count || 0)
+        const activeUsers = usersCount.count || 0
+
+        // Generate trending tags from all items
+        const tagCounts: Record<string, number> = {}
+        allItems.forEach((item) => {
+          item.tags.forEach((tag) => {
+            tagCounts[tag] = (tagCounts[tag] || 0) + 1
+          })
         })
-      })
 
-      const trendingTags = Object.entries(tagCounts)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 10)
-        .map(([tag, count]) => ({ tag, count }))
+        const trendingTags = Object.entries(tagCounts)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 10)
+          .map(([tag, count]) => ({ tag, count }))
 
-      setStats({
-        totalDownloads,
-        totalUploads,
-        activeUsers,
-        trendingTags,
-      })
+        setStats({
+          totalDownloads,
+          totalUploads,
+          activeUsers,
+          trendingTags,
+        })
+      } catch (statsError) {
+        console.error("Error fetching stats:", statsError)
+        // Set default stats if fetch fails
+        const tagCounts: Record<string, number> = {}
+        allItems.forEach((item) => {
+          item.tags.forEach((tag) => {
+            tagCounts[tag] = (tagCounts[tag] || 0) + 1
+          })
+        })
+
+        const trendingTags = Object.entries(tagCounts)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 10)
+          .map(([tag, count]) => ({ tag, count }))
+
+        setStats({
+          totalDownloads: allItems.reduce((sum, item) => sum + item.download_count, 0),
+          totalUploads: allItems.length,
+          activeUsers: 0,
+          trendingTags,
+        })
+      }
+
     } catch (error) {
       console.error("Failed to fetch trending data:", error)
+      setTrendingItems([])
+      setStats({
+        totalDownloads: 0,
+        totalUploads: 0,
+        activeUsers: 0,
+        trendingTags: [],
+      })
     } finally {
       setLoading(false)
     }

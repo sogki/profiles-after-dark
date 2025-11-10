@@ -7,6 +7,7 @@ import moderationRouter from './moderation.js';
 import statsRouter from './stats.js';
 import searchRouter from './search.js';
 import monitoringRouter from './monitoring.js';
+import configRouter from './config.js';
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ router.use('/moderation', moderationRouter);
 router.use('/stats', statsRouter);
 router.use('/search', searchRouter);
 router.use('/monitoring', monitoringRouter);
+router.use('/config', configRouter);
 
 /**
  * @route   GET /api/v1

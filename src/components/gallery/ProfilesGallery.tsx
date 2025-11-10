@@ -98,7 +98,8 @@ export default function ProfilesGallery() {
       setLoading(true)
       setError(null)
       try {
-        const { data, error } = await supabase
+        // Try to fetch with user_profiles join first
+        let query = supabase
           .from("profile_pairs")
           .select(`
             *,
@@ -113,22 +114,48 @@ export default function ProfilesGallery() {
           .neq("banner_url", "")
           .order("updated_at", { ascending: false })
 
+        let { data, error } = await query
+
+        // If join fails, try without user_profiles
+        if (error && (error.message?.includes("relation") || error.message?.includes("does not exist"))) {
+          console.warn("User profiles join failed, fetching without join:", error.message)
+          const simpleQuery = supabase
+            .from("profile_pairs")
+            .select("*")
+            .not("pfp_url", "is", null)
+            .not("banner_url", "is", null)
+            .neq("pfp_url", "")
+            .neq("banner_url", "")
+            .order("updated_at", { ascending: false })
+          
+          const result = await simpleQuery
+          data = result.data
+          error = result.error
+        }
+
         if (error) {
-          setError("Failed to fetch profile combos")
+          console.error("Error fetching profile combos:", error)
+          setError(`Failed to fetch profile combos: ${error.message || "Unknown error"}`)
           setLoading(false)
           return
         }
 
-        const profilesData: ProfilePair[] = (data || []).map((item) => {
+        if (!data || data.length === 0) {
+          setProfiles([])
+          setLoading(false)
+          return
+        }
+
+        const profilesData: ProfilePair[] = (data || []).map((item: any) => {
           let tags: string[] = []
           try {
             if (Array.isArray(item.tags)) {
               tags = item.tags
             } else if (item.tags) {
-              if (item.tags.includes("[")) {
+              if (typeof item.tags === 'string' && item.tags.includes("[")) {
                 tags = JSON.parse(item.tags)
-              } else {
-                tags = item.tags.split(",").map((t: string) => t.trim())
+              } else if (typeof item.tags === 'string') {
+                tags = item.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
               }
             }
           } catch (e) {
@@ -147,12 +174,14 @@ export default function ProfilesGallery() {
             created_at: item.created_at,
             updated_at: item.updated_at,
             color: item.color || undefined,
+            user_profiles: item.user_profiles || undefined,
           }
         })
 
         setProfiles(profilesData)
-      } catch (err) {
-        setError("Unexpected error loading profile combos")
+      } catch (err: any) {
+        console.error("Unexpected error loading profile combos:", err)
+        setError(`Unexpected error loading profile combos: ${err?.message || "Unknown error"}`)
       } finally {
         setLoading(false)
       }

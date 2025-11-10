@@ -205,6 +205,7 @@ import ContentManagementView from './views/ContentManagementView';
 import LogsView from './views/LogsView';
 import AutomationView from './views/AutomationView';
 import MonitoringView from './views/MonitoringView';
+import AnalyticsMonitoringView from './views/AnalyticsMonitoringView';
 import AppealsView from './views/AppealsView';
 import EnhancedUserManagementView from './views/EnhancedUserManagementView';
 import AnnouncementsView from './views/AnnouncementsView';
@@ -359,8 +360,8 @@ export default function EnhancedModerationPage() {
                   <Shield className="w-6 h-6 sm:w-7 sm:h-7 relative z-10 text-purple-400" />
                 </div>
                 <div>
-                  <span className="font-bold text-base sm:text-lg block">Moderation Panel</span>
-                  <span className="text-xs text-slate-400 hidden sm:block">Enhanced Management System</span>
+                  <span className="font-bold text-base sm:text-lg block">Mod Panel 2.0</span>
+                  <span className="text-xs text-slate-400 hidden sm:block">Enhanced Moderation System</span>
                 </div>
               </button>
             </div>
@@ -954,7 +955,7 @@ export default function EnhancedModerationPage() {
 
                 {/* Monitoring View */}
                 {activeView === 'monitoring' && (
-                  <MonitoringView />
+                  <AnalyticsMonitoringView />
                 )}
 
                 {/* Appeals View */}

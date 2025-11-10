@@ -4,17 +4,20 @@
  */
 
 interface Config {
-  VITE_SUPABASE_URL?: string;
-  VITE_SUPABASE_ANON_KEY?: string;
-  VITE_API_URL?: string;
-  VITE_BACKEND_URL?: string;
-  VITE_WEB_URL?: string;
+  // Base keys (preferred - single source of truth)
   SUPABASE_URL?: string;
+  SUPABASE_ANON_KEY?: string;
   API_URL?: string;
   BACKEND_URL?: string;
   WEB_URL?: string;
   CLIENT_ID?: string;
   GUILD_ID?: string;
+  // VITE_ prefixed versions (for backward compatibility, derived from base keys)
+  VITE_SUPABASE_URL?: string;
+  VITE_SUPABASE_ANON_KEY?: string;
+  VITE_API_URL?: string;
+  VITE_BACKEND_URL?: string;
+  VITE_WEB_URL?: string;
 }
 
 let configCache: Config | null = null;
@@ -41,15 +44,22 @@ export async function getConfig(): Promise<Config> {
       const data = await response.json();
       
       if (data.success && data.data?.config) {
-        // Merge with environment variables as fallback
+        // Use base keys from API (single source of truth)
+        // VITE_ prefixed versions are derived from base keys by the API
         configCache = {
           ...data.data.config,
-          // Fallback to env vars for values not in database
-          VITE_SUPABASE_URL: data.data.config.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL,
-          VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY, // Never from API (secret)
-          VITE_API_URL: data.data.config.VITE_API_URL || import.meta.env.VITE_API_URL || defaultApiUrl,
-          VITE_BACKEND_URL: data.data.config.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL,
-          VITE_WEB_URL: data.data.config.VITE_WEB_URL || import.meta.env.VITE_WEB_URL,
+          // Prefer base keys over VITE_ prefixed versions
+          SUPABASE_URL: data.data.config.SUPABASE_URL || data.data.config.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL,
+          SUPABASE_ANON_KEY: data.data.config.SUPABASE_ANON_KEY || data.data.config.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY,
+          API_URL: data.data.config.API_URL || data.data.config.VITE_API_URL || import.meta.env.VITE_API_URL || defaultApiUrl,
+          BACKEND_URL: data.data.config.BACKEND_URL || data.data.config.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL,
+          WEB_URL: data.data.config.WEB_URL || data.data.config.VITE_WEB_URL || import.meta.env.VITE_WEB_URL,
+          // Keep VITE_ versions for backward compatibility
+          VITE_SUPABASE_URL: data.data.config.VITE_SUPABASE_URL || data.data.config.SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL,
+          VITE_SUPABASE_ANON_KEY: data.data.config.VITE_SUPABASE_ANON_KEY || data.data.config.SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY,
+          VITE_API_URL: data.data.config.VITE_API_URL || data.data.config.API_URL || import.meta.env.VITE_API_URL || defaultApiUrl,
+          VITE_BACKEND_URL: data.data.config.VITE_BACKEND_URL || data.data.config.BACKEND_URL || import.meta.env.VITE_BACKEND_URL,
+          VITE_WEB_URL: data.data.config.VITE_WEB_URL || data.data.config.WEB_URL || import.meta.env.VITE_WEB_URL,
         };
         configCacheTime = Date.now();
         return configCache;
@@ -60,7 +70,15 @@ export async function getConfig(): Promise<Config> {
   }
 
   // Fallback to environment variables
+  // Map VITE_ env vars to base keys for consistency
   configCache = {
+    // Base keys (preferred)
+    SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+    SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    API_URL: import.meta.env.VITE_API_URL || defaultApiUrl,
+    BACKEND_URL: import.meta.env.VITE_BACKEND_URL,
+    WEB_URL: import.meta.env.VITE_WEB_URL,
+    // VITE_ versions (for backward compatibility)
     VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
     VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
     VITE_API_URL: import.meta.env.VITE_API_URL || defaultApiUrl,

@@ -52,46 +52,7 @@ const severityLevels = [
   { id: 'critical', label: 'Critical', color: 'red', description: 'Urgent attention needed' }
 ];
 
-// Notification functions
-const notifyStaffOfNewReport = async (reportData: {
-  reportedUserId?: string;
-  reporterUserId: string;
-  reason: string;
-  description: string;
-  urgent: boolean;
-}) => {
-  try {
-    // Get all staff members
-    const { data: staffMembers, error: staffError } = await supabase
-      .from('user_profiles')
-      .select('user_id')
-      .in('role', ['admin', 'moderator', 'staff']);
-
-    if (staffError) throw staffError;
-
-    // Create notifications for each staff member
-    const notifications = staffMembers?.map(staff => ({
-      user_id: staff.user_id,
-      content: reportData.urgent ? '🚨 Urgent Report Submitted' : '📋 New Report Submitted',
-      type: 'report',
-      priority: reportData.urgent ? 'high' : 'medium',
-      read: false,
-      created_at: new Date().toISOString()
-    })) || [];
-
-    if (notifications.length > 0) {
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert(notifications);
-
-      if (notificationError) {
-        console.error('Error creating staff notifications:', notificationError);
-      }
-    }
-  } catch (error) {
-    console.error('Error notifying staff:', error);
-  }
-};
+import { notifyAllStaffOfReport } from '../../../lib/moderationUtils';
 
 const notifyReporterOfSubmission = async (reporterUserId: string) => {
   try {
@@ -319,9 +280,11 @@ export default function EnhancedReportModal({
       // Debug: Log the report data before insertion
       console.log('Report data to insert:', reportData);
 
-      const { error } = await supabase
+      const { data: insertedReport, error } = await supabase
         .from('reports')
-        .insert(reportData);
+        .insert(reportData)
+        .select()
+        .single();
 
       if (error) {
         console.error('Database error details:', error);
@@ -352,37 +315,74 @@ export default function EnhancedReportModal({
           
           console.log('Trying minimal report data:', minimalReportData);
           
-          const { error: retryError } = await supabase
+          const { data: retryData, error: retryError } = await supabase
             .from('reports')
-            .insert(minimalReportData);
+            .insert(minimalReportData)
+            .select()
+            .single();
             
           if (retryError) {
             console.error('Retry also failed:', retryError);
             throw retryError;
           } else {
             console.log('Report submitted successfully with minimal data');
+            // Use retryData for notifications
+            if (retryData) {
+              // Get reporter and reported user info for notifications
+              const { data: reporterData } = await supabase
+                .from('user_profiles')
+                .select('username')
+                .eq('user_id', reporterUserId)
+                .single();
+              
+              const { data: reportedData } = reportedUserId ? await supabase
+                .from('user_profiles')
+                .select('username')
+                .eq('user_id', reportedUserId)
+                .single() : { data: null };
+
+              // Notify all staff
+              await notifyAllStaffOfReport(retryData.id, {
+                reporterUsername: reporterData?.username,
+                reportedUsername: reportedData?.username,
+                reason: formData.category,
+                urgent: formData.severity === 'high' || formData.priority === 'urgent'
+              });
+            }
           }
         } else {
           throw error;
         }
+      } else if (insertedReport) {
+        // Get reporter and reported user info for notifications
+        const { data: reporterData } = await supabase
+          .from('user_profiles')
+          .select('username')
+          .eq('user_id', reporterUserId)
+          .single();
+        
+        const { data: reportedData } = reportedUserId ? await supabase
+          .from('user_profiles')
+          .select('username')
+          .eq('user_id', reportedUserId)
+          .single() : { data: null };
+
+        // Log the report submission to moderation_logs
+        await logReportSubmission({
+          reporterUserId,
+          reportedUserId,
+          reason: formData.category,
+          description: formData.description
+        });
+
+        // Notify all staff members
+        await notifyAllStaffOfReport(insertedReport.id, {
+          reporterUsername: reporterData?.username,
+          reportedUsername: reportedData?.username,
+          reason: formData.category,
+          urgent: formData.severity === 'high' || formData.priority === 'urgent'
+        });
       }
-
-      // Log the report submission to moderation_logs
-      await logReportSubmission({
-        reporterUserId,
-        reportedUserId,
-        reason: formData.category,
-        description: formData.description
-      });
-
-      // Send notification to staff members
-      await notifyStaffOfNewReport({
-        reportedUserId: reportedUserId || null,
-        reporterUserId,
-        reason: formData.category,
-        description: formData.title,
-        urgent: formData.severity === 'high' || formData.priority === 'urgent'
-      });
 
       // Send confirmation notification to reporter
       await notifyReporterOfSubmission(reporterUserId);

@@ -32,6 +32,7 @@ const Guidelines = lazy(() => import("./components/legal/Guidelines"))
 const ReportContent = lazy(() => import("./components/legal/ReportContent"))
 const AppealsFormSystem = lazy(() => import("./components/appeal/AppealsForm"))
 const AuthCallback = lazy(() => import("./components/AuthCallback"))
+const ReportDetailView = lazy(() => import("./components/moderation/views/ReportDetailView"))
 
 import { useAuth } from "./context/authContext"
 
@@ -214,6 +215,7 @@ function App() {
               <Route path="/moderation" element={<EnhancedModerationPage />} />
               <Route path="/moderation/logs" element={<ModerationLogs />} />
               <Route path="/moderation/enhanced" element={<EnhancedModerationPage />} />
+              <Route path="/moderation/reports/:reportId" element={<ReportDetailView />} />
               <Route path="/gallery/profiles" element={<ProfilesGallery />} />
               <Route path="/gallery/pfps" element={<PfpGallery />} />
               <Route path="/gallery/banners" element={<BannersGallery />} />

@@ -29,8 +29,10 @@ router.get('/', async (req, res) => {
 
     // Filter out secret values for security
     // Only expose public values that the frontend needs
+    // We use base keys (without VITE_ prefix) and create VITE_ versions for frontend compatibility
     const publicKeys = [
       'SUPABASE_URL',
+      'SUPABASE_ANON_KEY', // Include this but mark as secret in response
       'API_URL',
       'BACKEND_URL',
       'WEB_URL',
@@ -40,22 +42,32 @@ router.get('/', async (req, res) => {
 
     // Build config object with only public values
     const publicConfig = {};
+    const secretKeys = new Set(); // Track which keys are secrets
     
     if (configData && configData.length > 0) {
       configData.forEach(item => {
-        // Only include if it's in the public keys list AND not marked as secret
-        if (publicKeys.includes(item.key) && !item.is_secret) {
+        // Include if it's in the public keys list
+        if (publicKeys.includes(item.key)) {
+          // For secrets, we still include them but mark them
+          if (item.is_secret) {
+            secretKeys.add(item.key);
+          }
           publicConfig[item.key] = item.value;
         }
       });
     }
 
-    // Also add VITE_ prefixed versions for compatibility
+    // Create VITE_ prefixed versions for frontend compatibility
+    // Frontend will use base keys, but we provide VITE_ versions for backward compatibility
     const viteConfig = {};
     Object.keys(publicConfig).forEach(key => {
       // Map to VITE_ prefixed versions that the frontend expects
       if (key === 'SUPABASE_URL') {
         viteConfig.VITE_SUPABASE_URL = publicConfig[key];
+      } else if (key === 'SUPABASE_ANON_KEY') {
+        // Always create VITE_ version (even if secret - frontend needs it for Supabase client)
+        // The frontend will use this from the API response, not from env vars
+        viteConfig.VITE_SUPABASE_ANON_KEY = publicConfig[key];
       } else if (key === 'API_URL') {
         viteConfig.VITE_API_URL = publicConfig[key];
       } else if (key === 'BACKEND_URL') {
@@ -64,7 +76,7 @@ router.get('/', async (req, res) => {
         viteConfig.VITE_WEB_URL = publicConfig[key];
       }
       
-      // Also keep original key for reference
+      // Also keep original key for reference (frontend will use these)
       viteConfig[key] = publicConfig[key];
     });
 

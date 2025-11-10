@@ -42,13 +42,72 @@ Copy the entire template from each file into Supabase's corresponding email temp
 
 ## Custom Domain for Email Links:
 
-To make the confirmation link use your custom domain instead of `zzywottwfffyddnorein.supabase.co`:
+To make the confirmation link use your custom domain instead of `zzywottwfffyddnorein.supabase.co`, you need to configure Supabase to use your custom domain:
+
+### Option 1: Configure Site URL (Recommended)
 
 1. Go to **Supabase Dashboard** → **Settings** → **API**
-2. Under **"Site URL"**, set it to your production domain (e.g., `https://www.profilesafterdark.com`)
-3. Under **"Redirect URLs"**, add your callback URL: `https://www.profilesafterdark.com/auth/callback`
+2. Under **"Site URL"**, set it to your production domain:
+   ```
+   https://www.profilesafterdark.com
+   ```
+3. Under **"Redirect URLs"**, add your callback URL:
+   ```
+   https://www.profilesafterdark.com/auth/callback
+   ```
+4. Save the settings
 
-The confirmation email will now use your custom domain in the redirect URL.
+**Note:** This will make the `redirect_to` parameter use your custom domain, but the base URL will still be Supabase's domain. The full link will look like:
+```
+https://zzywottwfffyddnorein.supabase.co/auth/v1/verify?token=...&redirect_to=https://www.profilesafterdark.com/auth/callback
+```
+
+### Option 2: Set Up Custom Domain (Full Custom Domain)
+
+For the email links to use your custom domain completely (e.g., `https://www.profilesafterdark.com/auth/v1/verify?...`), you need to:
+
+1. **Set up a custom domain in Supabase:**
+   - Go to **Supabase Dashboard** → **Settings** → **Custom Domains**
+   - Add your custom domain (e.g., `api.profilesafterdark.com`)
+   - Follow Supabase's DNS configuration instructions
+   - Wait for DNS propagation (can take up to 48 hours)
+
+2. **Update Site URL:**
+   - Go to **Settings** → **API**
+   - Set **"Site URL"** to your custom domain:
+     ```
+     https://api.profilesafterdark.com
+     ```
+
+3. **Update Redirect URLs:**
+   - Add your callback URL:
+     ```
+     https://www.profilesafterdark.com/auth/callback
+     ```
+
+4. **Update your frontend configuration:**
+   - In your `.env` file, set:
+     ```
+     VITE_SUPABASE_CUSTOM_DOMAIN=api.profilesafterdark.com
+     ```
+
+**Important:** Custom domains in Supabase require:
+- A Pro plan or higher
+- Proper DNS configuration (CNAME or A record)
+- SSL certificate (handled by Supabase)
+
+### Option 3: Reverse Proxy (Advanced)
+
+If you can't use Supabase's custom domain feature, you can set up a reverse proxy on your server to forward requests from your custom domain to Supabase. This requires server configuration and is more complex.
+
+### Current Configuration Check:
+
+Check your current Supabase settings:
+- **Site URL:** Should be your production domain
+- **Redirect URLs:** Should include your callback URL
+- **Custom Domain:** Check if you have one configured
+
+The `{{ .ConfirmationURL }}` variable in email templates will automatically use whatever domain is configured in Supabase's settings.
 
 ## Notes:
 

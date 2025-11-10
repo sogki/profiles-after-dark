@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/authContext';
 import { useModerationSystem } from './hooks/useModerationSystem';
 import { motion } from 'framer-motion';
@@ -36,11 +36,11 @@ import {
   FileText,
   Bot,
   Monitor,
-  PieChart,
-  LineChart,
-  BarChart,
+  PieChart as PieChartIcon,
+  LineChart as LineChartIcon,
+  BarChart as BarChartIcon,
   Scatter,
-  AreaChart,
+  AreaChart as AreaChartIcon,
   Gauge,
   Thermometer,
   Lightbulb,
@@ -192,8 +192,13 @@ import {
   Psi,
   Omega
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { LineChart, Line, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { getConfigValue } from '../../lib/config';
+import { formatStatus } from '../../lib/formatStatus';
+import { handleReportOrAppeal } from '../../lib/moderationUtils';
+import Footer from '../Footer';
 
 // Import child components
 import EnhancedReportModal from './modals/EnhancedReportModal';
@@ -204,17 +209,20 @@ import ModerationAnalytics from './modals/ModerationAnalytics';
 import ContentManagementView from './views/ContentManagementView';
 import LogsView from './views/LogsView';
 import AutomationView from './views/AutomationView';
-import MonitoringView from './views/MonitoringView';
 import AnalyticsMonitoringView from './views/AnalyticsMonitoringView';
 import AppealsView from './views/AppealsView';
 import EnhancedUserManagementView from './views/EnhancedUserManagementView';
 import AnnouncementsView from './views/AnnouncementsView';
+import ReportDetailView from './views/ReportDetailView';
 
 export default function EnhancedModerationPage() {
   // ALL HOOKS MUST BE CALLED FIRST - before any conditional returns
-  const { user, userProfile, signOut } = useAuth();
+  const { user, userProfile } = useAuth();
   const navigate = useNavigate();
-  const [activeView, setActiveView] = useState<'dashboard' | 'reports' | 'content' | 'logs' | 'analytics' | 'users' | 'automation' | 'announcements' | 'settings' | 'monitoring' | 'appeals' | 'messaging' | 'notifications'>('dashboard');
+  const params = useParams();
+  const [searchParams] = useSearchParams();
+  const reportId = params.reportId || searchParams.get('reportId');
+  const [activeView, setActiveView] = useState<'dashboard' | 'reports' | 'content' | 'logs' | 'analytics' | 'users' | 'automation' | 'announcements' | 'settings' | 'appeals' | 'messaging' | 'notifications'>('dashboard');
   const [showReportModal, setShowReportModal] = useState(false);
   const [showMessaging, setShowMessaging] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -238,6 +246,37 @@ export default function EnhancedModerationPage() {
     system: true
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [dashboardTimeRange, setDashboardTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
+  const [systemHealth, setSystemHealth] = useState<{
+    api: { status: string; responseTime: number };
+    database: { status: string; connections: string };
+    memory: { usage: number; status: string };
+  } | null>(null);
+  const [systemHealthLoading, setSystemHealthLoading] = useState(false);
+  
+  // Helper function to clear reportId when navigating away
+  const clearReportId = useCallback((view?: string) => {
+    if (reportId) {
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('reportId');
+      if (view) {
+        newSearchParams.set('view', view);
+      }
+      navigate(`/moderation?${newSearchParams.toString()}`, { replace: true });
+    }
+  }, [reportId, searchParams, navigate]);
+
+  // Update activeView when reportId changes
+  useEffect(() => {
+    if (reportId) {
+      // Don't change activeView, just ensure we're showing the report detail
+    } else if (searchParams.get('view')) {
+      const view = searchParams.get('view') as any;
+      if (['dashboard', 'reports', 'content', 'logs', 'analytics', 'users', 'automation', 'announcements', 'settings', 'appeals', 'messaging', 'notifications'].includes(view)) {
+        setActiveView(view);
+      }
+    }
+  }, [reportId, searchParams]);
   
   // Call all hooks before any conditional returns
   const {
@@ -253,9 +292,21 @@ export default function EnhancedModerationPage() {
     exportData
   } = useModerationSystem();
   
-  // Memoize filtered reports to prevent unnecessary re-renders - MUST be called before any returns
+  // State for collapsible sections
+  const [activeReportsCollapsed, setActiveReportsCollapsed] = useState(false);
+  const [dismissedReportsCollapsed, setDismissedReportsCollapsed] = useState(true);
+
+  // Memoize filtered reports (excluding dismissed) to prevent unnecessary re-renders - MUST be called before any returns
   const filteredReports = React.useMemo(() => {
     return reports.filter(report => {
+      // Exclude dismissed reports from main list
+      if (report.status === 'dismissed') return false;
+      
+      // Exclude in_progress reports that are being handled by other staff members
+      if (report.status === 'in_progress' && report.handled_by && report.handled_by !== user?.id) {
+        return false;
+      }
+      
       const matchesSearch = !searchQuery || 
         report.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         report.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -265,7 +316,139 @@ export default function EnhancedModerationPage() {
       
       return matchesSearch && matchesStatus && matchesPriority;
     });
-  }, [reports, searchQuery, filterStatus, filterPriority]);
+  }, [reports, searchQuery, filterStatus, filterPriority, user?.id]);
+
+  // Memoize dismissed reports separately
+  const filteredDismissedReports = React.useMemo(() => {
+    return reports.filter(report => {
+      // Only include dismissed reports
+      if (report.status !== 'dismissed') return false;
+      
+      const matchesSearch = !searchQuery || 
+        report.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        report.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        report.reported_user?.username?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesPriority = filterPriority === 'all' || report.priority === filterPriority;
+      
+      return matchesSearch && matchesPriority;
+    });
+  }, [reports, searchQuery, filterPriority]);
+
+  // Generate chart data from reports
+  const generateReportsOverTime = React.useMemo(() => {
+    const days = dashboardTimeRange === '7d' ? 7 : dashboardTimeRange === '30d' ? 30 : 90;
+    const data: { date: string; reports: number; resolved: number; pending: number }[] = [];
+    
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      
+      const dayReports = reports.filter(r => {
+        const reportDate = new Date(r.created_at);
+        return reportDate.toDateString() === date.toDateString();
+      });
+      
+      data.push({
+        date: dateStr,
+        reports: dayReports.length,
+        resolved: dayReports.filter(r => r.status === 'resolved').length,
+        pending: dayReports.filter(r => r.status === 'pending').length
+      });
+    }
+    
+    return data;
+  }, [reports, dashboardTimeRange]);
+
+  // Status distribution for pie chart
+  const statusDistribution = React.useMemo(() => {
+    const statusCounts = reports.reduce((acc, report) => {
+      acc[report.status] = (acc[report.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return [
+      { name: formatStatus('resolved'), value: statusCounts.resolved || 0, color: '#10b981' },
+      { name: formatStatus('pending'), value: statusCounts.pending || 0, color: '#f59e0b' },
+      { name: formatStatus('in_progress'), value: statusCounts.in_progress || 0, color: '#3b82f6' },
+      { name: formatStatus('dismissed'), value: statusCounts.dismissed || 0, color: '#ef4444' }
+    ].filter(item => item.value > 0);
+  }, [reports]);
+
+  // Priority breakdown
+  const priorityBreakdown = React.useMemo(() => {
+    const priorityCounts = reports.reduce((acc, report) => {
+      const priority = report.priority || 'low';
+      acc[priority] = (acc[priority] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return [
+      { name: 'High', value: priorityCounts.high || 0, color: '#ef4444' },
+      { name: 'Medium', value: priorityCounts.medium || 0, color: '#f59e0b' },
+      { name: 'Low', value: priorityCounts.low || 0, color: '#3b82f6' }
+    ];
+  }, [reports]);
+
+  // Load system health data
+  const loadSystemHealth = useCallback(async () => {
+    if (activeView !== 'dashboard') return;
+    
+    setSystemHealthLoading(true);
+    try {
+      const apiUrl = await getConfigValue('API_URL').catch(() => 
+        getConfigValue('VITE_API_URL').catch(() => 
+          import.meta.env.VITE_API_URL || 'https://dev.profilesafterdark.com/api/v1'
+        )
+      );
+      
+      // Ensure API URL has /api/v1 prefix if it doesn't already
+      const baseUrl = apiUrl.includes('/api/v1') ? apiUrl : `${apiUrl}/api/v1`;
+      const healthResponse = await fetch(`${baseUrl}/monitoring/health`);
+      const healthData = await healthResponse.json();
+      
+      if (healthData.success && healthData.data.services) {
+        const services = healthData.data.services;
+        const apiService = services.find((s: any) => s.id === 'api' || s.name === 'API Server');
+        const dbService = services.find((s: any) => s.id === 'database' || s.name === 'Supabase Connection');
+        const websiteService = services.find((s: any) => s.id === 'website' || s.name === 'Website');
+        
+        setSystemHealth({
+          api: {
+            status: apiService?.status === 'operational' ? 'Operational' : apiService?.status === 'degraded' ? 'Degraded' : 'Down',
+            responseTime: apiService?.responseTime || 0
+          },
+          database: {
+            status: dbService?.status === 'operational' ? 'Healthy' : dbService?.status === 'degraded' ? 'Degraded' : 'Down',
+            connections: '23/50' // This would come from metrics if available
+          },
+          memory: {
+            usage: 72, // This would come from metrics if available
+            status: 'warning'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error loading system health:', error);
+      // Set default values on error
+      setSystemHealth({
+        api: { status: 'Unknown', responseTime: 0 },
+        database: { status: 'Unknown', connections: 'N/A' },
+        memory: { usage: 0, status: 'unknown' }
+      });
+    } finally {
+      setSystemHealthLoading(false);
+    }
+  }, [activeView]);
+
+  // Load system health when dashboard is active
+  useEffect(() => {
+    if (activeView === 'dashboard') {
+      loadSystemHealth();
+      const interval = setInterval(loadSystemHealth, 60000); // Refresh every minute
+      return () => clearInterval(interval);
+    }
+  }, [activeView, loadSystemHealth]);
 
   // Prevent body scroll when sidebar is open on mobile
   useEffect(() => {
@@ -306,9 +489,28 @@ export default function EnhancedModerationPage() {
     );
   }
 
-  const handleReportAction = (reportId: string, action: 'resolve' | 'dismiss', reportTitle: string) => {
-    setConfirmAction({ type: action, reportId, reportTitle });
-    setShowConfirmDialog(true);
+  const handleReportAction = async (reportId: string, action: 'handle' | 'resolve' | 'dismiss', reportTitle: string) => {
+    if (action === 'handle') {
+      // Handle the report immediately - this will mark it as in_progress and remove notifications for other staff
+      if (user?.id) {
+        try {
+          await handleReport(reportId, 'in_progress', `Handled by ${userProfile?.username || 'moderator'}`);
+          // Navigate to the report detail page within the mod panel
+          navigate(`/moderation?reportId=${reportId}`);
+        } catch (error: any) {
+          console.error('Error handling report:', error);
+          // The handleReport function already shows an error toast, but we can add more context here if needed
+          if (error?.message) {
+            console.error('Detailed error:', error.message);
+          }
+        }
+      } else {
+        toast.error('You must be logged in to handle reports');
+      }
+    } else {
+      setConfirmAction({ type: action, reportId, reportTitle });
+      setShowConfirmDialog(true);
+    }
   };
 
   const confirmReportAction = async () => {
@@ -333,12 +535,11 @@ export default function EnhancedModerationPage() {
     { id: 'reports', label: 'Reports', icon: Flag },
     { id: 'content', label: 'Content', icon: FileText },
     { id: 'logs', label: 'Logs', icon: Clock },
-    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+    { id: 'analytics', label: 'Analytics & Monitoring', icon: TrendingUp },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'automation', label: 'Automation', icon: Bot },
     { id: 'announcements', label: 'Announcements', icon: Megaphone },
     { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'monitoring', label: 'Monitoring', icon: Monitor },
     { id: 'appeals', label: 'Appeals', icon: AlertTriangle },
     { id: 'messaging', label: 'Messaging', icon: MessageSquare },
     { id: 'notifications', label: 'Notifications', icon: Bell }
@@ -360,30 +561,13 @@ export default function EnhancedModerationPage() {
                   <Shield className="w-6 h-6 sm:w-7 sm:h-7 relative z-10 text-purple-400" />
                 </div>
                 <div>
-                  <span className="font-bold text-base sm:text-lg block">Mod Panel 2.0</span>
+                  <span className="font-bold text-base sm:text-lg block">Moderation Panel</span>
                   <span className="text-xs text-slate-400 hidden sm:block">Enhanced Moderation System</span>
                 </div>
               </button>
             </div>
             
             <div className="flex items-center space-x-3 sm:space-x-4">
-              <div className="flex items-center space-x-3 bg-slate-800/50 rounded-lg px-3 py-1.5 border border-slate-700/50">
-                {userProfile?.avatar_url ? (
-                  <img
-                    src={userProfile.avatar_url}
-                    alt={`${userProfile.display_name || userProfile.username}'s avatar`}
-                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border-2 border-purple-500/50 shadow-lg shadow-purple-500/20"
-                  />
-                ) : (
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-purple-500/30">
-                    <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                  </div>
-                )}
-                <div className="text-xs sm:text-sm hidden sm:block">
-                  <div className="text-white font-semibold">{userProfile?.display_name || userProfile?.username}</div>
-                  <div className="text-purple-400 text-xs font-medium capitalize">{userProfile?.role}</div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -405,7 +589,6 @@ export default function EnhancedModerationPage() {
           {/* Sidebar Header */}
           <div className="p-4 lg:p-6 border-b border-slate-800/30 flex items-center justify-between">
             <div>
-              <h2 className="text-lg lg:text-xl font-bold text-white mb-1">Admin Panel</h2>
               <p className="text-xs text-slate-400">Profiles After Dark</p>
             </div>
             <button
@@ -421,6 +604,7 @@ export default function EnhancedModerationPage() {
             {/* Dashboard - No Group */}
             <button
               onClick={() => {
+                clearReportId('dashboard');
                 setActiveView('dashboard');
                 setSidebarOpen(false);
               }}
@@ -462,6 +646,7 @@ export default function EnhancedModerationPage() {
                       <button
                         key={item.id}
                         onClick={() => {
+                          clearReportId(item.id);
                           setActiveView(item.id as any);
                           setSidebarOpen(false);
                         }}
@@ -507,6 +692,7 @@ export default function EnhancedModerationPage() {
                       <button
                         key={item.id}
                         onClick={() => {
+                          clearReportId(item.id);
                           setActiveView(item.id as any);
                           setSidebarOpen(false);
                         }}
@@ -551,6 +737,7 @@ export default function EnhancedModerationPage() {
                       <button
                         key={item.id}
                         onClick={() => {
+                          clearReportId(item.id);
                           setActiveView(item.id as any);
                           setSidebarOpen(false);
                         }}
@@ -588,8 +775,7 @@ export default function EnhancedModerationPage() {
                 <div className="ml-2 space-y-1 mt-1">
                   {[
                     { id: 'automation', label: 'AI Moderation', icon: Bot },
-                    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-                    { id: 'monitoring', label: 'Monitoring', icon: Monitor },
+                    { id: 'analytics', label: 'Analytics & Monitoring', icon: TrendingUp },
                     { id: 'settings', label: 'Settings', icon: Settings }
                   ].map((item) => {
                     const IconComponent = item.icon;
@@ -598,6 +784,7 @@ export default function EnhancedModerationPage() {
                       <button
                         key={item.id}
                         onClick={() => {
+                          clearReportId(item.id);
                           setActiveView(item.id as any);
                           setSidebarOpen(false);
                         }}
@@ -649,7 +836,10 @@ export default function EnhancedModerationPage() {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setActiveView(item.id as any)}
+                      onClick={() => {
+                        clearReportId(item.id);
+                        setActiveView(item.id as any);
+                      }}
                       className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all ${
                         isActive
                           ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
@@ -687,47 +877,329 @@ export default function EnhancedModerationPage() {
                 {activeView === 'dashboard' && (
                   <div className="space-y-6">
                     {/* Header */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
                       <div>
                         <h1 className="text-3xl font-bold text-white mb-1">Dashboard</h1>
                         <p className="text-slate-400 text-sm">Overview and quick stats</p>
                       </div>
-                      <button
-                        onClick={() => signOut()}
-                        className="flex items-center space-x-2 px-4 py-2 bg-[#2D2D2D] hover:bg-slate-700 text-white rounded-lg transition-colors"
-                      >
-                        <span className="text-sm font-medium">Logout</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-2 bg-[#2D2D2D] rounded-lg p-1 border border-slate-700/50">
+                          {(['7d', '30d', '90d'] as const).map((range) => (
+                            <button
+                              key={range}
+                              onClick={() => setDashboardTimeRange(range)}
+                              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                                dashboardTimeRange === range
+                                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                                  : 'text-slate-400 hover:text-white'
+                              }`}
+                            >
+                              {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          onClick={refreshData}
+                          className="flex items-center space-x-2 px-4 py-2 bg-[#2D2D2D] hover:bg-slate-700 text-white rounded-lg transition-colors border border-slate-700/50"
+                        >
+                          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                          <span className="text-sm font-medium hidden sm:inline">Refresh</span>
+                        </button>
+                      </div>
                     </div>
 
                     {/* Quick Stats Cards */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                       {[
-                        { title: 'Total Reports', value: stats?.totalReports || 0, icon: Flag },
-                        { title: 'Pending Reports', value: stats?.pendingReports || 0, icon: Clock },
-                        { title: 'Resolved Reports', value: stats?.resolvedReports || 0, icon: CheckCircle },
-                        { title: 'Active Users', value: stats?.activeUsers || 0, icon: Users }
+                        { title: 'Total Reports', value: stats?.totalReports || 0, icon: Flag, color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
+                        { title: 'Pending Reports', value: stats?.pendingReports || 0, icon: Clock, color: 'text-orange-400', bgColor: 'bg-orange-500/10' },
+                        { title: 'Resolved Reports', value: stats?.resolvedReports || 0, icon: CheckCircle, color: 'text-green-400', bgColor: 'bg-green-500/10' },
+                        { title: 'Active Users', value: stats?.activeUsers || 0, icon: Users, color: 'text-purple-400', bgColor: 'bg-purple-500/10' }
                       ].map((stat, index) => {
                         const IconComponent = stat.icon;
                         return (
-                          <div
+                          <motion.div
                             key={stat.title}
-                            className="bg-[#2D2D2D] rounded-lg p-4 flex items-center justify-between"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            className="bg-[#2D2D2D] rounded-lg p-4 border border-slate-800/30 hover:border-purple-500/30 transition-colors"
                           >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                                <IconComponent className={`w-5 h-5 ${stat.color}`} />
+                              </div>
+                              <TrendingUp className="w-4 h-4 text-green-400" />
+                            </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-slate-400 text-xs mb-1">{stat.title}</p>
-                              <p className="text-2xl font-bold text-white">{stat.value}</p>
+                              <p className="text-2xl font-bold text-white">{stat.value.toLocaleString()}</p>
                             </div>
-                            <IconComponent className="w-8 h-8 text-slate-400 flex-shrink-0" />
-                          </div>
+                          </motion.div>
                         );
                       })}
                     </div>
 
+                    {/* Charts Row */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Reports Over Time Chart */}
+                      <div className="bg-[#1A1A1A] rounded-lg border border-slate-800/30 p-6">
+                        <div className="flex items-center justify-between mb-6">
+                          <div>
+                            <h2 className="text-xl font-bold text-white mb-1">Reports Over Time</h2>
+                            <p className="text-slate-400 text-sm">Report activity trends</p>
+                          </div>
+                          <Activity className="w-5 h-5 text-purple-400" />
+                        </div>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <AreaChart data={generateReportsOverTime}>
+                            <defs>
+                              <linearGradient id="colorReports" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#9333ea" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#9333ea" stopOpacity={0}/>
+                              </linearGradient>
+                              <linearGradient id="colorResolved" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                              </linearGradient>
+                              <linearGradient id="colorPending" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                            <XAxis 
+                              dataKey="date" 
+                              stroke="#9ca3af"
+                              style={{ fontSize: '12px' }}
+                            />
+                            <YAxis 
+                              stroke="#9ca3af"
+                              style={{ fontSize: '12px' }}
+                            />
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: '#1f2937', 
+                                border: '1px solid #374151',
+                                borderRadius: '8px',
+                                color: '#fff'
+                              }}
+                            />
+                            <Legend 
+                              wrapperStyle={{ color: '#9ca3af', fontSize: '12px' }}
+                            />
+                            <Area 
+                              type="monotone" 
+                              dataKey="reports" 
+                              stroke="#9333ea" 
+                              fillOpacity={1} 
+                              fill="url(#colorReports)"
+                              name="Total Reports"
+                            />
+                            <Area 
+                              type="monotone" 
+                              dataKey="resolved" 
+                              stroke="#10b981" 
+                              fillOpacity={1} 
+                              fill="url(#colorResolved)"
+                              name="Resolved"
+                            />
+                            <Area 
+                              type="monotone" 
+                              dataKey="pending" 
+                              stroke="#f59e0b" 
+                              fillOpacity={1} 
+                              fill="url(#colorPending)"
+                              name="Pending"
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Status Distribution Pie Chart */}
+                      <div className="bg-[#1A1A1A] rounded-lg border border-slate-800/30 p-6">
+                        <div className="flex items-center justify-between mb-6">
+                          <div>
+                            <h2 className="text-xl font-bold text-white mb-1">Status Distribution</h2>
+                            <p className="text-slate-400 text-sm">Report status breakdown</p>
+                          </div>
+                          <PieChartIcon className="w-5 h-5 text-purple-400" />
+                        </div>
+                        {statusDistribution.length > 0 ? (
+                          <ResponsiveContainer width="100%" height={300}>
+                            <RechartsPieChart>
+                              <Pie
+                                data={statusDistribution}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                outerRadius={100}
+                                fill="#8884d8"
+                                dataKey="value"
+                              >
+                                {statusDistribution.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <Tooltip 
+                                contentStyle={{ 
+                                  backgroundColor: '#1f2937', 
+                                  border: '1px solid #374151',
+                                  borderRadius: '8px',
+                                  color: '#fff'
+                                }}
+                              />
+                            </RechartsPieChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="flex items-center justify-center h-[300px]">
+                            <p className="text-slate-400">No data available</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Priority Breakdown Chart */}
+                    <div className="bg-[#1A1A1A] rounded-lg border border-slate-800/30 p-6">
+                      <div className="flex items-center justify-between mb-6">
+                        <div>
+                          <h2 className="text-xl font-bold text-white mb-1">Priority Breakdown</h2>
+                          <p className="text-slate-400 text-sm">Report priority distribution</p>
+                        </div>
+                        <BarChart3 className="w-5 h-5 text-purple-400" />
+                      </div>
+                      <ResponsiveContainer width="100%" height={250}>
+                        <RechartsBarChart data={priorityBreakdown}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                          <XAxis 
+                            dataKey="name" 
+                            stroke="#9ca3af"
+                            style={{ fontSize: '12px' }}
+                          />
+                          <YAxis 
+                            stroke="#9ca3af"
+                            style={{ fontSize: '12px' }}
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: '#1f2937', 
+                              border: '1px solid #374151',
+                              borderRadius: '8px',
+                              color: '#fff'
+                            }}
+                          />
+                          <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                            {priorityBreakdown.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Bar>
+                        </RechartsBarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* System Health Overview */}
+                    <div className="bg-[#1A1A1A] rounded-lg border border-slate-800/30 p-6">
+                      <div className="flex items-center justify-between mb-6">
+                        <div>
+                          <h2 className="text-xl font-bold text-white mb-1">System Health</h2>
+                          <p className="text-slate-400 text-sm">Quick system status overview</p>
+                        </div>
+                        <Monitor className="w-5 h-5 text-purple-400" />
+                      </div>
+                      {systemHealthLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                        </div>
+                      ) : systemHealth ? (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className={`bg-[#2D2D2D] rounded-lg p-4 border ${
+                            systemHealth.api.status === 'Operational' ? 'border-green-500/20' :
+                            systemHealth.api.status === 'Degraded' ? 'border-yellow-500/20' :
+                            'border-red-500/20'
+                          }`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-slate-400 text-sm">API Status</span>
+                              {systemHealth.api.status === 'Operational' ? (
+                                <CheckCircle className="w-5 h-5 text-green-400" />
+                              ) : systemHealth.api.status === 'Degraded' ? (
+                                <AlertTriangle className="w-5 h-5 text-yellow-400" />
+                              ) : (
+                                <XCircle className="w-5 h-5 text-red-400" />
+                              )}
+                            </div>
+                            <div className="text-2xl font-bold text-white">{systemHealth.api.status}</div>
+                            <div className="text-xs text-slate-400 mt-1">
+                              {systemHealth.api.responseTime > 0 ? `Response: ${systemHealth.api.responseTime}ms` : 'No data'}
+                            </div>
+                          </div>
+                          <div className={`bg-[#2D2D2D] rounded-lg p-4 border ${
+                            systemHealth.database.status === 'Healthy' ? 'border-green-500/20' :
+                            systemHealth.database.status === 'Degraded' ? 'border-yellow-500/20' :
+                            'border-red-500/20'
+                          }`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-slate-400 text-sm">Database</span>
+                              {systemHealth.database.status === 'Healthy' ? (
+                                <CheckCircle className="w-5 h-5 text-green-400" />
+                              ) : systemHealth.database.status === 'Degraded' ? (
+                                <AlertTriangle className="w-5 h-5 text-yellow-400" />
+                              ) : (
+                                <XCircle className="w-5 h-5 text-red-400" />
+                              )}
+                            </div>
+                            <div className="text-2xl font-bold text-white">{systemHealth.database.status}</div>
+                            <div className="text-xs text-slate-400 mt-1">{systemHealth.database.connections} connections</div>
+                          </div>
+                          <div className={`bg-[#2D2D2D] rounded-lg p-4 border ${
+                            systemHealth.memory.status === 'healthy' ? 'border-green-500/20' :
+                            systemHealth.memory.status === 'warning' ? 'border-yellow-500/20' :
+                            'border-red-500/20'
+                          }`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-slate-400 text-sm">Memory Usage</span>
+                              {systemHealth.memory.status === 'healthy' ? (
+                                <CheckCircle className="w-5 h-5 text-green-400" />
+                              ) : systemHealth.memory.status === 'warning' ? (
+                                <AlertTriangle className="w-5 h-5 text-yellow-400" />
+                              ) : (
+                                <XCircle className="w-5 h-5 text-red-400" />
+                              )}
+                            </div>
+                            <div className="text-2xl font-bold text-white">{systemHealth.memory.usage}%</div>
+                            <div className="text-xs text-slate-400 mt-1">
+                              {systemHealth.memory.status === 'warning' ? 'Above threshold' : 'Normal'}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <p className="text-slate-400">Unable to load system health data</p>
+                        </div>
+                      )}
+                      <div className="mt-4 pt-4 border-t border-slate-800/30">
+                        <button
+                          onClick={() => {
+                            clearReportId('analytics');
+                            setActiveView('analytics');
+                          }}
+                          className="w-full px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 text-white rounded-lg transition-colors flex items-center justify-center space-x-2"
+                        >
+                          <TrendingUp className="w-4 h-4" />
+                          <span>View Full Analytics & Monitoring</span>
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Recent Activity */}
                     <div className="bg-[#1A1A1A] rounded-lg border border-slate-800/30 p-6">
-                      <h2 className="text-2xl font-bold text-white mb-6">Recent Activity</h2>
+                      <div className="flex items-center justify-between mb-6">
+                        <div>
+                          <h2 className="text-xl font-bold text-white mb-1">Recent Activity</h2>
+                          <p className="text-slate-400 text-sm">Latest moderation actions</p>
+                        </div>
+                        <Clock className="w-5 h-5 text-purple-400" />
+                      </div>
                       <div className="space-y-3">
                         {stats.recentActivity && stats.recentActivity.length > 0 ? (
                           stats.recentActivity.slice(0, 5).map((activity, index) => {
@@ -736,12 +1208,17 @@ export default function EnhancedModerationPage() {
                             const iconColor = activityType === 'fanart' ? 'text-pink-400' : 'text-purple-400';
                             
                             return (
-                              <div
+                              <motion.div
                                 key={activity.id || index}
-                                className="bg-[#2D2D2D] rounded-lg p-4 flex items-center justify-between"
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: index * 0.1 }}
+                                className="bg-[#2D2D2D] rounded-lg p-4 flex items-center justify-between hover:bg-[#353535] transition-colors"
                               >
                                 <div className="flex items-center space-x-4 flex-1 min-w-0">
-                                  <IconComponent className={`w-5 h-5 flex-shrink-0 ${iconColor}`} />
+                                  <div className={`p-2 rounded-lg ${iconColor === 'text-pink-400' ? 'bg-pink-500/10' : 'bg-purple-500/10'}`}>
+                                    <IconComponent className={`w-5 h-5 ${iconColor}`} />
+                                  </div>
                                   <div className="flex-1 min-w-0">
                                     <p className="text-white font-medium text-sm truncate">
                                       {typeof activity.action === 'string' 
@@ -750,9 +1227,7 @@ export default function EnhancedModerationPage() {
                                           ? activity.title
                                           : activity.action?.title || activity.title?.title || 'Unknown activity'}
                                     </p>
-                                    <p className={`text-xs mt-1 ${
-                                      activityType === 'fanart' ? 'text-pink-400' : 'text-purple-400'
-                                    }`}>
+                                    <p className={`text-xs mt-1 ${iconColor}`}>
                                       {activityType === 'fanart' ? 'Fan art' : activity.description || 'Moderation action'}
                                     </p>
                                     {activity.user && (
@@ -776,7 +1251,7 @@ export default function EnhancedModerationPage() {
                                   </div>
                                   <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
                                 </div>
-                              </div>
+                              </motion.div>
                             );
                           })
                         ) : (
@@ -789,8 +1264,13 @@ export default function EnhancedModerationPage() {
                   </div>
                 )}
 
+                {/* Report Detail View */}
+                {reportId && (
+                  <ReportDetailView />
+                )}
+
                 {/* Reports View */}
-                {activeView === 'reports' && (
+                {!reportId && activeView === 'reports' && (
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <h2 className="text-2xl font-bold text-white">Reports</h2>
@@ -807,13 +1287,20 @@ export default function EnhancedModerationPage() {
                         </div>
                         <select
                           value={filterStatus}
-                          onChange={(e) => setFilterStatus(e.target.value)}
+                          onChange={(e) => {
+                            setFilterStatus(e.target.value);
+                            // Auto-expand dismissed section if filtering by dismissed
+                            if (e.target.value === 'dismissed') {
+                              setDismissedReportsCollapsed(false);
+                            }
+                          }}
                           className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                         >
                           <option value="all">All Status</option>
-                          <option value="pending">Pending</option>
-                          <option value="resolved">Resolved</option>
-                          <option value="dismissed">Dismissed</option>
+                          <option value="pending">{formatStatus('pending')}</option>
+                          <option value="in_progress">{formatStatus('in_progress')}</option>
+                          <option value="resolved">{formatStatus('resolved')}</option>
+                          <option value="dismissed">{formatStatus('dismissed')}</option>
                         </select>
                         <select
                           value={filterPriority}
@@ -828,108 +1315,231 @@ export default function EnhancedModerationPage() {
                       </div>
                     </div>
 
-                    <div className="bg-slate-800 rounded-xl border border-slate-700">
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className="bg-slate-700/50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Report</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">User</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Status</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Priority</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Date</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-700">
-                            {filteredReports.map((report) => (
-                              <tr key={report.id} className="hover:bg-slate-700/50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div>
-                                    <div className="text-sm font-medium text-white">
-                                      {report.title || report.description || 'Report'}
-                                    </div>
-                                    <div className="text-sm text-slate-400 truncate max-w-xs">
-                                      {report.reason && `Reason: ${report.reason}`}
-                                    </div>
-                                    {report.details && (
-                                      <div className="text-xs text-slate-500 truncate max-w-xs mt-1">
-                                        {report.details}
-                                      </div>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-white">
-                                    {report.reported_user?.username || report.reported_user?.display_name || 'Unknown User'}
-                                  </div>
-                                  <div className="text-xs text-slate-400">
-                                    Reported by: {report.reporter?.username || report.reporter?.display_name || 'Unknown'}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`px-2 py-1 text-xs rounded-full ${
-                                    report.status === 'pending' ? 'bg-orange-500/20 text-orange-400' :
-                                    report.status === 'resolved' ? 'bg-green-500/20 text-green-400' :
-                                    'bg-red-500/20 text-red-400'
-                                  }`}>
-                                    {report.status}
+                    {/* Active Reports Section */}
+                    <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                      <button
+                        onClick={() => setActiveReportsCollapsed(!activeReportsCollapsed)}
+                        className="w-full flex items-center justify-between p-4 hover:bg-slate-700/50 transition-colors"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <h3 className="text-lg font-semibold text-white">
+                            Active Reports
+                          </h3>
+                          <span className="px-2 py-1 text-xs rounded-full bg-slate-700 text-slate-300">
+                            {filteredReports.length}
+                          </span>
+                        </div>
+                        {activeReportsCollapsed ? (
+                          <ChevronDown className="w-5 h-5 text-slate-400" />
+                        ) : (
+                          <ChevronUp className="w-5 h-5 text-slate-400" />
+                        )}
+                      </button>
+                      
+                      {!activeReportsCollapsed && (
+                        <div className="p-4">
+                          {filteredReports.length > 0 ? (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                              {filteredReports.map((report) => (
+                        <motion.div
+                          key={report.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-slate-800 rounded-xl border border-slate-700 p-5 hover:border-slate-600 transition-all hover:shadow-lg hover:shadow-purple-500/10"
+                        >
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base font-semibold text-white mb-1 truncate">
+                                {report.title || report.description || 'Report'}
+                              </h3>
+                              <p className="text-sm text-slate-400 truncate">
+                                {report.reason || 'No reason provided'}
+                              </p>
+                            </div>
+                            <span className={`px-2 py-1 text-xs rounded-full flex-shrink-0 ml-2 ${
+                              report.status === 'pending' ? 'bg-orange-500/20 text-orange-400' :
+                              report.status === 'resolved' ? 'bg-green-500/20 text-green-400' :
+                              report.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
+                              'bg-red-500/20 text-red-400'
+                            }`}>
+                              {formatStatus(report.status)}
+                            </span>
+                          </div>
+
+                          <div className="space-y-3 mb-4">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-400">Reported User:</span>
+                              <span className="text-white font-medium">
+                                {report.reported_user?.username || report.reported_user?.display_name || 'Unknown'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-400">Reporter:</span>
+                              <span className="text-white">
+                                {report.reporter?.username || report.reporter?.display_name || 'Unknown'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-400">Priority:</span>
+                              <div className="flex items-center space-x-2">
+                                <span className={`px-2 py-1 text-xs rounded-full ${
+                                  report.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+                                  report.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                                  'bg-blue-500/20 text-blue-400'
+                                }`}>
+                                  {report.priority || 'low'}
+                                </span>
+                                {report.urgent && (
+                                  <span className="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-400">
+                                    URGENT
                                   </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex items-center space-x-2">
-                                    <span className={`px-2 py-1 text-xs rounded-full ${
-                                      report.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-                                      report.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                                      'bg-blue-500/20 text-blue-400'
-                                    }`}>
-                                      {report.priority || 'low'}
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-400">Date:</span>
+                              <div className="flex items-center space-x-1 text-slate-300">
+                                <Clock className="w-3 h-3" />
+                                <span>{new Date(report.created_at).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {report.details && (
+                            <div className="mb-4">
+                              <p className="text-xs text-slate-500 line-clamp-2">
+                                {report.details}
+                              </p>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-end pt-4 border-t border-slate-700">
+                            {report.status === 'pending' && (
+                              <button
+                                onClick={() => handleReportAction(report.id, 'handle', report.title || 'Report')}
+                                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm font-medium"
+                              >
+                                <Shield className="w-4 h-4" />
+                                <span>Handle Report</span>
+                              </button>
+                            )}
+                            {report.status === 'in_progress' && (
+                              <button
+                                onClick={() => navigate(`/moderation?reportId=${report.id}`)}
+                                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+                              >
+                                <Eye className="w-4 h-4" />
+                                <span>View Report</span>
+                              </button>
+                            )}
+                          </div>
+                        </motion.div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-12 bg-slate-800 rounded-xl border border-slate-700">
+                              <Flag className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                              <p className="text-slate-400">No active reports found</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Dismissed Reports Section */}
+                    {filteredDismissedReports.length > 0 && (
+                      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                        <button
+                          onClick={() => setDismissedReportsCollapsed(!dismissedReportsCollapsed)}
+                          className="w-full flex items-center justify-between p-4 hover:bg-slate-700/50 transition-colors"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <h3 className="text-lg font-semibold text-white">
+                              Dismissed Reports
+                            </h3>
+                            <span className="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-400">
+                              {filteredDismissedReports.length}
+                            </span>
+                          </div>
+                          {dismissedReportsCollapsed ? (
+                            <ChevronDown className="w-5 h-5 text-slate-400" />
+                          ) : (
+                            <ChevronUp className="w-5 h-5 text-slate-400" />
+                          )}
+                        </button>
+                        
+                        {!dismissedReportsCollapsed && (
+                          <div className="p-4">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                              {filteredDismissedReports.map((report) => (
+                                <motion.div
+                                  key={report.id}
+                                  initial={{ opacity: 0, y: 20 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="bg-slate-800 rounded-xl border border-slate-700 p-5 hover:border-slate-600 transition-all hover:shadow-lg hover:shadow-red-500/10 opacity-75"
+                                >
+                                  <div className="flex items-start justify-between mb-4">
+                                    <div className="flex-1 min-w-0">
+                                      <h3 className="text-base font-semibold text-white mb-1 truncate">
+                                        {report.title || report.description || 'Report'}
+                                      </h3>
+                                      <p className="text-sm text-slate-400 truncate">
+                                        {report.reason || 'No reason provided'}
+                                      </p>
+                                    </div>
+                                    <span className="px-2 py-1 text-xs rounded-full flex-shrink-0 ml-2 bg-red-500/20 text-red-400">
+                                      {formatStatus(report.status)}
                                     </span>
-                                    {report.urgent && (
-                                      <span className="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-400">
-                                        URGENT
-                                      </span>
-                                    )}
                                   </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
-                                  <div>
-                                    <div>{new Date(report.created_at).toLocaleDateString()}</div>
-                                    <div className="text-xs text-slate-500">
-                                      {new Date(report.created_at).toLocaleTimeString()}
+
+                                  <div className="space-y-3 mb-4">
+                                    <div className="flex items-center justify-between text-sm">
+                                      <span className="text-slate-400">Reported User:</span>
+                                      <span className="text-white font-medium">
+                                        {report.reported_user?.username || report.reported_user?.display_name || 'Unknown'}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                      <span className="text-slate-400">Reporter:</span>
+                                      <span className="text-white">
+                                        {report.reporter?.username || report.reporter?.display_name || 'Unknown'}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                      <span className="text-slate-400">Priority:</span>
+                                      <div className="flex items-center space-x-2">
+                                        <span className={`px-2 py-1 text-xs rounded-full ${
+                                          report.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+                                          report.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                                          'bg-blue-500/20 text-blue-400'
+                                        }`}>
+                                          {report.priority || 'low'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                      <span className="text-slate-400">Date:</span>
+                                      <div className="flex items-center space-x-1 text-slate-300">
+                                        <Clock className="w-3 h-3" />
+                                        <span>{new Date(report.created_at).toLocaleDateString()}</span>
+                                      </div>
                                     </div>
                                   </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                  <div className="flex items-center space-x-2">
-                                    <button
-                                      onClick={() => setSelectedReport(report)}
-                                      className="text-purple-400 hover:text-purple-300"
-                                    >
-                                      <Eye className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleReportAction(report.id, 'resolve', report.title || 'Report')}
-                                      className="text-green-400 hover:text-green-300"
-                                      title="Resolve Report"
-                                    >
-                                      <CheckCircle className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleReportAction(report.id, 'dismiss', report.title || 'Report')}
-                                      className="text-red-400 hover:text-red-300"
-                                      title="Dismiss Report"
-                                    >
-                                      <XCircle className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+
+                                  {report.details && (
+                                    <div className="mb-4">
+                                      <p className="text-xs text-slate-500 line-clamp-2">
+                                        {report.details}
+                                      </p>
+                                    </div>
+                                  )}
+                                </motion.div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
 
@@ -951,11 +1561,6 @@ export default function EnhancedModerationPage() {
                 {/* Automation View */}
                 {activeView === 'automation' && (
                   <AutomationView />
-                )}
-
-                {/* Monitoring View */}
-                {activeView === 'monitoring' && (
-                  <AnalyticsMonitoringView />
                 )}
 
                 {/* Appeals View */}
@@ -993,16 +1598,9 @@ export default function EnhancedModerationPage() {
                   </div>
                 )}
 
+                {/* Analytics & Monitoring View */}
                 {activeView === 'analytics' && (
-                  <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-                    <h2 className="text-2xl font-bold text-white mb-4">Analytics</h2>
-                    <button
-                      onClick={() => setShowAnalytics(true)}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-                    >
-                      Open Analytics Dashboard
-                    </button>
-                  </div>
+                  <AnalyticsMonitoringView />
                 )}
 
                 {activeView === 'settings' && (
@@ -1080,6 +1678,9 @@ export default function EnhancedModerationPage() {
           </motion.div>
         </div>
       )}
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }

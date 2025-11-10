@@ -60,13 +60,17 @@ export default function AnalyticsMonitoringView() {
   const [apiUrl, setApiUrl] = useState<string>(import.meta.env.VITE_API_URL || 'https://dev.profilesafterdark.com/api/v1');
 
   // Initialize API URL from config
+  // Prefer base key (API_URL) over VITE_ prefixed version
   useEffect(() => {
-    getConfigValue('VITE_API_URL').then(url => {
-      if (url) {
-        setApiUrl(url);
-      }
+    getConfigValue('API_URL').then(url => {
+      if (url) setApiUrl(url);
     }).catch(() => {
-      // Fallback already set
+      // Fallback to VITE_API_URL for backward compatibility
+      getConfigValue('VITE_API_URL').then(url => {
+        if (url) setApiUrl(url);
+      }).catch(() => {
+        // Final fallback already set in useState
+      });
     });
   }, []);
 

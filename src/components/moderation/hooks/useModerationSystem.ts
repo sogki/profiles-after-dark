@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/authContext';
+import { handleReportOrAppeal } from '../../../lib/moderationUtils';
 import toast from 'react-hot-toast';
 
 interface Report {
@@ -361,15 +362,129 @@ export function useModerationSystem() {
 
   const handleReport = useCallback(async (reportId: string, action: string, reason?: string) => {
     try {
-      const { error } = await supabase
-        .from('reports')
-        .update({ 
-          status: action,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', reportId);
+      if (!user?.id) {
+        toast.error('You must be logged in to handle reports');
+        return;
+      }
 
-      if (error) throw error;
+      // Map action to handleReportOrAppeal action type
+      let reportAction: 'resolve' | 'dismiss' = 'resolve';
+      if (action === 'dismiss' || action === 'dismissed') {
+        reportAction = 'dismiss';
+      } else if (action === 'in_progress' || action === 'handle') {
+        // For "handle" action, we just mark as in_progress without removing notifications yet
+        // The actual handling will happen when they resolve/dismiss
+        // Note: reports table doesn't have updated_at column, so we don't include it
+        const updateData: any = {
+          status: 'in_progress',
+          handled_by: user.id,
+          handled_at: new Date().toISOString()
+        };
+
+        // First, verify the report exists
+        const { data: existingReport, error: checkError } = await supabase
+          .from('reports')
+          .select('id, status')
+          .eq('id', reportId)
+          .maybeSingle();
+
+        if (checkError) {
+          console.error('Error checking report:', checkError);
+          throw new Error(`Failed to verify report: ${checkError.message || checkError.code || 'Unknown error'}`);
+        }
+
+        if (!existingReport) {
+          throw new Error('Report not found');
+        }
+
+        // Note: No need to check role here - if user can access /moderation panel, they have staff role
+        console.log('Attempting to update report:', {
+          reportId,
+          userId: user.id,
+          updateData
+        });
+
+        // Now update the report
+        // First, try without .select() to see if the update actually happens
+        // Then query separately to verify
+        const { error: updateError } = await supabase
+          .from('reports')
+          .update(updateData)
+          .eq('id', reportId);
+
+        console.log('Update result (without select):', { updateError });
+
+        if (updateError) {
+          console.error('Error updating report to in_progress:', updateError);
+          console.error('Error details:', {
+            code: updateError.code,
+            message: updateError.message,
+            details: updateError.details,
+            hint: updateError.hint
+          });
+          
+          throw new Error(`Failed to update report: ${updateError.message || updateError.code || 'Unknown error'}`);
+        }
+
+        // Wait a moment for the update to propagate
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // Now query to verify the update
+        const { data, error } = await supabase
+          .from('reports')
+          .select('id, status, handled_by, handled_at')
+          .eq('id', reportId)
+          .maybeSingle();
+
+        console.log('Verification query result:', { data, error });
+
+        if (error) {
+          console.error('Error verifying report update:', error);
+          throw new Error(`Failed to verify report update: ${error.message || error.code || 'Unknown error'}`);
+        }
+
+        if (!data) {
+          console.error('Verification query returned no data - report may not exist or RLS is blocking');
+          throw new Error('Report update failed - could not verify update');
+        }
+
+        if (data.status !== 'in_progress') {
+          console.error('Verification failed - status is:', data.status, 'Expected: in_progress');
+          console.error('Full report data:', data);
+          console.error('Update data that was sent:', updateData);
+          console.error('User role:', userProfile?.role);
+          console.error('User ID:', user.id);
+          
+          // The update didn't work - this could be an RLS issue
+          // Let's check if we can even see the report and what the current state is
+          const { data: checkData, error: checkError } = await supabase
+            .from('reports')
+            .select('id, status, handled_by, handled_at')
+            .eq('id', reportId)
+            .maybeSingle();
+          
+          console.log('Check query result:', { checkData, checkError });
+          
+          // If the update didn't work, it's likely an RLS issue
+          // The RLS policy might be missing the WITH CHECK clause
+          throw new Error(`Report update failed - status is ${data.status}, expected in_progress. The update may have been blocked by RLS. Please ensure you have staff role in user_profiles table and run migration: 20250122000002_fix_reports_update_rls.sql`);
+        }
+
+        console.log('Update verified successfully - report status is in_progress');
+        
+        // Update local state
+        setReports(prev => prev.map(report => 
+          report.id === reportId 
+            ? { ...report, status: 'in_progress' as any, handled_by: user.id, handled_at: new Date().toISOString() }
+            : report
+        ));
+        
+        toast.success('Report is now being handled');
+        return;
+      }
+
+      // Use the utility function to handle the report and remove notifications for other staff
+      await handleReportOrAppeal('report', reportId, user.id, reportAction);
       
       // Update local state
       setReports(prev => prev.map(report => 
@@ -379,19 +494,21 @@ export function useModerationSystem() {
       ));
       
       toast.success(`Report ${action} successfully`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error handling report:', err);
-      toast.error('Failed to handle report');
+      const errorMessage = err?.message || err?.code || 'Unknown error occurred';
+      toast.error(`Failed to handle report: ${errorMessage}`);
+      throw err; // Re-throw so the caller can handle it if needed
     }
-  }, []);
+  }, [user]);
 
   const handleBulkAction = useCallback(async (reportIds: string[], action: string) => {
     try {
+      // Note: reports table doesn't have updated_at column
       const { error } = await supabase
         .from('reports')
         .update({ 
-          status: action,
-          updated_at: new Date().toISOString()
+          status: action
         })
         .in('id', reportIds);
 
@@ -400,7 +517,7 @@ export function useModerationSystem() {
       // Update local state
       setReports(prev => prev.map(report => 
         reportIds.includes(report.id)
-          ? { ...report, status: action as any, updated_at: new Date().toISOString() }
+          ? { ...report, status: action as any }
           : report
       ));
       

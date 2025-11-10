@@ -130,11 +130,18 @@
                       <tbody>
                         <tr>
                           <td>
-                            <p style="font-size: 13px; color: #a1a1aa; margin: 0 0 12px 0; line-height: 20px;">
-                              Button not working? Copy and paste this link into your browser:
+                            <p style="font-size: 13px; color: #a1a1aa; margin: 0 0 16px 0; line-height: 20px;">
+                              Button not working? Use the link below:
                             </p>
-                            <p style="font-size: 12px; color: #c084fc; word-break: break-all; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; line-height: 20px; margin: 0; padding: 12px; background-color: #18181b; border-radius: 8px; border: 1px solid #27272a;">
-                              {{ .ConfirmationURL }}
+                            <div style="background-color: #18181b; border-radius: 8px; border: 1px solid #27272a; padding: 16px; position: relative;">
+                              <a
+                                href="{{ .ConfirmationURL }}"
+                                style="font-size: 13px; color: #c084fc; text-decoration: underline; word-break: break-all; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; line-height: 20px; display: block; margin: 0;">
+                                {{ .ConfirmationURL }}
+                              </a>
+                            </div>
+                            <p style="font-size: 11px; color: #71717a; margin: 12px 0 0 0; line-height: 16px; text-align: center;">
+                              Click the link above or copy and paste it into your browser
                             </p>
                           </td>
                         </tr>

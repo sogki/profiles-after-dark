@@ -98,40 +98,15 @@ export default function ProfilesGallery() {
       setLoading(true)
       setError(null)
       try {
-        // Try to fetch with user_profiles join first
-        let query = supabase
+        // Fetch without join to avoid relationship errors
+        const { data, error } = await supabase
           .from("profile_pairs")
-          .select(`
-            *,
-            user_profiles (
-              username,
-              avatar_url
-            )
-          `)
+          .select("*")
           .not("pfp_url", "is", null)
           .not("banner_url", "is", null)
           .neq("pfp_url", "")
           .neq("banner_url", "")
           .order("updated_at", { ascending: false })
-
-        let { data, error } = await query
-
-        // If join fails, try without user_profiles
-        if (error && (error.message?.includes("relation") || error.message?.includes("does not exist"))) {
-          console.warn("User profiles join failed, fetching without join:", error.message)
-          const simpleQuery = supabase
-            .from("profile_pairs")
-            .select("*")
-            .not("pfp_url", "is", null)
-            .not("banner_url", "is", null)
-            .neq("pfp_url", "")
-            .neq("banner_url", "")
-            .order("updated_at", { ascending: false })
-          
-          const result = await simpleQuery
-          data = result.data
-          error = result.error
-        }
 
         if (error) {
           console.error("Error fetching profile combos:", error)

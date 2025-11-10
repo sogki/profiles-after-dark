@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { Bell, X, Check, Trash2, Settings, Filter, MoreHorizontal } from "lucide-react"
+import { Bell, X, Check, Trash2, Settings, Filter, MoreHorizontal, Clock, CheckCircle } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "../context/authContext"
 import { supabase } from "../lib/supabase"
@@ -23,9 +23,22 @@ interface NotificationCenterProps {
   onClose: () => void
   notifications?: Notification[]
   onNotificationClick?: (notification: Notification) => void
+  markAsRead?: (id: string) => Promise<void>
+  markAllAsRead?: () => Promise<void>
+  deleteNotification?: (id: string) => Promise<void>
+  deleteNotifications?: (ids: string[]) => Promise<void>
 }
 
-export default function NotificationCenter({ isOpen, onClose, notifications: propNotifications, onNotificationClick }: NotificationCenterProps) {
+export default function NotificationCenter({ 
+  isOpen, 
+  onClose, 
+  notifications: propNotifications, 
+  onNotificationClick,
+  markAsRead: markAsReadProp,
+  markAllAsRead: markAllAsReadProp,
+  deleteNotification: deleteNotificationProp,
+  deleteNotifications: deleteNotificationsProp
+}: NotificationCenterProps) {
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all")
@@ -55,54 +68,67 @@ export default function NotificationCenter({ isOpen, onClose, notifications: pro
     }
   }
 
-  const markAsRead = async (notificationId: string) => {
+  const handleMarkAsRead = async (notificationId: string) => {
     try {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read: true })
-        .eq("id", notificationId)
-      
-      if (error) throw error
-      
-      // The useNotifications hook will handle the state update
-      toast.success("Notification marked as read")
+      if (markAsReadProp) {
+        await markAsReadProp(notificationId)
+        toast.success("Notification marked as read")
+      } else {
+        const { error } = await supabase
+          .from("notifications")
+          .update({ read: true })
+          .eq("id", notificationId)
+        
+        if (error) throw error
+        toast.success("Notification marked as read")
+      }
     } catch (error) {
       console.error("Error marking notification as read:", error)
       toast.error("Failed to mark notification as read")
     }
   }
 
-  const markAllAsRead = async () => {
+  const handleMarkAllAsRead = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation()
+      e.preventDefault()
+    }
     if (!user) return
     
     try {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read: true })
-        .eq("user_id", user.id)
-        .eq("read", false)
-      
-      if (error) throw error
-      
-      // The useNotifications hook will handle the state update
-      toast.success("All notifications marked as read")
+      if (markAllAsReadProp) {
+        await markAllAsReadProp()
+        toast.success("All notifications marked as read")
+      } else {
+        const { error } = await supabase
+          .from("notifications")
+          .update({ read: true })
+          .eq("user_id", user.id)
+          .eq("read", false)
+        
+        if (error) throw error
+        toast.success("All notifications marked as read")
+      }
     } catch (error) {
       console.error("Error marking all as read:", error)
       toast.error("Failed to mark all as read")
     }
   }
 
-  const deleteNotification = async (notificationId: string) => {
+  const handleDeleteNotification = async (notificationId: string) => {
     try {
-      const { error } = await supabase
-        .from("notifications")
-        .delete()
-        .eq("id", notificationId)
-      
-      if (error) throw error
-      
-      // The useNotifications hook will handle the state update
-      toast.success("Notification deleted")
+      if (deleteNotificationProp) {
+        await deleteNotificationProp(notificationId)
+        toast.success("Notification deleted")
+      } else {
+        const { error } = await supabase
+          .from("notifications")
+          .delete()
+          .eq("id", notificationId)
+        
+        if (error) throw error
+        toast.success("Notification deleted")
+      }
     } catch (error) {
       console.error("Error deleting notification:", error)
       toast.error("Failed to delete notification")
@@ -113,25 +139,38 @@ export default function NotificationCenter({ isOpen, onClose, notifications: pro
     if (selectedNotifications.size === 0) return
     
     try {
-      const { error } = await supabase
-        .from("notifications")
-        .delete()
-        .in("id", Array.from(selectedNotifications))
-      
-      if (error) throw error
-      
-      // The useNotifications hook will handle the state update
-      setSelectedNotifications(new Set())
-      toast.success(`Deleted ${selectedNotifications.size} notifications`)
+      const notificationIds = Array.from(selectedNotifications)
+      if (deleteNotificationsProp) {
+        await deleteNotificationsProp(notificationIds)
+        setSelectedNotifications(new Set())
+        toast.success(`Deleted ${notificationIds.length} notifications`)
+      } else {
+        const { error } = await supabase
+          .from("notifications")
+          .delete()
+          .in("id", notificationIds)
+        
+        if (error) throw error
+        setSelectedNotifications(new Set())
+        toast.success(`Deleted ${notificationIds.length} notifications`)
+      }
     } catch (error) {
       console.error("Error deleting notifications:", error)
       toast.error("Failed to delete notifications")
     }
   }
 
-  const handleNotificationClick = (notification: Notification) => {
+  const handleNotificationClick = (notification: Notification, event?: React.MouseEvent) => {
+    // Don't mark as read if clicking on checkbox or delete button
+    if (event) {
+      const target = event.target as HTMLElement
+      if (target.closest('input[type="checkbox"]') || target.closest('button')) {
+        return
+      }
+    }
+    
     if (!notification.read) {
-      markAsRead(notification.id)
+      handleMarkAsRead(notification.id)
     }
     
     if (onNotificationClick) {
@@ -238,20 +277,13 @@ export default function NotificationCenter({ isOpen, onClose, notifications: pro
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center pt-20"
-        onClick={onClose}
+        ref={containerRef}
+        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+        className="fixed top-16 right-4 md:right-8 bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden z-50"
+        data-notification-center
       >
-        <motion.div
-          ref={containerRef}
-          initial={{ opacity: 0, scale: 0.95, y: -20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: -20 }}
-          className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-slate-700">
             <div className="flex items-center gap-3">
@@ -349,7 +381,10 @@ export default function NotificationCenter({ isOpen, onClose, notifications: pro
             
             {unreadCount > 0 && (
               <button
-                onClick={markAllAsRead}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleMarkAllAsRead(e)
+                }}
                 className="flex items-center gap-1 px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 <Check className="h-3 w-3" />
@@ -371,64 +406,110 @@ export default function NotificationCenter({ isOpen, onClose, notifications: pro
               </div>
             ) : (
               <div className="divide-y divide-slate-700">
-                {filteredNotifications.map((notification) => (
+                {filteredNotifications.map((notification) => {
+                  const notificationDate = new Date(notification.created_at);
+                  const now = new Date();
+                  const diffInSeconds = Math.floor((now.getTime() - notificationDate.getTime()) / 1000);
+                  const diffInMinutes = Math.floor(diffInSeconds / 60);
+                  const diffInHours = Math.floor(diffInSeconds / 3600);
+                  const diffInDays = Math.floor(diffInSeconds / 86400);
+                  
+                  let timeAgo: string;
+                  if (diffInSeconds < 60) {
+                    timeAgo = "just now";
+                  } else if (diffInMinutes < 60) {
+                    timeAgo = `${diffInMinutes}m ago`;
+                  } else if (diffInHours < 24) {
+                    timeAgo = `${diffInHours}h ago`;
+                  } else if (diffInDays < 7) {
+                    timeAgo = `${diffInDays}d ago`;
+                  } else {
+                    timeAgo = notificationDate.toLocaleDateString();
+                  }
+
+                  return (
                   <motion.div
                     key={notification.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`p-4 hover:bg-slate-700/30 transition-colors cursor-pointer ${
-                      !notification.read ? "bg-purple-500/5" : ""
+                    className={`group p-4 hover:bg-slate-700/30 transition-colors cursor-pointer ${
+                      !notification.read ? "bg-purple-500/5 border-l-2 border-purple-500" : ""
                     }`}
-                    onClick={() => handleNotificationClick(notification)}
+                    onClick={(e) => handleNotificationClick(notification, e)}
                   >
                     <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedNotifications.has(notification.id)}
-                        onChange={(e) => {
-                          e.stopPropagation()
-                          toggleNotificationSelection(notification.id)
-                        }}
-                        className="mt-1 w-4 h-4 text-purple-600 bg-slate-700 border-slate-600 rounded focus:ring-purple-500"
-                      />
+                      <div className="relative mt-1">
+                        <input
+                          type="checkbox"
+                          id={`notification-${notification.id}`}
+                          checked={selectedNotifications.has(notification.id)}
+                          onChange={(e) => {
+                            e.stopPropagation()
+                            toggleNotificationSelection(notification.id)
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                          }}
+                          className="sr-only"
+                        />
+                        <label
+                          htmlFor={`notification-${notification.id}`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                          }}
+                          className={`flex items-center justify-center w-5 h-5 rounded border-2 cursor-pointer transition-all duration-200 ${
+                            selectedNotifications.has(notification.id)
+                              ? 'bg-purple-600 border-purple-600 hover:bg-purple-700 hover:border-purple-700'
+                              : 'bg-slate-700 border-slate-600 hover:border-purple-500 hover:bg-slate-600'
+                          }`}
+                        >
+                          {selectedNotifications.has(notification.id) && (
+                            <CheckCircle className="w-3.5 h-3.5 text-white" />
+                          )}
+                        </label>
+                      </div>
                       
-                      <div className={`flex-shrink-0 w-8 h-8 rounded-full border flex items-center justify-center text-sm ${getNotificationColor(notification.type)}`}>
+                      <div className={`flex-shrink-0 w-10 h-10 rounded-full border-2 flex items-center justify-center text-base ${getNotificationColor(notification.type)}`}>
                         {getNotificationIcon(notification.type)}
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h4 className={`text-sm font-medium ${notification.read ? "text-slate-300" : "text-white"}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h4 className={`text-sm font-semibold ${notification.read ? "text-slate-300" : "text-white"}`}>
                               {notification.title || getNotificationTitle(notification.type)}
                             </h4>
-                            <p className={`text-sm mt-1 ${notification.read ? "text-slate-400" : "text-slate-300"}`}>
+                            <p className={`text-sm mt-1 line-clamp-2 ${notification.read ? "text-slate-400" : "text-slate-300"}`}>
                               {notification.message || notification.content || "No message content"}
                             </p>
-                            <p className="text-xs text-slate-500 mt-2">
-                              {new Date(notification.created_at).toLocaleString()}
+                            <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {timeAgo}
                             </p>
                           </div>
                           
-                          <div className="flex items-center gap-1 ml-2">
+                          <div className="flex items-center gap-1 flex-shrink-0">
                             {!notification.read && (
-                              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                              <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
                             )}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
-                                deleteNotification(notification.id)
+                                e.preventDefault()
+                                handleDeleteNotification(notification.id)
                               }}
-                              className="p-1 hover:bg-slate-600 rounded transition-colors opacity-0 group-hover:opacity-100"
+                              className="p-1.5 hover:bg-slate-600 rounded transition-colors opacity-0 group-hover:opacity-100"
+                              title="Delete notification"
                             >
-                              <X className="h-3 w-3 text-slate-400" />
+                              <X className="h-3.5 w-3.5 text-slate-400 hover:text-red-400" />
                             </button>
                           </div>
                         </div>
                       </div>
                     </div>
                   </motion.div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -436,7 +517,9 @@ export default function NotificationCenter({ isOpen, onClose, notifications: pro
           {/* Footer */}
           <div className="p-4 border-t border-slate-700 bg-slate-800/50">
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
                 // Navigate to notification settings
                 onClose()
                 window.location.href = "/profile-settings?tab=notifications"
@@ -448,7 +531,6 @@ export default function NotificationCenter({ isOpen, onClose, notifications: pro
             </button>
           </div>
         </motion.div>
-      </motion.div>
     </AnimatePresence>
   )
 }

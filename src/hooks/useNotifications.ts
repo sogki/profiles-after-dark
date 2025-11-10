@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/authContext";
 import { Tables } from "@/types/database";
@@ -10,6 +10,7 @@ export function useNotifications() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const { user } = useAuth();
 
@@ -195,58 +196,151 @@ export function useNotifications() {
     [requestNotificationPermission]
   );
 
+  // Fetch notifications on mount and when user changes
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    } else {
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   // Setup real-time subscription
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // Clean up channel if user logs out
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current).catch(() => {});
+        channelRef.current = null;
+      }
+      return;
+    }
 
-    const subscription = supabase
-      .channel(`notifications:${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
+    let isMounted = true;
+    const channelName = `notifications:${user.id}`;
+
+    // Clean up any existing channel with the same name first
+    const existingChannels = supabase.getChannels();
+    const existingChannel = existingChannels.find(
+      (ch) => ch.topic === `realtime:${channelName}`
+    );
+    
+    if (existingChannel) {
+      supabase.removeChannel(existingChannel).catch(() => {});
+    }
+
+    // Clean up ref channel if it exists
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current).catch(() => {});
+      channelRef.current = null;
+    }
+
+    // Small delay to ensure cleanup completes (helps with React StrictMode)
+    const setupChannel = async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      if (!isMounted || !user) return;
+
+      // Double-check no channel exists
+      const channels = supabase.getChannels();
+      const duplicateChannel = channels.find(
+        (ch) => ch.topic === `realtime:${channelName}`
+      );
+      
+      if (duplicateChannel) {
+        supabase.removeChannel(duplicateChannel).catch(() => {});
+      }
+
+      // Create new channel
+      const channel = supabase.channel(channelName, {
+        config: {
+          broadcast: { self: false },
         },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            setNotifications((prev) => [payload.new as Notification, ...prev]);
-            if (!(payload.new as Notification).read) {
-              setUnreadCount((prev) => prev + 1);
-            }
-          } else if (payload.eventType === "UPDATE") {
-            setNotifications((prev) =>
-              prev.map((n) =>
-                n.id === (payload.new as Notification).id
-                  ? (payload.new as Notification)
-                  : n
-              )
-            );
-            setUnreadCount(
-              (prev) =>
-                prev +
-                ((payload.new as Notification).read
-                  ? -1
-                  : (payload.old as Notification).read
-                  ? 1
-                  : 0)
-            );
-          } else if (payload.eventType === "DELETE") {
-            setNotifications((prev) =>
-              prev.filter((n) => n.id !== payload.old.id)
-            );
-            if (!(payload.old as Notification).read) {
-              setUnreadCount((prev) => Math.max(0, prev - 1));
+      });
+
+      channel
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            if (!isMounted) return;
+
+            if (payload.eventType === "INSERT") {
+              const newNotification = payload.new as Notification;
+              setNotifications((prev) => {
+                // Avoid duplicates
+                if (prev.some((n) => n.id === newNotification.id)) {
+                  return prev;
+                }
+                return [newNotification, ...prev];
+              });
+              if (!newNotification.read) {
+                setUnreadCount((prev) => prev + 1);
+                // Show browser notification if permission granted
+                if ("Notification" in window && Notification.permission === "granted") {
+                  new Notification(newNotification.title || "New Notification", {
+                    body: newNotification.message || newNotification.content || "",
+                    icon: "/favicon.ico",
+                    badge: "/favicon.ico",
+                  });
+                }
+              }
+            } else if (payload.eventType === "UPDATE") {
+              const updatedNotification = payload.new as Notification;
+              setNotifications((prev) =>
+                prev.map((n) =>
+                  n.id === updatedNotification.id ? updatedNotification : n
+                )
+              );
+              const oldNotification = payload.old as Notification;
+              if (oldNotification.read !== updatedNotification.read) {
+                setUnreadCount((prev) =>
+                  updatedNotification.read ? Math.max(0, prev - 1) : prev + 1
+                );
+              }
+            } else if (payload.eventType === "DELETE") {
+              const deletedNotification = payload.old as Notification;
+              setNotifications((prev) =>
+                prev.filter((n) => n.id !== deletedNotification.id)
+              );
+              if (!deletedNotification.read) {
+                setUnreadCount((prev) => Math.max(0, prev - 1));
+              }
             }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe((status) => {
+          if (!isMounted) return;
+          
+          if (status === "SUBSCRIBED") {
+            console.log("Subscribed to notifications channel");
+          } else if (status === "CHANNEL_ERROR") {
+            console.error("Channel subscription error");
+          }
+        });
+
+      if (isMounted) {
+        channelRef.current = channel;
+      } else {
+        // Component unmounted before channel was set, clean it up
+        supabase.removeChannel(channel).catch(() => {});
+      }
+    };
+
+    setupChannel();
 
     return () => {
-      if (subscription) {
-        subscription.unsubscribe();
+      isMounted = false;
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current).catch(() => {});
+        channelRef.current = null;
       }
     };
   }, [user]);

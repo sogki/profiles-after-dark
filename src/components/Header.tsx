@@ -18,9 +18,6 @@ import {
   Layout,
   Smile,
   Sticker,
-  Filter,
-  Grid3X3,
-  List,
 } from "lucide-react"
 import { useAuth } from "../context/authContext"
 import { supabase } from "../lib/supabase"
@@ -43,7 +40,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
   const [showSubNav, setShowSubNav] = useState(true)
   const lastScrollY = useRef(0)
 
-  const { unreadCount, notifications } = useNotifications()
+  const { unreadCount, notifications, markAsRead, markAllAsRead, deleteNotification, deleteNotifications } = useNotifications()
 
   // User dropdown state
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
@@ -78,13 +75,16 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      // Check if click is outside notification center
+      const notificationCenter = document.querySelector('[data-notification-center]')
+      if (notificationCenter && !notificationCenter.contains(target) && notifRef.current && !notifRef.current.contains(target)) {
         setIsNotificationCenterOpen(false)
       }
-      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(target)) {
         setIsUserDropdownOpen(false)
       }
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+      if (searchRef.current && !searchRef.current.contains(target)) {
         setShowSearchSuggestions(false)
       }
     }
@@ -137,6 +137,10 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
         isOpen={isNotificationCenterOpen}
         onClose={() => setIsNotificationCenterOpen(false)}
         notifications={notifications}
+        markAsRead={markAsRead}
+        markAllAsRead={markAllAsRead}
+        deleteNotification={deleteNotification}
+        deleteNotifications={deleteNotifications}
       />
       
           <header className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-50">
@@ -151,7 +155,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                   alt="Profiles After Dark logo"
                 />
                 <p className="text-xs text-slate-400 mt-1 hidden sm:block group-hover:text-slate-300 transition-colors">
-                  For the night owls
+                  Your aesthetic lives here.
                 </p>
               </div>
             </Link>
@@ -201,7 +205,10 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                   {/* Enhanced Notifications */}
                   <div className="relative" ref={notifRef}>
                     <button
-                      onClick={() => setIsNotificationCenterOpen(true)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsNotificationCenterOpen(!isNotificationCenterOpen)
+                      }}
                       className="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
                     >
                       <Bell className="h-5 w-5" />
@@ -263,24 +270,14 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
 
                         <div className="py-2">
                           {(userProfile?.role === "admin" || userProfile?.role === "moderator" || userProfile?.role === "staff") && (
-                            <>
-                              <Link
-                                to="/moderation"
-                                className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
-                                onClick={() => setIsUserDropdownOpen(false)}
-                              >
-                                <ShieldCheck className="w-4 h-4 mr-3 text-blue-400" />
-                                Moderation Panel
-                              </Link>
-                              <Link
-                                to="/moderation/enhanced"
-                                className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
-                                onClick={() => setIsUserDropdownOpen(false)}
-                              >
-                                <ShieldCheck className="w-4 h-4 mr-3 text-purple-400" />
-                                Enhanced Moderation
-                              </Link>
-                            </>
+                            <Link
+                              to="/moderation"
+                              className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
+                              onClick={() => setIsUserDropdownOpen(false)}
+                            >
+                              <ShieldCheck className="w-4 h-4 mr-3 text-purple-400" />
+                              Moderation Panel
+                            </Link>
                           )}
                           {userProfile?.username && (
                             <Link
@@ -486,7 +483,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                           className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
                         >
                           <ShieldCheck className="h-4 w-4" />
-                          <span>Moderation Panel</span>
+                          <span>Mod Panel 2.0</span>
                         </Link>
                       ) : null}
 

@@ -20,7 +20,7 @@ export default function Footer() {
   };
 
   return (
-    <footer className="bg-gradient-to-b from-slate-900 to-slate-950 border-t border-slate-700/50">
+    <footer className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-t border-slate-800/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-12">
           {/* Brand */}
@@ -38,9 +38,11 @@ export default function Footer() {
 
             {/* Real-time Stats */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-slate-800/30 rounded-lg p-3 border border-slate-700/30">
+              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-slate-700/50 hover:border-slate-600 transition-all">
                 <div className="flex items-center gap-2 mb-2">
-                  <Users className="h-4 w-4 text-blue-400" />
+                  <div className="p-1.5 bg-blue-500/10 rounded-lg">
+                    <Users className="h-4 w-4 text-blue-400" />
+                  </div>
                   <span className="text-xs text-slate-400 uppercase tracking-wide font-medium">
                     Members
                   </span>
@@ -48,14 +50,16 @@ export default function Footer() {
                 {isLoading ? (
                   <div className="h-6 bg-slate-700/50 rounded animate-pulse"></div>
                 ) : (
-                  <p className="text-lg font-bold text-white">
+                  <p className="text-xl font-bold text-white">
                     {formatNumber(stats?.members || 0)}+
                   </p>
                 )}
               </div>
-              <div className="bg-slate-800/30 rounded-lg p-3 border border-slate-700/30">
+              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-slate-700/50 hover:border-slate-600 transition-all">
                 <div className="flex items-center gap-2 mb-2">
-                  <ImageIcon className="h-4 w-4 text-purple-400" />
+                  <div className="p-1.5 bg-purple-500/10 rounded-lg">
+                    <ImageIcon className="h-4 w-4 text-purple-400" />
+                  </div>
                   <span className="text-xs text-slate-400 uppercase tracking-wide font-medium">
                     Assets
                   </span>
@@ -63,7 +67,7 @@ export default function Footer() {
                 {isLoading ? (
                   <div className="h-6 bg-slate-700/50 rounded animate-pulse"></div>
                 ) : (
-                  <p className="text-lg font-bold text-white">
+                  <p className="text-xl font-bold text-white">
                     {formatNumber(stats?.assets || 0)}+
                   </p>
                 )}

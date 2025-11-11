@@ -7,6 +7,11 @@ import Hero from "./components/Hero"
 import Gallery from "./components/Gallery"
 import Footer from "./components/Footer"
 import DiscordCTA from "./components/DiscordCTA"
+import QuickCategories from "./components/QuickCategories"
+import HowItWorks from "./components/HowItWorks"
+import KeyBenefits from "./components/KeyBenefits"
+import CombinedCTAs from "./components/CombinedCTAs"
+import VisualShowcase from "./components/VisualShowcase"
 // import MobileBottomNav from "./components/MobileBottomNav"
 
 // Lazy load heavy components
@@ -125,6 +130,19 @@ function App() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
+  // Listen for custom event to open upload modal
+  useEffect(() => {
+    const handleOpenUpload = () => {
+      if (user) {
+        setIsUploadModalOpen(true)
+      } else {
+        setIsAuthModalOpen(true)
+      }
+    }
+    window.addEventListener('openUploadModal', handleOpenUpload)
+    return () => window.removeEventListener('openUploadModal', handleOpenUpload)
+  }, [user])
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
@@ -196,14 +214,12 @@ function App() {
                 path="/"
                 element={
                   <>
-                    <Hero />
-                    <Gallery
-                      searchQuery={searchQuery}
-                      selectedCategory={selectedCategory}
-                      selectedType={selectedType}
-                      viewMode={viewMode}
-                    />
-                    <DiscordCTA />
+                    <Hero onAuthClick={() => setIsAuthModalOpen(true)} />
+                    <VisualShowcase />
+                    <HowItWorks />
+                    <QuickCategories />
+                    <KeyBenefits />
+                    <CombinedCTAs />
                     <Footer />
                   </>
                 }

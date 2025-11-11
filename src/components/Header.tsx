@@ -203,7 +203,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
     } else if (suggestion.type === "wallpaper") {
       navigate(`/gallery/wallpapers?search=${encodeURIComponent(suggestion.text)}`)
     } else if (suggestion.type === "tag") {
-      navigate(`/trending?tag=${encodeURIComponent(suggestion.text)}`)
+      navigate(`/browse/tag/${encodeURIComponent(suggestion.text)}`)
     }
   }
 
@@ -220,35 +220,37 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
         deleteNotifications={deleteNotifications}
       />
       
-          <header className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-50">
+          <header className="bg-slate-900/95 backdrop-blur-md border-b border-slate-700/50 sticky top-0 z-50 shadow-lg shadow-black/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Enhanced Logo */}
-            <Link to="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity group">
-              <div className="relative flex flex-col">
+            {/* Enhanced Logo - Left Side */}
+            <Link to="/" className="flex items-center hover:opacity-90 transition-opacity group flex-shrink-0">
+              <div className="relative">
                 <img
                   src="https://zzywottwfffyddnorein.supabase.co/storage/v1/object/public/static-assets//profiles-after-dark-logomark.png"
-                  className="h-8 w-auto group-hover:scale-105 transition-transform duration-300 object-contain"
+                  className="h-9 w-auto group-hover:scale-105 transition-transform duration-300 object-contain"
                   alt="Profiles After Dark logo"
                 />
-                <p className="text-xs text-slate-400 mt-1 hidden sm:block group-hover:text-slate-300 transition-colors">
-                  Your aesthetic lives here.
-                </p>
               </div>
             </Link>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-6">
-              {/* Enhanced Search */}
-              <div className="relative" ref={searchRef}>
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            {/* Desktop Navigation - Center Search */}
+            <div className="hidden md:flex items-center flex-1 justify-center max-w-2xl mx-12">
+              {/* Enhanced Search - Centered */}
+              <div className="relative w-full" ref={searchRef}>
+                <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-300 z-10" />
                 <input
                   type="text"
                   placeholder="Search profiles, users, tags..."
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
                   onFocus={() => searchQuery.length > 1 && setShowSearchSuggestions(true)}
-                      className="pl-10 pr-4 py-2 w-80 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all backdrop-blur-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && searchQuery.trim()) {
+                      navigate(`/trending?search=${encodeURIComponent(searchQuery)}`)
+                    }
+                  }}
+                  className="pl-11 pr-4 py-2.5 w-full bg-slate-800/60 border border-slate-700/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all backdrop-blur-sm hover:bg-slate-800/70"
                 />
 
                 {/* Search Suggestions */}
@@ -281,16 +283,19 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                   </div>
                 )}
               </div>
+            </div>
 
+            {/* Right Side Actions */}
+            <div className="hidden md:flex items-center space-x-3 flex-shrink-0">
               {user ? (
-                <div className="flex items-center space-x-4">
+                <>
                   {/* Upload Button */}
                   <button
                     onClick={onUploadClick}
-                        className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all transform hover:scale-105 shadow-lg hover:shadow-purple-500/25 font-medium"
+                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-xl transition-all transform hover:scale-105 shadow-lg hover:shadow-purple-500/30 font-medium"
                   >
                     <Upload className="h-4 w-4" />
-                    <span>Upload</span>
+                    <span className="hidden lg:inline">Upload</span>
                   </button>
 
                   {/* Enhanced Notifications */}
@@ -300,11 +305,11 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                         e.stopPropagation()
                         setIsNotificationCenterOpen(!isNotificationCenterOpen)
                       }}
-                      className="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                      className="relative p-2.5 text-slate-300 hover:text-white hover:bg-slate-800/50 rounded-xl transition-all group"
                     >
-                      <Bell className="h-5 w-5" />
+                      <Bell className="h-5 w-5 group-hover:scale-110 transition-transform" />
                       {unreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                        <span className="absolute -top-0.5 -right-0.5 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-semibold shadow-lg ring-2 ring-slate-900">
                           {unreadCount > 9 ? "9+" : unreadCount}
                         </span>
                       )}
@@ -315,9 +320,9 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                   <div className="relative" ref={userDropdownRef}>
                     <button
                       onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
-                      className="flex items-center space-x-2 p-1 rounded-lg hover:bg-slate-800 transition-all group"
+                      className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-slate-800/50 transition-all group border border-transparent hover:border-slate-700/50"
                     >
-                      <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-transparent group-hover:ring-purple-400 transition-all">
+                      <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-transparent group-hover:ring-purple-400/50 transition-all">
                         {userProfile?.avatar_url ? (
                           <img
                             src={userProfile.avatar_url || "/placeholder.svg"}
@@ -330,81 +335,97 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                           </div>
                         )}
                       </div>
-                      <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-white transition-colors" />
+                      <ChevronDown className="h-4 w-4 text-slate-300 group-hover:text-white transition-colors hidden lg:block" />
                     </button>
 
-                    {isUserDropdownOpen && (
-                      <div className="absolute right-0 mt-2 w-64 bg-slate-800 rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 z-50 border border-slate-700">
-                        <div className="p-4 border-b border-slate-700">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 rounded-full overflow-hidden">
-                              {userProfile?.avatar_url ? (
-                                <img
-                                  src={userProfile.avatar_url || "/placeholder.svg"}
-                                  alt="User avatar"
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-500 to-blue-500">
-                                  <UserIcon className="h-5 w-5 text-white" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-white truncate">
-                                {userProfile?.display_name || userProfile?.username || "User"}
-                              </p>
-                              <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                    <AnimatePresence>
+                      {isUserDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute right-0 mt-2 w-72 bg-slate-800/95 backdrop-blur-md rounded-xl shadow-2xl z-50 border border-slate-700/50 overflow-hidden"
+                        >
+                          <div className="p-4 border-b border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-700/30">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-purple-500/30">
+                                {userProfile?.avatar_url ? (
+                                  <img
+                                    src={userProfile.avatar_url || "/placeholder.svg"}
+                                    alt="User avatar"
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-500 to-blue-500">
+                                    <UserIcon className="h-6 w-6 text-white" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-white truncate">
+                                  {userProfile?.display_name || userProfile?.username || "User"}
+                                </p>
+                                <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="py-2">
-                          {(userProfile?.role === "admin" || userProfile?.role === "moderator" || userProfile?.role === "staff") && (
+                          <div className="py-2">
+                            {(userProfile?.role === "admin" || userProfile?.role === "moderator" || userProfile?.role === "staff") && (
+                              <Link
+                                to="/moderation"
+                                className="flex items-center px-4 py-2.5 text-sm text-white hover:bg-slate-700/50 transition-colors group"
+                                onClick={() => setIsUserDropdownOpen(false)}
+                              >
+                                <div className="p-1.5 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors mr-3">
+                                  <ShieldCheck className="w-4 h-4 text-purple-400" />
+                                </div>
+                                <span>Moderation Panel</span>
+                              </Link>
+                            )}
+                            {userProfile?.username && (
+                              <Link
+                                to={`/user/${userProfile.username}`}
+                                className="flex items-center px-4 py-2.5 text-sm text-white hover:bg-slate-700/50 transition-colors group"
+                                onClick={() => setIsUserDropdownOpen(false)}
+                              >
+                                <div className="p-1.5 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors mr-3">
+                                  <UserIcon className="w-4 h-4 text-blue-400" />
+                                </div>
+                                <span>View Profile</span>
+                              </Link>
+                            )}
                             <Link
-                              to="/moderation"
-                              className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
+                              to="/profile-settings"
+                              className="flex items-center px-4 py-2.5 text-sm text-white hover:bg-slate-700/50 transition-colors group"
                               onClick={() => setIsUserDropdownOpen(false)}
                             >
-                              <ShieldCheck className="w-4 h-4 mr-3 text-purple-400" />
-                              Moderation Panel
+                              <div className="p-1.5 rounded-lg bg-slate-500/10 group-hover:bg-slate-500/20 transition-colors mr-3">
+                                <Settings className="w-4 h-4 text-slate-300" />
+                              </div>
+                              <span>Settings</span>
                             </Link>
-                          )}
-                          {userProfile?.username && (
-                            <Link
-                              to={`/user/${userProfile.username}`}
-                              className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
-                              onClick={() => setIsUserDropdownOpen(false)}
+                            <div className="border-t border-slate-700/50 my-2"></div>
+                            <button
+                              onClick={handleSignOut}
+                              className="flex items-center w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors group"
                             >
-                              <UserIcon className="w-4 h-4 mr-3 text-white" />
-                              View Profile
-                            </Link>
-                          )}
-                          <Link
-                            to="/profile-settings"
-                            className="flex items-center px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
-                            onClick={() => setIsUserDropdownOpen(false)}
-                          >
-                            <Settings className="w-4 h-4 mr-3 text-white" />
-                            Settings
-                          </Link>
-                          <div className="border-t border-slate-700 my-2"></div>
-                          <button
-                            onClick={handleSignOut}
-                            className="flex items-center w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-slate-700 transition-colors"
-                          >
-                            <LogOut className="w-4 h-4 mr-3" />
-                            Sign Out
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                              <div className="p-1.5 rounded-lg bg-red-500/10 group-hover:bg-red-500/20 transition-colors mr-3">
+                                <LogOut className="w-4 h-4 text-red-400" />
+                              </div>
+                              <span>Sign Out</span>
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                </div>
+                </>
               ) : (
                 <button
                   onClick={onAuthClick}
-                        className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all transform hover:scale-105 shadow-lg hover:shadow-purple-500/25 font-medium"
+                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-xl transition-all transform hover:scale-105 shadow-lg hover:shadow-purple-500/30 font-medium"
                 >
                   <UserIcon className="h-4 w-4" />
                   <span>Sign In</span>
@@ -444,14 +465,20 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
               >
                 <div className="p-4">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-300 z-10" />
                     <input
                       type="text"
                       placeholder="Search profiles, users, tags..."
                       value={searchQuery}
                       onChange={(e) => onSearchChange(e.target.value)}
                       onFocus={() => searchQuery.length > 1 && setShowSearchSuggestions(true)}
-                      className="pl-10 pr-4 py-3 w-full bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && searchQuery.trim()) {
+                          navigate(`/trending?search=${encodeURIComponent(searchQuery)}`)
+                          setIsMobileSearchOpen(false)
+                        }
+                      }}
+                      className="pl-10 pr-10 py-3 w-full bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
                       autoFocus
                     />
                     <button
@@ -640,101 +667,114 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
       </header>
 
       {/* Enhanced Sub Navigation - Desktop Only */}
-          <nav
-            className={`
-              hidden md:block bg-slate-800/90 backdrop-blur-sm border-b border-slate-700/50 sticky top-16 z-40
-              transition-transform duration-300 ease-in-out
-              ${showSubNav ? "translate-y-0" : "-translate-y-full"}
-            `}
-          >
+      <nav
+        className={`
+          hidden md:block bg-slate-800/90 backdrop-blur-sm border-b border-slate-700/50 sticky top-16 z-40
+          transition-transform duration-300 ease-in-out
+          ${showSubNav ? "translate-y-0" : "-translate-y-full"}
+        `}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-6 overflow-x-auto no-scrollbar py-2">
+          <div className="flex items-center justify-center gap-1 py-3">
+            {/* Community - Separated */}
             <Link
               to="/users"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
+              className={`whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 isActive("/users")
-                  ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
+                  ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700/50 hover:text-white border border-transparent hover:border-slate-600/50"
               }`}
             >
-              <Users className="inline h-4 w-4 mr-1" />
+              <Users className="inline h-4 w-4 mr-1.5" />
               Community
             </Link>
-            <Link
-              to="/gallery/profiles"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                isActive("/gallery/profiles")
-                  ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
-              }`}
-            >
-              <UserIcon className="inline h-4 w-4 mr-1" />
-              Profiles
-            </Link>
-            <Link
-              to="/gallery/pfps"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                isActive("/gallery/pfps")
-                  ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
-              }`}
-            >
-              <ImageIcon className="inline h-4 w-4 mr-1" />
-              PFPs
-            </Link>
-            <Link
-              to="/gallery/banners"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                isActive("/gallery/banners")
-                  ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
-              }`}
-            >
-              <Layout className="inline h-4 w-4 mr-1" />
-              Banners
-            </Link>
-            <Link
-              to="/gallery/emoji-combos"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                isActive("/gallery/emoji-combos")
-                  ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
-              }`}
-            >
-              <Smile className="inline h-4 w-4 mr-1" />
-              Emoji Combos
-            </Link>
-                <Link
-                  to="/gallery/emotes"
-                  className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                    isActive("/gallery/emotes")
-                      ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
-                      : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
-                  }`}
-                >
-                  <Sticker className="inline h-4 w-4 mr-1" />
-                  Emotes
-                </Link>
-                <Link
-                  to="/gallery/wallpapers"
-                  className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                    isActive("/gallery/wallpapers")
-                      ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
-                      : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
-                  }`}
-                >
-                  <ImageIcon className="inline h-4 w-4 mr-1" />
-                  Wallpapers
-                </Link>
+
+            {/* Separator */}
+            <div className="w-px h-6 bg-slate-700/50 mx-2" />
+
+            {/* Content Pages - Grouped */}
+            <div className="flex items-center gap-1">
+              <Link
+                to="/gallery/profiles"
+                className={`whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isActive("/gallery/profiles")
+                    ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
+                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                }`}
+              >
+                <UserIcon className="inline h-4 w-4 mr-1.5" />
+                Profiles
+              </Link>
+              <Link
+                to="/gallery/pfps"
+                className={`whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isActive("/gallery/pfps")
+                    ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
+                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                }`}
+              >
+                <ImageIcon className="inline h-4 w-4 mr-1.5" />
+                PFPs
+              </Link>
+              <Link
+                to="/gallery/banners"
+                className={`whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isActive("/gallery/banners")
+                    ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
+                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                }`}
+              >
+                <Layout className="inline h-4 w-4 mr-1.5" />
+                Banners
+              </Link>
+              <Link
+                to="/gallery/emoji-combos"
+                className={`whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isActive("/gallery/emoji-combos")
+                    ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
+                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                }`}
+              >
+                <Smile className="inline h-4 w-4 mr-1.5" />
+                Emoji Combos
+              </Link>
+              <Link
+                to="/gallery/emotes"
+                className={`whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isActive("/gallery/emotes")
+                    ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
+                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                }`}
+              >
+                <Sticker className="inline h-4 w-4 mr-1.5" />
+                Emotes
+              </Link>
+              <Link
+                to="/gallery/wallpapers"
+                className={`whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isActive("/gallery/wallpapers")
+                    ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
+                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                }`}
+              >
+                <ImageIcon className="inline h-4 w-4 mr-1.5" />
+                Wallpapers
+              </Link>
+            </div>
+
+            {/* Separator */}
+            <div className="w-px h-6 bg-slate-700/50 mx-2" />
+
+            {/* Trending - Separated */}
             <Link
               to="/trending"
-              className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-all ${
+              className={`whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 isActive("/trending")
-                  ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
-                  : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
+                  ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700/50 hover:text-white border border-transparent hover:border-slate-600/50"
               }`}
             >
-              <TrendingUp className="inline h-4 w-4 mr-1" />
+              <TrendingUp className="inline h-4 w-4 mr-1.5" />
               Trending
             </Link>
           </div>

@@ -28,6 +28,7 @@ const EmotesGallery = lazy(() => import("./components/gallery/EmotesGallery"))
 const EmojiCombosGallery = lazy(() => import("./components/gallery/EmojiCombosGallery"))
 const WallpaperGallery = lazy(() => import("./components/gallery/WallpaperGallery"))
 const TrendingPage = lazy(() => import("./components/gallery/Trending"))
+const TagBrowse = lazy(() => import("./components/browse/TagBrowse"))
 const ModerationLogs = lazy(() => import("./components/users/moderation/ModerationLogs"))
 const EnhancedModerationPage = lazy(() => import("./components/moderation/EnhancedModerationPage"))
 const EnhancedReportModal = lazy(() => import("./components/moderation/modals/EnhancedReportModal"))
@@ -239,6 +240,7 @@ function App() {
               <Route path="/gallery/emoji-combos" element={<EmojiCombosGallery />} />
                   <Route path="/gallery/wallpapers" element={<WallpaperGallery />} />
               <Route path="/trending" element={<TrendingPage />} />
+              <Route path="/browse/tag/:tag" element={<TagBrowse />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/policies" element={<Policies />} />
               <Route path="/guidelines" element={<Guidelines />} />

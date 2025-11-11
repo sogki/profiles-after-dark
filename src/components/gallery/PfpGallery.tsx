@@ -1,9 +1,17 @@
 import { useState, useEffect, useMemo, Fragment, useCallback } from "react"
-import { Download, Heart, Eye, Search, Clock, Tag, Grid3X3, List, Palette } from "lucide-react"
+import { Download, Heart, Eye, Search, Clock, Tag, Grid3X3, List, Palette, User } from "lucide-react"
 import { Dialog, Transition } from "@headlessui/react"
+import { Link } from "react-router-dom"
+import { motion } from "framer-motion"
 import { useAuth } from "../../context/authContext"
 import { supabase } from "../../lib/supabase"
 import Footer from "../Footer"
+
+interface UserProfile {
+  username: string | null
+  display_name: string | null
+  avatar_url: string | null
+}
 
 interface Profile {
   id: string
@@ -17,6 +25,7 @@ interface Profile {
   created_at: string
   updated_at: string
   color?: string
+  user_profiles?: UserProfile
 }
 
 const FAVORITES_STORAGE_KEY = "pfp_favorites"
@@ -117,6 +126,21 @@ export default function PfpGallery() {
           updated_at: item.updated_at,
           color: item.color || undefined,
         }))
+
+        // Fetch user profiles for all profiles
+        const userIds = [...new Set(profilesData.map(p => p.user_id))];
+        if (userIds.length > 0) {
+          const { data: userProfiles } = await supabase
+            .from("user_profiles")
+            .select("user_id, username, display_name, avatar_url")
+            .in("user_id", userIds);
+
+          const userMap = new Map(userProfiles?.map(up => [up.user_id, up]) || []);
+          
+          profilesData.forEach(profile => {
+            profile.user_profiles = userMap.get(profile.user_id);
+          });
+        }
 
         setProfiles(profilesData)
       } catch (err) {
@@ -509,133 +533,220 @@ export default function PfpGallery() {
       ) : (
         <>
           <div
-            className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" : "space-y-4"}
+            className={viewMode === "grid" ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4" : "space-y-4"}
           >
-            {pagedProfiles.map((profile) => (
-              <div
+            {pagedProfiles.map((profile, index) => (
+              <motion.div
                 key={profile.id}
-                className={`relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 border border-slate-700 hover:border-slate-600 ${viewMode === "list" ? "flex" : ""}`}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className={`group relative overflow-hidden rounded-xl bg-slate-800/50 border border-slate-700/50 hover:border-purple-500/50 transition-all ${
+                  viewMode === "list" ? "flex items-center gap-4 p-4" : ""
+                }`}
               >
-                {/* Image Display */}
-                <div
-                  className={`relative overflow-hidden ${viewMode === "list" ? "w-32 h-32 flex-shrink-0" : "aspect-square"}`}
-                  onMouseEnter={() => setHoveredProfileId(profile.id)}
-                  onMouseLeave={() => setHoveredProfileId(null)}
-                >
-                  {profile.image_url ? (
-                    isAnimatedImage(profile.image_url) ? (
-                      <div className="relative w-full h-full">
-                        {hoveredProfileId !== profile.id ? (
-                          // Show static placeholder when not hovered
-                        <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center relative">
-                          <div className="text-center">
-                            <div className="text-3xl mb-2 text-purple-400">🎬</div>
+                {viewMode === "grid" ? (
+                  <>
+                    <div className="aspect-square relative overflow-hidden bg-slate-800 cursor-pointer" onClick={() => openPreview(profile)}>
+                      {profile.image_url ? (
+                        isAnimatedImage(profile.image_url) ? (
+                          <div className="relative w-full h-full">
+                            {hoveredProfileId !== profile.id ? (
+                              <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center relative">
+                                <div className="text-center">
+                                  <div className="text-3xl mb-2 text-purple-400">🎬</div>
+                                </div>
+                                <div className="absolute bottom-2 right-2">
+                                  <div className="text-gray-300 text-xs bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">Hover to preview</div>
+                                </div>
+                              </div>
+                            ) : (
+                              <img
+                                src={profile.image_url}
+                                alt={profile.title}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                loading="lazy"
+                                onMouseEnter={() => setHoveredProfileId(profile.id)}
+                                onMouseLeave={() => setHoveredProfileId(null)}
+                              />
+                            )}
                           </div>
-                          <div className="absolute bottom-2 right-2">
-                            <div className="text-gray-300 text-xs bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">Hover to preview</div>
-                          </div>
-                        </div>
                         ) : (
-                          // Show animated GIF when hovered
                           <img
-                            src={profile.image_url || "/placeholder.svg"}
+                            src={profile.image_url}
                             alt={profile.title}
-                            className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                             loading="lazy"
                           />
-                        )}
+                        )
+                      ) : (
+                        <div className="w-full h-full bg-slate-700 flex items-center justify-center">
+                          <span className="text-slate-400">No Image</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                        <div className="w-full">
+                          <div className="flex items-center justify-between mb-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownload(profile);
+                              }}
+                              className="p-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                              title="Download"
+                            >
+                              <Download className="h-4 w-4 text-white" />
+                            </button>
+                            {user && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleFavorite(profile.id);
+                                }}
+                                className={`p-2 rounded-lg transition-colors ${
+                                  favorites.has(profile.id)
+                                    ? "bg-red-500/20 text-red-400"
+                                    : "bg-slate-800/50 text-slate-300 hover:bg-red-500/20 hover:text-red-400"
+                                }`}
+                                title={favorites.has(profile.id) ? "Remove from favorites" : "Add to favorites"}
+                              >
+                                <Heart className={`h-4 w-4 ${favorites.has(profile.id) ? "fill-current" : ""}`} />
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-white text-xs">
+                            <Download className="h-3 w-3" />
+                            <span>{profile.download_count}</span>
+                          </div>
+                        </div>
                       </div>
-                    ) : (
-                      // Show static image
+                    </div>
+                    <div className="p-3">
+                      <h3 className="text-sm font-semibold text-white truncate mb-2">{profile.title}</h3>
+                      {(profile.tags || []).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2 max-h-12 overflow-auto">
+                          {profile.tags.slice(0, 3).map((tag) => (
+                            <Link
+                              key={tag}
+                              to={`/browse/tag/${encodeURIComponent(tag)}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="bg-purple-700/30 text-purple-200 text-xs px-2 py-0.5 rounded-full select-none whitespace-nowrap border border-purple-600/30 hover:bg-purple-700/50 hover:border-purple-500/50 transition-colors"
+                            >
+                              #{tag}
+                            </Link>
+                          ))}
+                          {profile.tags.length > 3 && (
+                            <span className="text-xs text-slate-500 px-2 py-0.5">+{profile.tags.length - 3}</span>
+                          )}
+                        </div>
+                      )}
+                      <Link
+                        to={`/user/${profile.user_profiles?.username || profile.user_id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-2 text-xs text-slate-400 hover:text-purple-400 transition-colors group"
+                      >
+                        {profile.user_profiles?.avatar_url ? (
+                          <img
+                            src={profile.user_profiles.avatar_url}
+                            alt={profile.user_profiles.username || "User"}
+                            className="w-6 h-6 rounded-full ring-2 ring-slate-700 group-hover:ring-purple-500 transition-all"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center ring-2 ring-slate-700 group-hover:ring-purple-500 transition-all">
+                            <User className="h-3.5 w-3.5 text-white" />
+                          </div>
+                        )}
+                        <span className="truncate font-medium">
+                          {profile.user_profiles?.username || profile.user_profiles?.display_name || "Unknown User"}
+                        </span>
+                      </Link>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-slate-800 cursor-pointer" onClick={() => openPreview(profile)}>
                       <img
                         src={profile.image_url || "/placeholder.svg"}
                         alt={profile.title}
-                        className="w-full h-full object-cover brightness-75 group-hover:brightness-90 transition-all duration-300"
+                        className="w-full h-full object-cover"
                         loading="lazy"
                       />
-                    )
-                  ) : (
-                    // Show placeholder when no image
-                    <div className="w-full h-full bg-slate-700 flex items-center justify-center">
-                      <span className="text-slate-400">No Image</span>
                     </div>
-                  )}
-
-                  {/* Animated Badge */}
-                  {isAnimatedImage(profile.image_url) && (
-                    <div className="absolute top-2 left-2 flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-full px-3 py-1">
-                      <div className="text-purple-400">✨</div>
-                      <div className="text-white font-medium text-xs">Animated</div>
-                    </div>
-                  )}
-
-                  {/* Stats Overlay */}
-                  <div className="absolute top-3 right-3 flex gap-2">
-                    <div className="bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                      <Download className="h-3 w-3 text-green-400" />
-                      <span className="text-xs text-gray-300">{profile.download_count}</span>
-                    </div>
-                    <div className="bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                      <span className="text-xs text-purple-300 font-medium">{profile.category}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  className={`text-center ${viewMode === "list" ? "flex-1 p-4 flex flex-col justify-center" : "p-6"}`}
-                >
-                  <h3 className="text-white font-semibold text-xl truncate mb-3">{profile.title}</h3>
-
-                  <div className="flex flex-wrap justify-center gap-1 mb-4 max-h-16 overflow-auto px-2">
-                    {(profile.tags || []).map((tag) => (
-                      <span
-                        key={tag}
-                        className="bg-purple-700/30 text-purple-200 text-xs px-2 py-0.5 rounded-full select-none whitespace-nowrap border border-purple-600/30"
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-semibold text-white truncate mb-2">{profile.title}</h3>
+                      {(profile.tags || []).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2 max-h-12 overflow-auto">
+                          {profile.tags.slice(0, 4).map((tag) => (
+                            <Link
+                              key={tag}
+                              to={`/browse/tag/${encodeURIComponent(tag)}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="bg-purple-700/30 text-purple-200 text-xs px-2 py-0.5 rounded-full select-none whitespace-nowrap border border-purple-600/30 hover:bg-purple-700/50 hover:border-purple-500/50 transition-colors"
+                            >
+                              #{tag}
+                            </Link>
+                          ))}
+                          {profile.tags.length > 4 && (
+                            <span className="text-xs text-slate-500 px-2 py-0.5">+{profile.tags.length - 4}</span>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-4 text-sm text-slate-400 mb-2">
+                        <div className="flex items-center gap-1">
+                          <Download className="h-4 w-4" />
+                          <span>{profile.download_count} downloads</span>
+                        </div>
+                        {user && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFavorite(profile.id);
+                            }}
+                            className={`flex items-center gap-1 transition-colors ${
+                              favorites.has(profile.id)
+                                ? "text-red-400"
+                                : "text-slate-400 hover:text-red-400"
+                            }`}
+                          >
+                            <Heart className={`h-4 w-4 ${favorites.has(profile.id) ? "fill-current" : ""}`} />
+                            <span>Favorite</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownload(profile);
+                          }}
+                          className="flex items-center gap-1 text-purple-400 hover:text-purple-300 transition-colors"
+                        >
+                          <Download className="h-4 w-4" />
+                          <span>Download</span>
+                        </button>
+                      </div>
+                      <Link
+                        to={`/user/${profile.user_profiles?.username || profile.user_id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-2 text-sm text-slate-400 hover:text-purple-400 transition-colors group"
                       >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="flex justify-center gap-3">
-                    <button
-                      onClick={() => openPreview(profile)}
-                      className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm font-medium transition-colors"
-                      aria-label={`Preview ${profile.title}`}
-                      type="button"
-                    >
-                      <Eye size={16} />
-                      Preview
-                    </button>
-
-                    <button
-                      onClick={() => handleDownload(profile)}
-                      className="flex items-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium transition-colors"
-                      aria-label={`Download ${profile.title}`}
-                      type="button"
-                    >
-                      <Download size={16} />
-                      Download
-                    </button>
-
-                    {user && (
-                      <button
-                        onClick={() => handleFavorite(profile.id)}
-                        className={`p-2 rounded-lg transition-colors ${favorites.has(profile.id)
-                            ? "bg-red-600 text-white"
-                            : "bg-slate-700 text-gray-300 hover:bg-slate-600"}`}
-                        aria-pressed={favorites.has(profile.id)}
-                        aria-label={favorites.has(profile.id)
-                          ? `Remove ${profile.title} from favorites`
-                          : `Add ${profile.title} to favorites`}
-                        type="button"
-                      >
-                        <Heart size={16} fill={favorites.has(profile.id) ? "currentColor" : "none"} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+                        {profile.user_profiles?.avatar_url ? (
+                          <img
+                            src={profile.user_profiles.avatar_url}
+                            alt={profile.user_profiles.username || "User"}
+                            className="w-7 h-7 rounded-full ring-2 ring-slate-700 group-hover:ring-purple-500 transition-all"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center ring-2 ring-slate-700 group-hover:ring-purple-500 transition-all">
+                            <User className="h-4 w-4 text-white" />
+                          </div>
+                        )}
+                        <span className="truncate font-medium">
+                          by {profile.user_profiles?.username || profile.user_profiles?.display_name || "Unknown User"}
+                        </span>
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </motion.div>
             ))}
           </div>
 

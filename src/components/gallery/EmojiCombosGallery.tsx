@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useEffect, useMemo, Fragment, useCallback } from "react"
-import { Copy, Heart, Eye, Search, Tag, Check, Clock } from "lucide-react"
+import { Copy, Heart, Eye, Search, Tag, Check, Clock, User, X } from "lucide-react"
 import { Dialog, Transition } from "@headlessui/react"
+import { Link } from "react-router-dom"
+import { motion } from "framer-motion"
 import { useAuth } from "../../context/authContext"
 import { supabase } from "../../lib/supabase"
 import type { Database } from "../../types/database"
@@ -15,18 +17,17 @@ const FAVORITES_STORAGE_KEY = "emoji_favorites"
 
 // Skeleton Loading Component
 const EmojiCardSkeleton = () => (
-  <div className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl animate-pulse break-inside-avoid mb-6">
-    <div className="p-6 space-y-4">
-      <div className="h-6 bg-gray-700 rounded w-3/4" />
-      <div className="h-16 bg-gray-700 rounded" />
-      <div className="flex gap-2">
-        <div className="h-5 bg-gray-700 rounded w-12" />
-        <div className="h-5 bg-gray-700 rounded w-16" />
+  <div className="relative group bg-slate-800/50 rounded-xl overflow-hidden border border-slate-700/50 animate-pulse break-inside-avoid mb-4">
+    <div className="p-4 space-y-3">
+      <div className="h-20 bg-slate-700 rounded" />
+      <div className="h-4 bg-slate-700 rounded w-3/4" />
+      <div className="flex gap-1">
+        <div className="h-5 bg-slate-700 rounded w-12" />
+        <div className="h-5 bg-slate-700 rounded w-16" />
       </div>
-      <div className="flex justify-center gap-3 pt-2">
-        <div className="h-8 w-16 bg-gray-700 rounded" />
-        <div className="h-8 w-16 bg-gray-700 rounded" />
-        <div className="h-8 w-8 bg-gray-700 rounded" />
+      <div className="flex justify-between gap-2 pt-2">
+        <div className="h-6 w-6 bg-slate-700 rounded" />
+        <div className="h-6 w-6 bg-slate-700 rounded" />
       </div>
     </div>
   </div>
@@ -423,7 +424,10 @@ export default function EmojiCombosGallery() {
 
       {/* Pinterest-style Masonry Grid */}
       {loading ? (
-        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6">
+        <div 
+          className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 2xl:columns-5"
+          style={{ columnGap: '1rem' }}
+        >
           {Array.from({ length: 12 }).map((_, i) => (
             <EmojiCardSkeleton key={i} />
           ))}
@@ -461,41 +465,30 @@ export default function EmojiCombosGallery() {
         </div>
       ) : (
         <>
-          {/* Proper Masonry Layout */}
-          <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 2xl:columns-5 gap-4 space-y-4">
-            {pagedCombos.map((combo) => {
+          {/* Improved Masonry Layout */}
+          <div 
+            className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 2xl:columns-5"
+            style={{ columnGap: '1rem' }}
+          >
+            {pagedCombos.map((combo, index) => {
               const isAscii = isLikelyAsciiArt(combo.combo_text)
               const contentLength = combo.combo_text.length
-              const lineCount = combo.combo_text.split("\n").length
-
-              // Calculate the maximum line length for width estimation
               const maxLineLength = Math.max(...combo.combo_text.split("\n").map((line) => line.length))
-
-              // More precise sizing based on content
               const cardStyles = getCardStyles(combo)
 
-              // Determine if this needs to break out of columns for width
-              const needsWideLayout = isAscii && (maxLineLength > 60 || contentLength > 800)
-
               return (
-                <div
+                <motion.div
                   key={combo.id}
-                  className={`relative group bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-300 border border-slate-700/50 hover:border-purple-500/50 transform hover:scale-[1.02] break-inside-avoid mb-4 ${needsWideLayout ? "w-full" : ""}`}
-                  style={{
-                    // For very wide content, we might need to break out
-                    ...(needsWideLayout && maxLineLength > 80
-                      ? {
-                        width: "calc(200% + 1rem)",
-                        maxWidth: "600px",
-                      }
-                      : {}),
-                  }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="group relative overflow-hidden rounded-xl bg-slate-800/50 border border-slate-700/50 hover:border-purple-500/50 transition-all break-inside-avoid mb-4"
+                  style={{ pageBreakInside: 'avoid' }}
                 >
-                  {/* Tight-fitting Preview Area */}
+                  {/* Content Preview Area */}
                   <div
-                    className="relative cursor-pointer hover:bg-slate-800/30 transition-all duration-200"
-                    onClick={() => copyToClipboard(combo.combo_text, combo.id)}
-                    title="Click to copy"
+                    className="relative cursor-pointer bg-slate-800/30 hover:bg-slate-800/50 transition-all duration-200"
+                    onClick={() => openPreview(combo)}
                     style={{
                       padding: cardStyles.padding,
                     }}
@@ -530,7 +523,7 @@ export default function EmojiCombosGallery() {
 
                     {/* Copy indicator overlay */}
                     {copiedId === combo.id && (
-                      <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center rounded-2xl">
+                      <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center rounded-xl">
                         <div className="bg-green-500 text-white px-4 py-2 rounded-full font-medium flex items-center gap-2">
                           <Check size={16} />
                           Copied!
@@ -539,56 +532,51 @@ export default function EmojiCombosGallery() {
                     )}
                   </div>
 
-                  {/* Compact Info Section */}
-                  <div className="p-3 bg-slate-900/50 backdrop-blur-sm">
-                    <h3 className="text-white font-bold text-base mb-1 line-clamp-1 leading-tight">{combo.name}</h3>
-
-                    {combo.description && (
-                      <p className="text-slate-300 text-sm mb-2 line-clamp-2 leading-relaxed">{combo.description}</p>
-                    )}
+                  {/* Info Section */}
+                  <div className="p-3 bg-slate-900/30">
+                    <h3 className="text-sm font-semibold text-white truncate mb-2">{combo.name}</h3>
 
                     {combo.tags && combo.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {combo.tags.slice(0, 2).map((tag) => (
-                          <span
+                      <div className="flex flex-wrap gap-1 mb-2 max-h-12 overflow-auto">
+                        {combo.tags.slice(0, 3).map((tag) => (
+                          <Link
                             key={tag}
-                            className="bg-gradient-to-r from-purple-700/40 to-pink-700/40 text-purple-200 text-xs px-2 py-1 rounded-full select-none border border-purple-600/30 backdrop-blur-sm"
+                            to={`/browse/tag/${encodeURIComponent(tag)}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-purple-700/30 text-purple-200 text-xs px-2 py-0.5 rounded-full select-none whitespace-nowrap border border-purple-600/30 hover:bg-purple-700/50 hover:border-purple-500/50 transition-colors"
                           >
                             #{tag}
-                          </span>
+                          </Link>
                         ))}
-                        {combo.tags.length > 2 && (
-                          <span className="text-xs text-slate-400 px-2 py-1">+{combo.tags.length - 2}</span>
+                        {combo.tags.length > 3 && (
+                          <span className="text-xs text-slate-500 px-2 py-0.5">+{combo.tags.length - 3}</span>
                         )}
                       </div>
                     )}
 
-                    <div className="flex justify-between items-center gap-2">
+                    <div className="flex items-center justify-between gap-2">
                       <div className="flex gap-1">
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
                             openPreview(combo)
-                          } }
-                          className="flex items-center gap-1 px-2 py-1.5 bg-blue-600/80 hover:bg-blue-600 rounded-lg text-white text-xs font-medium transition-all duration-200 backdrop-blur-sm hover:scale-105"
-                          aria-label={`Preview ${combo.name}`}
+                          }}
+                          className="p-1.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition-colors"
+                          title="Preview"
                           type="button"
                         >
-                          <Eye size={12} />
-                          Preview
+                          <Eye className="h-3.5 w-3.5" />
                         </button>
-
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
                             copyToClipboard(combo.combo_text, combo.id)
-                          } }
-                          className="flex items-center gap-1 px-2 py-1.5 bg-green-600/80 hover:bg-green-600 rounded-lg text-white text-xs font-medium transition-all duration-200 backdrop-blur-sm hover:scale-105"
-                          aria-label={`Copy ${combo.name}`}
+                          }}
+                          className="p-1.5 bg-green-600 hover:bg-green-700 rounded-lg text-white transition-colors"
+                          title="Copy"
                           type="button"
                         >
-                          {copiedId === combo.id ? <Check size={12} /> : <Copy size={12} />}
-                          {copiedId === combo.id ? "Copied!" : "Copy"}
+                          {copiedId === combo.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
                       </div>
 
@@ -597,22 +585,21 @@ export default function EmojiCombosGallery() {
                           onClick={(e) => {
                             e.stopPropagation()
                             handleFavorite(combo.id)
-                          } }
-                          className={`p-2 rounded-lg transition-all duration-200 hover:scale-110 ${favorites.has(combo.id)
-                              ? "bg-red-600/80 text-white hover:bg-red-600"
-                              : "bg-slate-700/50 text-gray-300 hover:bg-slate-600/50 hover:text-red-400"}`}
-                          aria-pressed={favorites.has(combo.id)}
-                          aria-label={favorites.has(combo.id)
-                            ? `Remove ${combo.name} from favorites`
-                            : `Add ${combo.name} to favorites`}
+                          }}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            favorites.has(combo.id)
+                              ? "bg-red-500/20 text-red-400"
+                              : "bg-slate-800/50 text-slate-300 hover:bg-red-500/20 hover:text-red-400"
+                          }`}
+                          title={favorites.has(combo.id) ? "Remove from favorites" : "Add to favorites"}
                           type="button"
                         >
-                          <Heart size={14} fill={favorites.has(combo.id) ? "currentColor" : "none"} />
+                          <Heart className={`h-3.5 w-3.5 ${favorites.has(combo.id) ? "fill-current" : ""}`} />
                         </button>
                       )}
                     </div>
                   </div>
-                </div>
+                </motion.div>
               )
             })}
           </div>
@@ -690,11 +677,9 @@ export default function EmojiCombosGallery() {
                   {/* Close Button */}
                   <button
                     onClick={closePreview}
-                    className="absolute top-6 right-6 p-3 bg-black/50 hover:bg-black/70 rounded-2xl text-white transition-all duration-200 hover:scale-110"
+                    className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors z-10"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <X className="w-6 h-6" />
                   </button>
 
                   <Dialog.Title as="h3" className="text-4xl font-bold leading-tight text-white mb-8 pr-16">
@@ -749,18 +734,16 @@ export default function EmojiCombosGallery() {
                     </div>
                   )}
 
-                  <div className="flex flex-wrap justify-center gap-3 mb-8 max-h-32 overflow-auto">
+                  <div className="flex flex-wrap justify-center gap-2 mb-8 max-h-32 overflow-auto">
                     {(previewCombo?.tags || []).map((tag) => (
-                      <span
+                      <Link
                         key={tag}
-                        className="bg-gradient-to-r from-purple-700/30 to-pink-700/30 text-purple-200 text-sm px-4 py-2 rounded-2xl select-none border border-purple-600/30 cursor-pointer hover:bg-purple-600/50 transition-all duration-200 hover:scale-105"
-                        onClick={() => {
-                          toggleTag(tag)
-                          closePreview()
-                        } }
+                        to={`/browse/tag/${encodeURIComponent(tag)}`}
+                        onClick={() => closePreview()}
+                        className="bg-purple-700/30 text-purple-200 text-sm px-3 py-1 rounded-full select-none whitespace-nowrap border border-purple-600/30 hover:bg-purple-700/50 hover:border-purple-500/50 transition-colors"
                       >
                         #{tag}
-                      </span>
+                      </Link>
                     ))}
                   </div>
 

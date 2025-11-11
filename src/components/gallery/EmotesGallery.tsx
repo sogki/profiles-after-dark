@@ -1,9 +1,17 @@
-import { useState, useEffect, memo, useCallback, useMemo } from "react"
+import { useState, useEffect, memo, useCallback, useMemo, Fragment } from "react"
 import { motion } from "framer-motion"
-import { Search, Filter, Grid3X3, List, Download, Heart, User, Tag, Calendar } from "lucide-react"
+import { Dialog, Transition } from "@headlessui/react"
+import { Link } from "react-router-dom"
+import { Search, Filter, Grid3X3, List, Download, Heart, User, Tag, Calendar, X } from "lucide-react"
 import { supabase } from "../../lib/supabase"
 import { useAuth } from "../../context/authContext"
 import Footer from "../Footer"
+
+interface UserProfile {
+  username: string | null
+  display_name: string | null
+  avatar_url: string | null
+}
 
 interface Emote {
   id: string
@@ -14,10 +22,7 @@ interface Emote {
   download_count: number | null
   created_at: string | null
   user_id: string
-  user_profiles?: {
-    username: string | null
-    avatar_url: string | null
-  }
+  user_profiles?: UserProfile
 }
 
 const EmotesGallery = memo(function EmotesGallery() {
@@ -33,6 +38,9 @@ const EmotesGallery = memo(function EmotesGallery() {
   const [page, setPage] = useState(1)
   const ITEMS_PER_PAGE = 20
   const { user } = useAuth()
+  const [previewEmote, setPreviewEmote] = useState<Emote | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [favorites, setFavorites] = useState<Set<string>>(new Set())
 
   const [categories, setCategories] = useState([
     { value: "all", label: "All Categories" },
@@ -103,7 +111,33 @@ const EmotesGallery = memo(function EmotesGallery() {
         return
       }
 
-      setEmotes(data || [])
+      const emotesData: Emote[] = (data || []).map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        image_url: item.image_url,
+        category: item.category,
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        download_count: item.download_count || 0,
+        created_at: item.created_at,
+        user_id: item.user_id,
+      }))
+
+      // Fetch user profiles for all emotes
+      const userIds = [...new Set(emotesData.map(e => e.user_id))];
+      if (userIds.length > 0) {
+        const { data: userProfiles } = await supabase
+          .from("user_profiles")
+          .select("user_id, username, display_name, avatar_url")
+          .in("user_id", userIds);
+
+        const userMap = new Map(userProfiles?.map(up => [up.user_id, up]) || []);
+        
+        emotesData.forEach(emote => {
+          emote.user_profiles = userMap.get(emote.user_id);
+        });
+      }
+
+      setEmotes(emotesData)
     } catch (error: any) {
       console.error("Error fetching emotes:", error)
       if (error?.message?.includes("relation") && error?.message?.includes("does not exist")) {
@@ -167,59 +201,121 @@ const EmotesGallery = memo(function EmotesGallery() {
     return sortedEmotes.slice(start, start + ITEMS_PER_PAGE)
   }, [sortedEmotes, page])
 
-  const handleDownload = useCallback(async (emoteId: string) => {
-    try {
-      // Increment download count
-      const { error } = await supabase.rpc("increment_download_count", {
-        table_name: "emotes",
-        record_id: emoteId,
-      })
 
-      if (error) throw error
+  // Load favorites from database
+  useEffect(() => {
+    if (user?.id) {
+      async function loadFavorites() {
+        try {
+          const { data, error } = await supabase
+            .from("favorites")
+            .select("profile_id")
+            .eq("user_id", user.id);
 
-      // Update local state
-      setEmotes(prev =>
-        prev.map(emote =>
-          emote.id === emoteId
-            ? { ...emote, download_count: (emote.download_count || 0) + 1 }
-            : emote
-        )
-      )
-    } catch (error) {
-      console.error("Error updating download count:", error)
+          if (!error && data) {
+            setFavorites(new Set(data.map(f => f.profile_id)));
+          }
+        } catch (err) {
+          console.error("Error loading favorites:", err);
+        }
+      }
+      loadFavorites();
     }
-  }, [])
+  }, [user]);
 
   const handleFavorite = useCallback(async (emoteId: string) => {
     if (!user) return
 
-    try {
-      // Check if already favorited
-      const { data: existing } = await supabase
-        .from("favorites")
-        .select("id")
-        .eq("emote_id", emoteId)
-        .eq("user_id", user.id)
-        .single()
+    const isCurrentlyFavorited = favorites.has(emoteId);
+    const newFavorites = new Set(favorites);
 
-      if (existing) {
+    // Optimistic update
+    if (isCurrentlyFavorited) {
+      newFavorites.delete(emoteId);
+    } else {
+      newFavorites.add(emoteId);
+    }
+    setFavorites(newFavorites);
+
+    try {
+      if (isCurrentlyFavorited) {
         // Remove from favorites
-        await supabase.from("favorites").delete().eq("id", existing.id)
+        const { error } = await supabase
+          .from("favorites")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("profile_id", emoteId);
+
+        if (error) throw error;
       } else {
         // Add to favorites
-        await supabase.from("favorites").insert({
-          emote_id: emoteId,
-          user_id: user.id,
-          content_type: "emote",
-        })
-      }
+        const { error } = await supabase
+          .from("favorites")
+          .insert([{ user_id: user.id, profile_id: emoteId }]);
 
-      // Refresh data
-      fetchEmotes()
+        if (error) throw error;
+      }
     } catch (error) {
-      console.error("Error toggling favorite:", error)
+      console.error("Failed to update favorites:", error);
+      // Revert on error
+      setFavorites(favorites);
     }
-  }, [user, fetchEmotes])
+  }, [user, favorites])
+
+  const openPreview = (emote: Emote) => {
+    setPreviewEmote(emote);
+    setIsModalOpen(true);
+  };
+
+  const closePreview = () => {
+    setIsModalOpen(false);
+    setPreviewEmote(null);
+  };
+
+  // Download image helper
+  const downloadImage = useCallback(async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Network response not ok");
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Error downloading image:", error);
+      alert("Failed to download image.");
+    }
+  }, []);
+
+  const handleDownloadEmote = useCallback(async (emote: Emote) => {
+    if (emote.image_url) {
+      const ext = emote.image_url.split(".").pop()?.split(/[#?]/)[0] || "png";
+      const sanitizedTitle = emote.title.replace(/\s+/g, "_").toLowerCase();
+      const filename = `emote_${sanitizedTitle}.${ext}`;
+      await downloadImage(emote.image_url, filename);
+    }
+
+    // Update download count
+    try {
+      const { error } = await supabase
+        .from("emotes")
+        .update({ download_count: (emote.download_count || 0) + 1 })
+        .eq("id", emote.id);
+
+      if (!error) {
+        setEmotes(prev => prev.map(e => 
+          e.id === emote.id ? { ...e, download_count: (e.download_count || 0) + 1 } : e
+        ));
+      }
+    } catch (error) {
+      console.error("Failed to update download count:", error);
+    }
+  }, [downloadImage]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -496,7 +592,7 @@ const EmotesGallery = memo(function EmotesGallery() {
                 {viewMode === "grid" ? (
                   <>
                     {/* Grid View */}
-                    <div className="aspect-square overflow-hidden relative">
+                    <div className="aspect-square relative overflow-hidden bg-slate-800 cursor-pointer" onClick={() => openPreview(emote)}>
                       <img
                         src={emote.image_url}
                         alt={emote.title}
@@ -508,48 +604,91 @@ const EmotesGallery = memo(function EmotesGallery() {
                           target.src = '/placeholder.svg';
                         }}
                       />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300" />
-                      
-                      {/* Action Buttons */}
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex gap-2">
-                        <button
-                          onClick={() => handleDownload(emote.id)}
-                          className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-white transition-colors"
-                          title="Download"
-                        >
-                          <Download className="h-4 w-4" />
-                        </button>
-                        {user && (
-                          <button
-                            onClick={() => handleFavorite(emote.id)}
-                            className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-white transition-colors"
-                            title="Add to Favorites"
-                          >
-                            <Heart className="h-4 w-4" />
-                          </button>
-                        )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                        <div className="w-full">
+                          <div className="flex items-center justify-between mb-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadEmote(emote);
+                              }}
+                              className="p-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                              title="Download"
+                            >
+                              <Download className="h-4 w-4 text-white" />
+                            </button>
+                            {user && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleFavorite(emote.id);
+                                }}
+                                className={`p-2 rounded-lg transition-colors ${
+                                  favorites.has(emote.id)
+                                    ? "bg-red-500/20 text-red-400"
+                                    : "bg-slate-800/50 text-slate-300 hover:bg-red-500/20 hover:text-red-400"
+                                }`}
+                                title={favorites.has(emote.id) ? "Remove from favorites" : "Add to favorites"}
+                              >
+                                <Heart className={`h-4 w-4 ${favorites.has(emote.id) ? "fill-current" : ""}`} />
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-white text-xs">
+                            <Download className="h-3 w-3" />
+                            <span>{emote.download_count || 0}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="p-4">
-                      <h3 className="font-semibold text-white mb-2 truncate">{emote.title}</h3>
-                      <div className="flex items-center gap-2 text-sm text-slate-400 mb-2">
-                        <User className="h-4 w-4" />
-                        <span>{emote.user_profiles?.username || "Unknown"}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-1 text-slate-400">
-                          <Download className="h-4 w-4" />
-                          <span>{emote.download_count || 0}</span>
+                    <div className="p-3">
+                      <h3 className="text-sm font-semibold text-white truncate mb-2">{emote.title}</h3>
+                      {(emote.tags || []).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2 max-h-12 overflow-auto">
+                          {emote.tags.slice(0, 3).map((tag) => (
+                            <Link
+                              key={tag}
+                              to={`/browse/tag/${encodeURIComponent(tag)}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="bg-purple-700/30 text-purple-200 text-xs px-2 py-0.5 rounded-full select-none whitespace-nowrap border border-purple-600/30 hover:bg-purple-700/50 hover:border-purple-500/50 transition-colors"
+                            >
+                              #{tag}
+                            </Link>
+                          ))}
+                          {emote.tags.length > 3 && (
+                            <span className="text-xs text-slate-500 px-2 py-0.5">+{emote.tags.length - 3}</span>
+                          )}
                         </div>
-                        <span className="text-purple-400 capitalize">{emote.category}</span>
-                      </div>
+                      )}
+                      {emote.user_profiles && (
+                        <Link
+                          to={`/user/${emote.user_profiles.username || emote.user_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-2 text-xs text-slate-400 hover:text-purple-400 transition-colors group"
+                        >
+                          {emote.user_profiles.avatar_url ? (
+                            <img
+                              src={emote.user_profiles.avatar_url}
+                              alt={emote.user_profiles.username || "User"}
+                              className="w-6 h-6 rounded-full ring-2 ring-slate-700 group-hover:ring-purple-500 transition-all"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center ring-2 ring-slate-700 group-hover:ring-purple-500 transition-all">
+                              <User className="h-3.5 w-3.5 text-white" />
+                            </div>
+                          )}
+                          <span className="truncate font-medium">
+                            {emote.user_profiles.username || emote.user_profiles.display_name || "Unknown User"}
+                          </span>
+                        </Link>
+                      )}
                     </div>
                   </>
                 ) : (
                   <>
                     {/* List View */}
-                    <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                    <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-slate-800 cursor-pointer" onClick={() => openPreview(emote)}>
                       <img
                         src={emote.image_url}
                         alt={emote.title}
@@ -562,61 +701,78 @@ const EmotesGallery = memo(function EmotesGallery() {
                         }}
                       />
                     </div>
-                    
-                    <div className="flex-1 ml-4">
-                      <h3 className="font-semibold text-white mb-1">{emote.title}</h3>
-                      <div className="flex items-center gap-4 text-sm text-slate-400 mb-2">
-                        <div className="flex items-center gap-1">
-                          <User className="h-4 w-4" />
-                          <span>{emote.user_profiles?.username || "Unknown"}</span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-semibold text-white truncate mb-2">{emote.title}</h3>
+                      {(emote.tags || []).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2 max-h-12 overflow-auto">
+                          {emote.tags.slice(0, 4).map((tag) => (
+                            <Link
+                              key={tag}
+                              to={`/browse/tag/${encodeURIComponent(tag)}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="bg-purple-700/30 text-purple-200 text-xs px-2 py-0.5 rounded-full select-none whitespace-nowrap border border-purple-600/30 hover:bg-purple-700/50 hover:border-purple-500/50 transition-colors"
+                            >
+                              #{tag}
+                            </Link>
+                          ))}
+                          {emote.tags.length > 4 && (
+                            <span className="text-xs text-slate-500 px-2 py-0.5">+{emote.tags.length - 4}</span>
+                          )}
                         </div>
+                      )}
+                      <div className="flex items-center gap-4 text-sm text-slate-400 mb-2">
                         <div className="flex items-center gap-1">
                           <Download className="h-4 w-4" />
                           <span>{emote.download_count || 0} downloads</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>{emote.created_at ? formatDate(emote.created_at) : "Unknown"}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-purple-400 capitalize text-sm">{emote.category}</span>
-                        {emote.tags && emote.tags.length > 0 && (
-                          <div className="flex gap-1">
-                            {emote.tags.slice(0, 3).map((tag, index) => (
-                              <span
-                                key={index}
-                                className="bg-slate-700 text-slate-300 px-2 py-1 rounded text-xs"
-                              >
-                                #{tag}
-                              </span>
-                            ))}
-                            {emote.tags.length > 3 && (
-                              <span className="text-slate-400 text-xs">
-                                +{emote.tags.length - 3} more
-                              </span>
-                            )}
-                          </div>
+                        {user && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFavorite(emote.id);
+                            }}
+                            className={`flex items-center gap-1 transition-colors ${
+                              favorites.has(emote.id)
+                                ? "text-red-400"
+                                : "text-slate-400 hover:text-red-400"
+                            }`}
+                          >
+                            <Heart className={`h-4 w-4 ${favorites.has(emote.id) ? "fill-current" : ""}`} />
+                            <span>Favorite</span>
+                          </button>
                         )}
-                      </div>
-      </div>
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleDownload(emote.id)}
-                        className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition-colors"
-                        title="Download"
-                      >
-                        <Download className="h-5 w-5" />
-                      </button>
-                      {user && (
                         <button
-                          onClick={() => handleFavorite(emote.id)}
-                          className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition-colors"
-                          title="Add to Favorites"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownloadEmote(emote);
+                          }}
+                          className="flex items-center gap-1 text-purple-400 hover:text-purple-300 transition-colors"
                         >
-                          <Heart className="h-5 w-5" />
+                          <Download className="h-4 w-4" />
+                          <span>Download</span>
                         </button>
+                      </div>
+                      {emote.user_profiles && (
+                        <Link
+                          to={`/user/${emote.user_profiles.username || emote.user_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-2 text-sm text-slate-400 hover:text-purple-400 transition-colors group"
+                        >
+                          {emote.user_profiles.avatar_url ? (
+                            <img
+                              src={emote.user_profiles.avatar_url}
+                              alt={emote.user_profiles.username || "User"}
+                              className="w-7 h-7 rounded-full ring-2 ring-slate-700 group-hover:ring-purple-500 transition-all"
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center ring-2 ring-slate-700 group-hover:ring-purple-500 transition-all">
+                              <User className="h-4 w-4 text-white" />
+                            </div>
+                          )}
+                          <span className="truncate font-medium">
+                            by {emote.user_profiles.username || emote.user_profiles.display_name || "Unknown User"}
+                          </span>
+                        </Link>
                       )}
                     </div>
                   </>
@@ -626,6 +782,124 @@ const EmotesGallery = memo(function EmotesGallery() {
           </motion.div>
         )}
       </div>
+
+      {/* Preview Modal */}
+      <Transition appear show={isModalOpen} as={Fragment}>
+        <Dialog as="div" className="fixed inset-0 z-50 overflow-y-auto" onClose={closePreview}>
+          <div className="min-h-screen px-4 text-center bg-black bg-opacity-80 backdrop-blur-sm">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="inline-block w-full max-w-4xl my-20 overflow-hidden text-left align-middle transition-all transform bg-slate-900 shadow-2xl rounded-2xl border border-slate-700">
+                <div className="relative">
+                  {previewEmote && (
+                    <img
+                      src={previewEmote.image_url || "/placeholder.svg"}
+                      alt={previewEmote.title}
+                      className="w-full h-96 object-contain bg-slate-800"
+                      loading="lazy"
+                    />
+                  )}
+
+                  {/* Close Button */}
+                  <button
+                    onClick={closePreview}
+                    className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors z-10"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                {previewEmote && (
+                  <div className="p-8">
+                    <Dialog.Title as="h3" className="text-3xl font-bold text-white mb-4">
+                      {previewEmote.title}
+                    </Dialog.Title>
+
+                    <div className="flex items-center gap-4 text-sm text-slate-400 mb-6">
+                      <div className="flex items-center gap-1">
+                        <Download className="h-4 w-4" />
+                        <span>{previewEmote.download_count || 0} downloads</span>
+                      </div>
+                      {previewEmote.user_profiles && (
+                        <Link
+                          to={`/user/${previewEmote.user_profiles.username || previewEmote.user_id}`}
+                          className="flex items-center gap-2 hover:text-purple-400 transition-colors"
+                        >
+                          {previewEmote.user_profiles.avatar_url ? (
+                            <img
+                              src={previewEmote.user_profiles.avatar_url}
+                              alt={previewEmote.user_profiles.username || "User"}
+                              className="w-6 h-6 rounded-full"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">
+                              <User className="h-4 w-4 text-white" />
+                            </div>
+                          )}
+                          <span>{previewEmote.user_profiles.username || previewEmote.user_profiles.display_name || "Unknown User"}</span>
+                        </Link>
+                      )}
+                    </div>
+
+                    {(previewEmote.tags || []).length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-6">
+                        {previewEmote.tags.map((tag) => (
+                          <Link
+                            key={tag}
+                            to={`/browse/tag/${encodeURIComponent(tag)}`}
+                            className="bg-purple-700/30 text-purple-200 text-sm px-3 py-1 rounded-full border border-purple-600/30 hover:bg-purple-700/50 hover:border-purple-500/50 transition-colors"
+                          >
+                            #{tag}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex justify-center gap-4">
+                      <button
+                        onClick={() => previewEmote && handleDownloadEmote(previewEmote)}
+                        className="inline-flex justify-center items-center gap-2 px-8 py-3 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
+                        type="button"
+                      >
+                        <Download className="h-5 w-5" />
+                        Download
+                      </button>
+                      {user && (
+                        <button
+                          onClick={() => previewEmote && handleFavorite(previewEmote.id)}
+                          className={`inline-flex justify-center items-center gap-2 px-8 py-3 text-sm font-semibold rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                            previewEmote && favorites.has(previewEmote.id)
+                              ? "text-white bg-red-600 hover:bg-red-700 focus:ring-red-500"
+                              : "text-slate-300 bg-slate-700 hover:bg-slate-600 focus:ring-slate-500"
+                          }`}
+                          type="button"
+                        >
+                          <Heart className={`h-5 w-5 ${previewEmote && favorites.has(previewEmote.id) ? "fill-current" : ""}`} />
+                          {previewEmote && favorites.has(previewEmote.id) ? "Remove from Favorites" : "Add to Favorites"}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="inline-flex justify-center px-8 py-3 text-sm font-semibold text-slate-300 bg-slate-700 border border-slate-600 rounded-lg hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500 transition-colors"
+                        onClick={closePreview}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </Dialog>
+      </Transition>
       <Footer />
     </div>
   )

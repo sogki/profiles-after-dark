@@ -151,6 +151,15 @@ export default function Footer() {
               </li>
               <li>
                 <Link
+                  to="/help"
+                  className="text-slate-400 hover:text-blue-400 transition-colors duration-200 text-sm group flex items-center gap-2"
+                >
+                  <span className="w-1 h-1 rounded-full bg-blue-400 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                  Help Center
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/appeals"
                   className="text-slate-400 hover:text-blue-400 transition-colors duration-200 text-sm group flex items-center gap-2"
                 >

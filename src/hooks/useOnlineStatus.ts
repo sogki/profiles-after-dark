@@ -70,8 +70,11 @@ export function useIsUserOnline(userId?: string) {
   useEffect(() => {
     if (!userId) {
       setIsOnline(false);
+      setLastActivity(null);
       return;
     }
+
+    let mounted = true;
 
     const checkOnlineStatus = async () => {
       try {
@@ -82,6 +85,8 @@ export function useIsUserOnline(userId?: string) {
           .single();
 
         if (error) throw error;
+
+        if (!mounted) return;
 
         if (!data?.show_online_status) {
           setIsOnline(false);
@@ -101,11 +106,21 @@ export function useIsUserOnline(userId?: string) {
         const lastActivityTime = new Date(activity).getTime();
         const now = Date.now();
         const fiveMinutesAgo = now - 5 * 60 * 1000;
+        
+        // Only show as online if activity was within the last 5 minutes
+        // Also ensure the timestamp is valid (not in the future)
+        const isValidTime = lastActivityTime <= now;
+        const isRecentActivity = lastActivityTime > fiveMinutesAgo;
 
-        setIsOnline(lastActivityTime > fiveMinutesAgo);
+        const newIsOnline = isValidTime && isRecentActivity;
+        
+        // Only update state if it changed to prevent unnecessary re-renders
+        setIsOnline(prev => prev !== newIsOnline ? newIsOnline : prev);
       } catch (error) {
         console.error("Error checking online status:", error);
-        setIsOnline(false);
+        if (mounted) {
+          setIsOnline(false);
+        }
       }
     };
 
@@ -114,9 +129,13 @@ export function useIsUserOnline(userId?: string) {
     // Check every 30 seconds
     const interval = setInterval(checkOnlineStatus, 30000);
 
-    return () => clearInterval(interval);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [userId]);
 
   return { isOnline, lastActivity };
 }
+
 

@@ -45,6 +45,7 @@ export default function FeedbackView() {
       let query = supabase
         .from('feedback')
         .select('*')
+        .neq('type', 'support') // Exclude support tickets - they're handled in SupportTicketsView
         .order('created_at', { ascending: false })
 
       if (filterStatus !== 'all') {

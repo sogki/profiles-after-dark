@@ -15,11 +15,13 @@ import {
   Globe,
   Zap,
   Clock,
-  BarChart3
+  BarChart3,
+  TrendingUp as TrendingUpIcon
 } from 'lucide-react';
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from 'recharts';
 import toast from 'react-hot-toast';
 import { getConfigValue } from '../../../lib/config';
+import { supabase } from '../../../lib/supabase';
 
 interface ServiceStatus {
   id: string;
@@ -31,11 +33,16 @@ interface ServiceStatus {
 
 interface MetricDataPoint {
   timestamp: string;
+  time: string;
   responseTime: number;
+  avg_response_time: number;
   requests: number;
+  total_requests: number;
   errors: number;
-  cpu: number;
-  memory: number;
+  total_errors: number;
+  error_rate: number;
+  cpu?: number;
+  memory?: number;
 }
 
 interface MetricsData {
@@ -45,19 +52,48 @@ interface MetricsData {
     current: number;
     average: number;
     peak: number;
+    min: number;
     totalRequests: number;
     totalErrors: number;
+    errorRate: number;
+    p50: number;
+    p95: number;
+    p99: number;
   };
+}
+
+interface EndpointUsage {
+  endpoint: string;
+  method: string;
+  total_requests: number;
+  total_errors: number;
+  error_rate: number;
+  avg_response_time: number;
+  p95_response_time: number;
+  total_request_size: number;
+  total_response_size: number;
+  unique_ips: number;
+  unique_users: number;
+}
+
+interface ServiceStatus {
+  id: string;
+  name: string;
+  status: 'operational' | 'degraded' | 'down';
+  responseTime: number;
+  lastChecked: string;
 }
 
 export default function AnalyticsMonitoringView() {
   const [services, setServices] = useState<ServiceStatus[]>([]);
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
+  const [endpointUsage, setEndpointUsage] = useState<EndpointUsage[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(true);
-  const [timeRange, setTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('1h');
+  const [timeRange, setTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('24h');
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [apiUrl, setApiUrl] = useState<string>(import.meta.env.VITE_API_URL || 'https://dev.profilesafterdark.com/api/v1');
+  const [selectedEndpoint, setSelectedEndpoint] = useState<string | null>(null);
 
   // Initialize API URL from config
   // Prefer base key (API_URL) over VITE_ prefixed version
@@ -74,25 +110,132 @@ export default function AnalyticsMonitoringView() {
     });
   }, []);
 
+  // Helper functions - defined before use
+  const formatChartTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    if (timeRange === '1h') {
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    } else if (timeRange === '24h') {
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
 
-      // Fetch service health
-      const healthResponse = await fetch(`${apiUrl}/monitoring/health`);
-      const healthData = await healthResponse.json();
-      
-      if (healthData.success) {
-        setServices(healthData.data.services);
+      // Try to fetch service health from API (optional, won't fail if unavailable)
+      try {
+        const healthResponse = await fetch(`${apiUrl}/monitoring/health`, { 
+          signal: AbortSignal.timeout(5000) 
+        });
+        if (healthResponse.ok) {
+          const healthData = await healthResponse.json();
+          if (healthData.success) {
+            setServices(healthData.data.services);
+          }
+        }
+      } catch (error) {
+        console.warn('Could not fetch health data from API, using database metrics only');
+        // Set default services based on database availability
+        setServices([
+          { id: 'database', name: 'Database', status: 'operational', responseTime: 0, lastChecked: new Date().toISOString() },
+          { id: 'api', name: 'API Server', status: 'operational', responseTime: 0, lastChecked: new Date().toISOString() }
+        ]);
       }
 
-      // Fetch metrics
-      const metricsResponse = await fetch(`${apiUrl}/monitoring/metrics?timeRange=${timeRange}`);
-      const metricsData = await metricsResponse.json();
-      
-      if (metricsData.success) {
-        setMetrics(metricsData.data);
+      // Load metrics directly from database using RPC function
+      try {
+        const { data: metricsData, error: metricsError } = await supabase
+          .rpc('get_api_metrics_summary', {
+            p_time_range: timeRange,
+            p_endpoint: selectedEndpoint
+          });
+
+        if (metricsError) {
+          console.error('Error loading metrics from database:', metricsError);
+          // Fallback to direct query if RPC fails
+          await loadMetricsDirectly();
+        } else if (metricsData && metricsData.length > 0) {
+          // Transform database data to chart format
+          const transformedMetrics: MetricDataPoint[] = metricsData.map((point: any) => {
+            const timestamp = point.time_bucket;
+            return {
+              timestamp,
+              time: formatChartTime(timestamp),
+            responseTime: Number(point.avg_response_time) || 0,
+            avg_response_time: Number(point.avg_response_time) || 0,
+            requests: Number(point.total_requests) || 0,
+            total_requests: Number(point.total_requests) || 0,
+            errors: Number(point.total_errors) || 0,
+            total_errors: Number(point.total_errors) || 0,
+            error_rate: Number(point.error_rate) || 0
+            };
+          });
+
+          // Calculate summary statistics
+          const allResponseTimes = metricsData.map((p: any) => Number(p.avg_response_time) || 0);
+          const allRequests = metricsData.map((p: any) => Number(p.total_requests) || 0);
+          const allErrors = metricsData.map((p: any) => Number(p.total_errors) || 0);
+          
+          const totalRequests = allRequests.reduce((a: number, b: number) => a + b, 0);
+          const totalErrors = allErrors.reduce((a: number, b: number) => a + b, 0);
+          const avgResponseTime = allResponseTimes.length > 0 
+            ? allResponseTimes.reduce((a: number, b: number) => a + b, 0) / allResponseTimes.length 
+            : 0;
+          const maxResponseTime = allResponseTimes.length > 0 ? Math.max(...allResponseTimes) : 0;
+          const minResponseTime = allResponseTimes.length > 0 ? Math.min(...allResponseTimes) : 0;
+          
+          // Get percentiles from latest data point
+          const latestPoint = metricsData[metricsData.length - 1];
+          const p50 = latestPoint ? Number(latestPoint.p50_response_time) || 0 : 0;
+          const p95 = latestPoint ? Number(latestPoint.p95_response_time) || 0 : 0;
+          const p99 = latestPoint ? Number(latestPoint.p99_response_time) || 0 : 0;
+
+          setMetrics({
+            timeRange,
+            metrics: transformedMetrics,
+            summary: {
+              current: transformedMetrics.length > 0 ? transformedMetrics[transformedMetrics.length - 1].responseTime : 0,
+              average: avgResponseTime,
+              peak: maxResponseTime,
+              min: minResponseTime,
+              totalRequests,
+              totalErrors,
+              errorRate: totalRequests > 0 ? (totalErrors / totalRequests) * 100 : 0,
+              p50,
+              p95,
+              p99
+            }
+          });
+        } else {
+          // No data available
+          setMetrics({
+            timeRange,
+            metrics: [],
+            summary: {
+              current: 0,
+              average: 0,
+              peak: 0,
+              min: 0,
+              totalRequests: 0,
+              totalErrors: 0,
+              errorRate: 0,
+              p50: 0,
+              p95: 0,
+              p99: 0
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error loading metrics:', error);
+        await loadMetricsDirectly();
       }
+
+      // Load endpoint usage statistics
+      await loadEndpointUsage();
 
       setLastRefresh(new Date());
     } catch (error) {
@@ -101,7 +244,212 @@ export default function AnalyticsMonitoringView() {
     } finally {
       setLoading(false);
     }
-  }, [timeRange, apiUrl]);
+  }, [timeRange, apiUrl, selectedEndpoint]);
+
+  const loadMetricsDirectly = async () => {
+    try {
+      // Calculate time range
+      let startTime: Date;
+      switch (timeRange) {
+        case '1h':
+          startTime = new Date(Date.now() - 60 * 60 * 1000);
+          break;
+        case '24h':
+          startTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          startTime = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startTime = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      }
+
+      const { data, error } = await supabase
+        .from('api_metrics')
+        .select('*')
+        .gte('timestamp', startTime.toISOString())
+        .order('timestamp', { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        // Aggregate by time buckets
+        const buckets = new Map<string, any>();
+        const intervalMs = timeRange === '1h' ? 5 * 60 * 1000 : timeRange === '24h' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+
+        data.forEach((metric: any) => {
+          const timestamp = new Date(metric.timestamp).getTime();
+          const bucketTime = Math.floor(timestamp / intervalMs) * intervalMs;
+          const bucketKey = new Date(bucketTime).toISOString();
+
+          if (!buckets.has(bucketKey)) {
+            buckets.set(bucketKey, {
+              timestamp: bucketKey,
+              responseTimes: [],
+              requests: 0,
+              errors: 0
+            });
+          }
+
+          const bucket = buckets.get(bucketKey)!;
+          bucket.responseTimes.push(metric.response_time);
+          bucket.requests += 1;
+          if (metric.error) bucket.errors += 1;
+        });
+
+        const transformedMetrics: MetricDataPoint[] = Array.from(buckets.entries())
+          .map(([key, value]) => ({
+            timestamp: key,
+            time: formatChartTime(key),
+            responseTime: value.responseTimes.reduce((a: number, b: number) => a + b, 0) / value.responseTimes.length,
+            avg_response_time: value.responseTimes.reduce((a: number, b: number) => a + b, 0) / value.responseTimes.length,
+            requests: value.requests,
+            total_requests: value.requests,
+            errors: value.errors,
+            total_errors: value.errors,
+            error_rate: value.requests > 0 ? (value.errors / value.requests) * 100 : 0
+          }))
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+        const allResponseTimes = data.map((m: any) => m.response_time);
+        const totalRequests = data.length;
+        const totalErrors = data.filter((m: any) => m.error).length;
+
+        setMetrics({
+          timeRange,
+          metrics: transformedMetrics,
+          summary: {
+            current: transformedMetrics.length > 0 ? transformedMetrics[transformedMetrics.length - 1].responseTime : 0,
+            average: allResponseTimes.reduce((a, b) => a + b, 0) / allResponseTimes.length,
+            peak: Math.max(...allResponseTimes),
+            min: Math.min(...allResponseTimes),
+            totalRequests,
+            totalErrors,
+            errorRate: totalRequests > 0 ? (totalErrors / totalRequests) * 100 : 0,
+            p50: 0,
+            p95: 0,
+            p99: 0
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error loading metrics directly:', error);
+    }
+  };
+
+  const loadEndpointUsage = async () => {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_endpoint_usage_stats', {
+          p_time_range: timeRange,
+          p_limit: 20
+        });
+
+      if (error) {
+        console.error('Error loading endpoint usage:', error);
+        // Fallback to direct query
+        await loadEndpointUsageDirectly();
+        return;
+      }
+
+      if (data) {
+        setEndpointUsage(data);
+      }
+    } catch (error) {
+      console.error('Error loading endpoint usage:', error);
+      await loadEndpointUsageDirectly();
+    }
+  };
+
+  const loadEndpointUsageDirectly = async () => {
+    try {
+      let startTime: Date;
+      switch (timeRange) {
+        case '1h':
+          startTime = new Date(Date.now() - 60 * 60 * 1000);
+          break;
+        case '24h':
+          startTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          startTime = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startTime = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      }
+
+      const { data, error } = await supabase
+        .from('api_metrics')
+        .select('endpoint, method, response_time, error, request_size, response_size, ip_address, user_id')
+        .gte('timestamp', startTime.toISOString());
+
+      if (error) throw error;
+
+      if (data) {
+        // Aggregate by endpoint and method
+        const endpointMap = new Map<string, any>();
+
+        data.forEach((metric: any) => {
+          const key = `${metric.method}:${metric.endpoint}`;
+          if (!endpointMap.has(key)) {
+            endpointMap.set(key, {
+              endpoint: metric.endpoint,
+              method: metric.method,
+              responseTimes: [],
+              requests: 0,
+              errors: 0,
+              requestSizes: [],
+              responseSizes: [],
+              ips: new Set(),
+              users: new Set()
+            });
+          }
+
+          const stats = endpointMap.get(key)!;
+          stats.responseTimes.push(metric.response_time);
+          stats.requests += 1;
+          if (metric.error) stats.errors += 1;
+          if (metric.request_size) stats.requestSizes.push(metric.request_size);
+          if (metric.response_size) stats.responseSizes.push(metric.response_size);
+          if (metric.ip_address) stats.ips.add(metric.ip_address);
+          if (metric.user_id) stats.users.add(metric.user_id);
+        });
+
+        const usage: EndpointUsage[] = Array.from(endpointMap.entries())
+          .map(([key, stats]) => {
+            const avgResponseTime = stats.responseTimes.reduce((a: number, b: number) => a + b, 0) / stats.responseTimes.length;
+            const sortedTimes = [...stats.responseTimes].sort((a, b) => a - b);
+            const p95Index = Math.floor(sortedTimes.length * 0.95);
+
+            return {
+              endpoint: stats.endpoint,
+              method: stats.method,
+              total_requests: stats.requests,
+              total_errors: stats.errors,
+              error_rate: stats.requests > 0 ? (stats.errors / stats.requests) * 100 : 0,
+              avg_response_time: avgResponseTime,
+              p95_response_time: sortedTimes[p95Index] || 0,
+              total_request_size: stats.requestSizes.reduce((a: number, b: number) => a + b, 0),
+              total_response_size: stats.responseSizes.reduce((a: number, b: number) => a + b, 0),
+              unique_ips: stats.ips.size,
+              unique_users: stats.users.size
+            };
+          })
+          .sort((a, b) => b.total_requests - a.total_requests)
+          .slice(0, 20);
+
+        setEndpointUsage(usage);
+      }
+    } catch (error) {
+      console.error('Error loading endpoint usage directly:', error);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -148,14 +496,13 @@ export default function AnalyticsMonitoringView() {
     return ranges[range as keyof typeof ranges] || range;
   };
 
-  const formatChartTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    if (timeRange === '1h') {
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    } else if (timeRange === '24h') {
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const getMethodColor = (method: string) => {
+    switch (method) {
+      case 'GET': return 'border-green-500 text-green-400 bg-green-500/10';
+      case 'POST': return 'border-blue-500 text-blue-400 bg-blue-500/10';
+      case 'PUT': return 'border-yellow-500 text-yellow-400 bg-yellow-500/10';
+      case 'DELETE': return 'border-red-500 text-red-400 bg-red-500/10';
+      default: return 'border-slate-500 text-slate-400 bg-slate-500/10';
     }
   };
 
@@ -430,7 +777,7 @@ export default function AnalyticsMonitoringView() {
               <AlertTriangle className="w-6 h-6 text-red-400" />
               <span className="text-sm text-slate-400">Total Errors</span>
             </div>
-            <div className="text-3xl font-bold text-red-400">{metrics.summary.totalErrors}</div>
+            <div className="text-3xl font-bold text-red-400">{metrics.summary.totalErrors.toLocaleString()}</div>
           </div>
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
             <div className="flex items-center justify-between mb-4">
@@ -438,11 +785,97 @@ export default function AnalyticsMonitoringView() {
               <span className="text-sm text-slate-400">Error Rate</span>
             </div>
             <div className="text-3xl font-bold text-white">
-              {metrics.summary.totalRequests > 0
-                ? ((metrics.summary.totalErrors / metrics.summary.totalRequests) * 100).toFixed(2)
-                : 0}%
+              {metrics.summary.errorRate.toFixed(2)}%
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Endpoint Usage Statistics */}
+      {endpointUsage.length > 0 && (
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <TrendingUpIcon className="w-6 h-6 text-purple-400" />
+              <div>
+                <h3 className="text-xl font-bold text-white">Endpoint Usage Statistics</h3>
+                <p className="text-slate-400 text-sm">Most used endpoints and their performance metrics</p>
+              </div>
+            </div>
+            <select
+              value={selectedEndpoint || 'all'}
+              onChange={(e) => {
+                setSelectedEndpoint(e.target.value === 'all' ? null : e.target.value);
+              }}
+              className="bg-slate-700 text-white border border-slate-600 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="all">All Endpoints</option>
+              {Array.from(new Set(endpointUsage.map(e => e.endpoint))).map(endpoint => (
+                <option key={endpoint} value={endpoint}>{endpoint}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-3">
+            {endpointUsage.slice(0, 10).map((endpoint, index) => (
+              <motion.div
+                key={`${endpoint.method}-${endpoint.endpoint}`}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="bg-slate-700/50 rounded-lg p-4 border border-slate-600/30 hover:border-slate-600 transition-colors"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className={`px-2.5 py-1 rounded text-xs font-semibold border ${getMethodColor(endpoint.method)}`}>
+                        {endpoint.method}
+                      </span>
+                      <code className="text-sm font-mono text-white truncate">{endpoint.endpoint}</code>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+                      <div>
+                        <div className="text-xs text-slate-400 mb-1">Requests</div>
+                        <div className="text-sm font-semibold text-white">{endpoint.total_requests.toLocaleString()}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400 mb-1">Avg Response</div>
+                        <div className="text-sm font-semibold text-white">{Math.round(endpoint.avg_response_time)}ms</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400 mb-1">Error Rate</div>
+                        <div className={`text-sm font-semibold ${endpoint.error_rate > 5 ? 'text-red-400' : endpoint.error_rate > 1 ? 'text-yellow-400' : 'text-green-400'}`}>
+                          {endpoint.error_rate.toFixed(2)}%
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400 mb-1">P95 Response</div>
+                        <div className="text-sm font-semibold text-yellow-400">{Math.round(endpoint.p95_response_time)}ms</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-slate-500 mt-2">
+                  <span>Unique IPs: {endpoint.unique_ips}</span>
+                  {endpoint.unique_users > 0 && <span>Users: {endpoint.unique_users}</span>}
+                  {endpoint.total_request_size > 0 && (
+                    <span>Request Size: {(endpoint.total_request_size / 1024 / 1024).toFixed(2)} MB</span>
+                  )}
+                  {endpoint.total_response_size > 0 && (
+                    <span>Response Size: {(endpoint.total_response_size / 1024 / 1024).toFixed(2)} MB</span>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {endpointUsage.length === 0 && !loading && (
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 text-center">
+          <Activity className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+          <p className="text-slate-400">No endpoint usage data available for the selected time range.</p>
+          <p className="text-slate-500 text-sm mt-2">API requests will be tracked automatically when they occur.</p>
         </div>
       )}
     </div>

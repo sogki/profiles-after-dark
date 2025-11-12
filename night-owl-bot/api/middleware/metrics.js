@@ -35,6 +35,35 @@ export async function trackMetric(req, res, next) {
       const db = await getSupabase();
       
       if (db) {
+        // Extract user ID if authenticated
+        const userId = req.user?.id || req.user?.user_id || null;
+        
+        // Extract API version from path (e.g., /api/v1/...)
+        const apiVersionMatch = req.path.match(/\/api\/(v\d+)/);
+        const apiVersion = apiVersionMatch ? apiVersionMatch[1] : null;
+        
+        // Extract query parameters
+        const queryParams = Object.keys(req.query).length > 0 ? req.query : null;
+        
+        // Extract relevant request headers
+        const requestHeaders = {
+          'content-type': req.get('content-type'),
+          'accept': req.get('accept'),
+          'authorization': req.get('authorization') ? '***' : null, // Mask auth token
+          'referer': req.get('referer'),
+          'origin': req.get('origin'),
+        };
+        
+        // Extract relevant response headers
+        const responseHeaders = {
+          'content-type': res.get('content-type'),
+          'cache-control': res.get('cache-control'),
+          'x-cache': res.get('x-cache'),
+        };
+        
+        // Determine cache hit status
+        const cacheHit = res.get('x-cache') === 'HIT' || res.get('cf-cache-status') === 'HIT';
+        
         // Don't await - fire and forget to avoid blocking the response
         db.from('api_metrics').insert({
           endpoint: req.path,
@@ -46,7 +75,13 @@ export async function trackMetric(req, res, next) {
           request_size: req.get('content-length') ? parseInt(req.get('content-length'), 10) : null,
           response_size: responseSize,
           user_agent: req.get('user-agent'),
-          ip_address: req.ip || req.connection.remoteAddress || req.socket.remoteAddress,
+          ip_address: req.ip || req.connection.remoteAddress || req.socket.remoteAddress || req.headers['x-forwarded-for']?.split(',')[0]?.trim(),
+          user_id: userId,
+          query_params: queryParams,
+          request_headers: requestHeaders,
+          response_headers: responseHeaders,
+          cache_hit: cacheHit,
+          api_version: apiVersion,
           timestamp: new Date().toISOString()
         }).catch((error) => {
           // Silently fail metrics tracking to not interrupt requests

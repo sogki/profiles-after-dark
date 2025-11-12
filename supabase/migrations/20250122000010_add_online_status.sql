@@ -2,6 +2,7 @@
 -- This migration adds last_activity column for tracking user online status
 
 -- Add last_activity column if it doesn't exist
+-- Note: We don't set a default so existing users get NULL and won't appear online until they're actually active
 DO $$ 
 BEGIN
   IF NOT EXISTS (
@@ -11,7 +12,7 @@ BEGIN
     AND column_name = 'last_activity'
   ) THEN
     ALTER TABLE public.user_profiles 
-    ADD COLUMN last_activity TIMESTAMP WITH TIME ZONE DEFAULT now();
+    ADD COLUMN last_activity TIMESTAMP WITH TIME ZONE;
   END IF;
 END $$;
 

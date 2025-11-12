@@ -7,6 +7,7 @@ import {
   Settings,
   Bell,
   MessageSquare,
+  Ticket,
   Megaphone,
   BarChart3,
   Users,
@@ -57,6 +58,7 @@ import {
   Ban,
   AlertTriangle as Warning,
   Bell as BellIcon,
+  Code,
   AlertCircle,
   Info,
   HelpCircle,
@@ -215,6 +217,9 @@ import EnhancedUserManagementView from './views/EnhancedUserManagementView';
 import AnnouncementsView from './views/AnnouncementsView';
 import ReportDetailView from './views/ReportDetailView';
 import FeedbackView from './views/FeedbackView';
+import SupportTicketsView from './views/SupportTicketsView';
+import DeveloperView from './views/DeveloperView';
+import SettingsView from './views/SettingsView';
 
 export default function EnhancedModerationPage() {
   // ALL HOOKS MUST BE CALLED FIRST - before any conditional returns
@@ -223,7 +228,7 @@ export default function EnhancedModerationPage() {
   const params = useParams();
   const [searchParams] = useSearchParams();
   const reportId = params.reportId || searchParams.get('reportId');
-  const [activeView, setActiveView] = useState<'dashboard' | 'reports' | 'content' | 'logs' | 'analytics' | 'users' | 'automation' | 'announcements' | 'settings' | 'appeals' | 'messaging' | 'notifications' | 'feedback'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'reports' | 'content' | 'logs' | 'analytics' | 'users' | 'automation' | 'announcements' | 'settings' | 'appeals' | 'messaging' | 'notifications' | 'feedback' | 'support-tickets' | 'developer'>('dashboard');
   const [showReportModal, setShowReportModal] = useState(false);
   const [showMessaging, setShowMessaging] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -273,7 +278,7 @@ export default function EnhancedModerationPage() {
       // Don't change activeView, just ensure we're showing the report detail
     } else if (searchParams.get('view')) {
       const view = searchParams.get('view') as any;
-      if (['dashboard', 'reports', 'content', 'logs', 'analytics', 'users', 'automation', 'announcements', 'settings', 'appeals', 'messaging', 'notifications', 'feedback'].includes(view)) {
+      if (['dashboard', 'reports', 'content', 'logs', 'analytics', 'users', 'automation', 'announcements', 'settings', 'appeals', 'messaging', 'notifications', 'feedback', 'support-tickets', 'developer'].includes(view)) {
         setActiveView(view);
       }
     }
@@ -548,33 +553,7 @@ export default function EnhancedModerationPage() {
 
   return (
     <div className="min-h-screen bg-[#1A1A1A]">
-      {/* Enhanced Header */}
-      <div className="bg-[#1A1A1A] border-b border-slate-800/30 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3 sm:space-x-4">
-              <button
-                onClick={() => navigate('/')}
-                className="flex items-center space-x-3 text-white hover:text-purple-400 transition-colors group"
-              >
-                <div className="relative">
-                  <div className="absolute inset-0 bg-purple-600/20 rounded-lg blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <Shield className="w-6 h-6 sm:w-7 sm:h-7 relative z-10 text-purple-400" />
-                </div>
-                <div>
-                  <span className="font-bold text-base sm:text-lg block">Moderation Panel</span>
-                  <span className="text-xs text-slate-400 hidden sm:block">Enhanced Moderation System</span>
-                </div>
-              </button>
-            </div>
-            
-            <div className="flex items-center space-x-3 sm:space-x-4">
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex h-[calc(100vh-4rem)] relative overflow-hidden">
+      <div className="flex relative" style={{ height: '100vh', maxHeight: '100vh', overflow: 'hidden' }}>
         {/* Mobile Sidebar Overlay */}
         {sidebarOpen && (
           <div
@@ -584,24 +563,34 @@ export default function EnhancedModerationPage() {
         )}
 
         {/* Sidebar */}
-        <aside className={`fixed lg:static inset-y-16 lg:inset-y-0 left-0 z-50 lg:z-auto w-64 flex-shrink-0 bg-[#1A1A1A] border-r border-slate-800/30 flex-col transform transition-transform duration-300 h-full lg:h-auto ${
+        <aside className={`fixed lg:static inset-y-0 left-0 z-50 lg:z-auto w-64 flex-shrink-0 bg-[#1A1A1A] border-r border-slate-800/30 flex-col transform transition-transform duration-300 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}>
+        }`} style={{ height: '100%', maxHeight: '100vh', overflow: 'hidden' }}>
           {/* Sidebar Header */}
-          <div className="p-4 lg:p-6 border-b border-slate-800/30 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-400">Profiles After Dark</p>
-            </div>
+          <div className="p-3 border-b border-slate-800/30 flex items-center justify-between">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center space-x-3 text-white hover:text-purple-400 transition-colors group flex-1"
+            >
+              <div className="relative">
+                <div className="absolute inset-0 bg-purple-600/20 rounded-lg blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <Shield className="w-5 h-5 relative z-10 text-purple-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="font-bold text-sm block truncate">Moderation Panel</span>
+                <span className="text-xs text-slate-400 block truncate">Enhanced Moderation System</span>
+              </div>
+            </button>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors"
+              className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors ml-2"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
           
           {/* Navigation Menu */}
-          <nav className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
+          <nav className="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
             {/* Dashboard - No Group */}
             <button
               onClick={() => {
@@ -640,6 +629,7 @@ export default function EnhancedModerationPage() {
                     { id: 'reports', label: 'Reports', icon: Flag },
                     { id: 'appeals', label: 'Appeals', icon: AlertTriangle },
                     { id: 'feedback', label: 'Feedback', icon: MessageSquare },
+                    { id: 'support-tickets', label: 'Support Tickets', icon: Ticket },
                     { id: 'logs', label: 'Logs', icon: Clock }
                   ].map((item) => {
                     const IconComponent = item.icon;
@@ -778,6 +768,7 @@ export default function EnhancedModerationPage() {
                   {[
                     { id: 'automation', label: 'AI Moderation', icon: Bot },
                     { id: 'analytics', label: 'Analytics & Monitoring', icon: TrendingUp },
+                    { id: 'developer', label: 'Developer Tools', icon: Code },
                     { id: 'settings', label: 'Settings', icon: Settings }
                   ].map((item) => {
                     const IconComponent = item.icon;
@@ -810,22 +801,24 @@ export default function EnhancedModerationPage() {
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto min-w-0 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
-          <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <main className={`flex-1 min-w-0 h-full ${activeView === 'support-tickets' ? 'overflow-hidden' : 'overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900'}`}>
+          <div className={`w-full max-w-none ${activeView === 'support-tickets' ? 'h-full' : 'px-4 sm:px-6 lg:px-8 py-4 sm:py-6'}`}>
             {/* Mobile Header with Sidebar Toggle */}
-            <div className="mb-4 lg:hidden flex items-center justify-between">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="p-2 text-slate-400 hover:text-white transition-colors"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-              <h1 className="text-xl font-bold text-white">Moderation Panel</h1>
-              <div className="w-10" /> {/* Spacer for centering */}
-            </div>
+            {activeView !== 'support-tickets' && (
+              <>
+                <div className="mb-4 lg:hidden flex items-center justify-between">
+                  <button
+                    onClick={() => setSidebarOpen(true)}
+                    className="p-2 text-slate-400 hover:text-white transition-colors"
+                  >
+                    <Menu className="w-6 h-6" />
+                  </button>
+                  <h1 className="text-xl font-bold text-white">Moderation Panel</h1>
+                  <div className="w-10" /> {/* Spacer for centering */}
+                </div>
 
-            {/* Mobile Quick Actions - Icon Based */}
-            <div className="mb-6 lg:hidden">
+                {/* Mobile Quick Actions - Icon Based */}
+                <div className="mb-6 lg:hidden">
               <div className="grid grid-cols-4 gap-2">
                 {[
                   { id: 'dashboard', icon: BarChart3, label: 'Dashboard' },
@@ -864,6 +857,8 @@ export default function EnhancedModerationPage() {
                 </button>
               </div>
             </div>
+              </>
+            )}
 
             {/* Main Content */}
               {loading ? (
@@ -1565,6 +1560,16 @@ export default function EnhancedModerationPage() {
                   <FeedbackView />
                 )}
 
+                {/* Support Tickets View */}
+                {activeView === 'support-tickets' && (
+                  <SupportTicketsView />
+                )}
+
+                {/* Developer View */}
+                {activeView === 'developer' && (
+                  <DeveloperView />
+                )}
+
                 {/* Automation View */}
                 {activeView === 'automation' && (
                   <AutomationView />
@@ -1611,29 +1616,7 @@ export default function EnhancedModerationPage() {
                 )}
 
                 {activeView === 'settings' && (
-                  <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-                    <h2 className="text-2xl font-bold text-white mb-4">Settings</h2>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-white">Auto-refresh</span>
-                        <input
-                          type="checkbox"
-                          checked={autoRefresh}
-                          onChange={(e) => setAutoRefresh(e.target.checked)}
-                          className="w-4 h-4 text-purple-600 bg-slate-700 border-slate-600 rounded focus:ring-purple-500"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white">Refresh Interval (seconds)</span>
-                        <input
-                          type="number"
-                          value={refreshInterval / 1000}
-                          onChange={(e) => setRefreshInterval(parseInt(e.target.value) * 1000)}
-                          className="w-20 px-3 py-1 bg-slate-700 border border-slate-600 rounded text-white"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <SettingsView />
                 )}
               </>
             )}

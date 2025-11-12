@@ -43,8 +43,9 @@ export default function PrivacySettings({
         .eq("user_id", user.id)
 
       if (error) {
-        // If columns don't exist, that's okay - we're using localStorage
-        console.log("Privacy columns may not exist in database, using localStorage")
+        console.error("Error saving privacy settings to database:", error)
+        // Still show success since we saved to localStorage
+        // The migration should ensure the columns exist
       }
       
       toast.success("Privacy settings saved!")

@@ -40,8 +40,11 @@ const ReportContent = lazy(() => import("./components/legal/ReportContent"))
 const AppealsFormSystem = lazy(() => import("./components/appeal/AppealsForm"))
 const AuthCallback = lazy(() => import("./components/AuthCallback"))
 const ReportDetailView = lazy(() => import("./components/moderation/views/ReportDetailView"))
+const HelpCenter = lazy(() => import("./components/help/HelpCenter"))
+const ScrollToTop = lazy(() => import("./components/ScrollToTop"))
 
 import { useAuth } from "./context/authContext"
+import { useUpdateActivity } from "./hooks/useOnlineStatus"
 
 // Wrapper component for AuthCallback to pass props
 function AuthCallbackWrapper({ onEmailConfirmed }: { onEmailConfirmed: () => void }) {
@@ -71,6 +74,9 @@ function App() {
   const [announcement, setAnnouncement] = useState<string | null>(null)
 
   const { user, loading } = useAuth()
+  
+  // Track user activity for online status
+  useUpdateActivity()
 
   const [showScrollTop, setShowScrollTop] = useState(false)
 
@@ -277,6 +283,7 @@ function App() {
               <Route path="/moderation/logs" element={<ModerationLogs />} />
               <Route path="/moderation/enhanced" element={<EnhancedModerationPage />} />
               <Route path="/moderation/reports/:reportId" element={<ReportDetailView />} />
+              <Route path="/help" element={<HelpCenter />} />
               <Route path="/gallery/profiles" element={<ProfilesGallery />} />
               <Route path="/gallery/pfps" element={<PfpGallery />} />
               <Route path="/gallery/banners" element={<BannersGallery />} />

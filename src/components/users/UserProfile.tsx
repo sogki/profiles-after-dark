@@ -21,7 +21,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { Fragment, useState, useEffect } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import { BsFillEmojiHeartEyesFill } from "react-icons/bs";
 import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -244,8 +244,8 @@ export default function UserProfile() {
   
   const isOwnProfile = currentUserProfileId === profile?.user_id;
   
-  // Online status
-  const { isOnline } = useIsUserOnline(profile?.user_id);
+  // Online status - only check if profile exists to prevent unnecessary re-renders
+  const { isOnline } = useIsUserOnline(profile?.user_id || undefined);
 
   // Handle share with feedback
   const handleShare = async () => {
@@ -518,21 +518,43 @@ export default function UserProfile() {
           {/* Profile Header */}
           <div className="relative mb-6 md:mb-8">
             {/* Banner Container with overflow for rounded corners */}
-            <div className="relative h-48 sm:h-64 md:h-80 rounded-xl md:rounded-2xl overflow-hidden bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 shadow-2xl">
-              {profile.banner_url ? (
-                <img
-                  src={profile.banner_url || "/placeholder.svg"}
-                  alt={`${profile.username}'s banner`}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 flex items-center justify-center">
-                  <div className="text-white/20 text-6xl">
-                    <User />
+            <div className="relative h-48 sm:h-64 md:h-80 rounded-xl md:rounded-2xl overflow-visible bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 shadow-2xl">
+              <div className="relative h-full w-full overflow-hidden rounded-xl md:rounded-2xl">
+                {profile.banner_url ? (
+                  <img
+                    src={profile.banner_url || "/placeholder.svg"}
+                    alt={`${profile.username}'s banner`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 flex items-center justify-center">
+                    <div className="text-white/20 text-6xl">
+                      <User />
+                    </div>
                   </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+              </div>
+              
+              {/* Avatar - positioned relative to banner, half on/half off */}
+              <div className="absolute w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 left-1/2 sm:left-1/2 md:left-40 transform -translate-x-1/2 md:translate-x-0 z-10 bottom-[-3rem] sm:bottom-[-4rem] md:bottom-[-5rem]">
+                <div className="relative w-full h-full">
+                  <motion.img
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                    src={profile.avatar_url || "/default-avatar.png"}
+                    alt={`${profile.username}'s avatar`}
+                    className="w-full h-full rounded-full border-4 border-slate-900 shadow-2xl object-cover bg-slate-800"
+                  />
+                  {/* Online status indicator - positioned absolutely on bottom right of the image */}
+                  {isOnline && (
+                    <div className="absolute bottom-5 right-5 w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 bg-green-500 rounded-full border-2 border-slate-900 shadow-lg z-20 pointer-events-none translate-x-1/4 translate-y-1/4">
+                      <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-75 pointer-events-none"></div>
+                    </div>
+                  )}
                 </div>
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+              </div>
             </div>
 
             {/* Action Buttons - positioned outside banner container to prevent dropdown clipping, half on/half off banner like profile picture */}
@@ -634,29 +656,11 @@ export default function UserProfile() {
                 )}
               </div>
 
-            {/* Avatar - positioned outside banner container to maintain rounded corners on banner */}
-            <div className="relative w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 absolute top-36 sm:top-48 md:top-60 left-1/2 sm:left-1/2 md:left-40 transform -translate-x-1/2 md:translate-x-0 z-10">
-              <motion.img
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                src={profile.avatar_url || "/default-avatar.png"}
-                alt={`${profile.username}'s avatar`}
-                className="w-full h-full rounded-full border-4 border-slate-900 shadow-2xl object-cover bg-slate-800"
-              />
-              {/* Online status indicator */}
-              {isOnline && (
-                <div className="absolute bottom-0 right-0 sm:bottom-1 sm:right-1 md:bottom-2 md:right-2 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 bg-green-500 rounded-full border-4 border-slate-900 shadow-lg animate-pulse">
-                  <div className="w-full h-full bg-green-400 rounded-full animate-ping opacity-75"></div>
-                </div>
-              )}
-            </div>
-
             {/* Profile Info */}
-            <div className="relative px-4 sm:px-6 pb-4 sm:pb-6 overflow-visible">
+            <div className="relative px-4 sm:px-6 pb-4 sm:pb-6 mt-0">
 
               {/* Profile Details - Discord-like flow */}
-              <div className="pt-16 sm:pt-20 md:pt-24 overflow-visible">
+              <div className="pt-8 sm:pt-12 md:pt-16">
                 {/* Username and Badges - Inline horizontal flow */}
                 <div className="flex items-center justify-center gap-3 mb-2 flex-wrap">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">

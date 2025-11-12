@@ -83,21 +83,132 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
     if (!user) return
     setLoading(true)
     try {
-      // Get profile data
-      const { data: profileData } = await supabase
-        .from("user_profiles")
-        .select("username, display_name, bio, avatar_url, banner_url")
-        .eq("user_id", user.id)
-        .single()
+      // Get all user data in parallel
+      const [
+        profileData,
+        profilesData,
+        profilePairsData,
+        emotesData,
+        wallpapersData,
+        emojiCombosData,
+        favoritesData,
+        followsData,
+        followersData,
+        notificationsData,
+        downloadsData
+      ] = await Promise.all([
+        // User profile
+        supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("user_id", user.id)
+          .single(),
+        // Uploaded profiles
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", user.id),
+        // Profile pairs
+        supabase
+          .from("profile_pairs")
+          .select("*")
+          .eq("user_id", user.id),
+        // Emotes
+        supabase
+          .from("emotes")
+          .select("*")
+          .eq("user_id", user.id),
+        // Wallpapers
+        supabase
+          .from("wallpapers")
+          .select("*")
+          .eq("user_id", user.id),
+        // Emoji combos
+        supabase
+          .from("emoji_combos")
+          .select("*")
+          .eq("user_id", user.id),
+        // Favorites
+        supabase
+          .from("favorites")
+          .select("*")
+          .eq("user_id", user.id),
+        // Follows (users this user follows)
+        supabase
+          .from("follows")
+          .select("*")
+          .eq("follower_id", user.id),
+        // Followers (users who follow this user)
+        supabase
+          .from("follows")
+          .select("*")
+          .eq("following_id", user.id),
+        // Notifications
+        supabase
+          .from("notifications")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1000), // Limit to last 1000 notifications
+        // Downloads
+        supabase
+          .from("downloads")
+          .select("*")
+          .eq("user_id", user.id)
+      ])
+
+      // Try to get single_uploads if table exists
+      let singleUploadsData = null
+      try {
+        const { data } = await supabase
+          .from("single_uploads")
+          .select("*")
+          .eq("user_id", user.id)
+        singleUploadsData = data
+      } catch (e) {
+        // Table might not exist, ignore
+      }
 
       const backupData = {
-        version: "1.0",
+        version: "2.0",
         createdAt: new Date().toISOString(),
+        user: {
+          id: user.id,
+          email: user.email,
+        },
         settings: {
           theme: localStorage.getItem("theme") || "dark",
           privacy: localStorage.getItem("privacy_settings") || "{}",
         },
-        profile: profileData || {},
+        profile: profileData?.data || {},
+        content: {
+          profiles: profilesData?.data || [],
+          profilePairs: profilePairsData?.data || [],
+          emotes: emotesData?.data || [],
+          wallpapers: wallpapersData?.data || [],
+          emojiCombos: emojiCombosData?.data || [],
+          singleUploads: singleUploadsData || [],
+        },
+        social: {
+          favorites: favoritesData?.data || [],
+          follows: followsData?.data || [],
+          followers: followersData?.data || [],
+        },
+        activity: {
+          notifications: notificationsData?.data || [],
+          downloads: downloadsData?.data || [],
+        },
+        summary: {
+          totalContent: (profilesData?.data?.length || 0) +
+                       (profilePairsData?.data?.length || 0) +
+                       (emotesData?.data?.length || 0) +
+                       (wallpapersData?.data?.length || 0) +
+                       (emojiCombosData?.data?.length || 0) +
+                       (singleUploadsData?.length || 0),
+          totalFavorites: favoritesData?.data?.length || 0,
+          totalFollows: followsData?.data?.length || 0,
+          totalFollowers: followersData?.data?.length || 0,
+        }
       }
 
       // Save to database
@@ -106,7 +217,7 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
         .insert({
           user_id: user.id,
           backup_data: backupData,
-          version: "1.0",
+          version: "2.0",
         })
 
       if (dbError) {
@@ -241,9 +352,20 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
         </h3>
 
         <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700/30 space-y-4">
-          <p className="text-slate-300 text-sm">
-            Create a backup of your account settings and preferences. This can be used to restore your account configuration.
+          <p className="text-slate-300 text-sm mb-4">
+            Create a comprehensive backup of your account including profile, all uploaded content, favorites, follows, and activity history.
           </p>
+          
+          <div className="bg-slate-700/30 rounded-lg p-4 mb-4">
+            <p className="text-xs text-slate-400 mb-2">Backup includes:</p>
+            <ul className="text-xs text-slate-300 space-y-1 list-disc list-inside">
+              <li>Profile information and settings</li>
+              <li>All uploaded content (profiles, pairs, emotes, wallpapers, emoji combos)</li>
+              <li>Favorites and saved items</li>
+              <li>Follows and followers</li>
+              <li>Recent notifications and download history</li>
+            </ul>
+          </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
             <button

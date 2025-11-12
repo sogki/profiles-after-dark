@@ -105,6 +105,7 @@ export default function PfpGallery() {
           .from("profiles")
           .select("*")
           .eq("type", "profile")
+          .eq("status", "approved")
           .order("updated_at", { ascending: false })
 
         if (error) {

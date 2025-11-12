@@ -182,6 +182,7 @@ export default function UploadPage() {
           image_url: url,
           tags: singleForm.tags,
           user_id: user.id,
+          status: "pending",
         },
       ])
 
@@ -243,6 +244,7 @@ export default function UploadPage() {
           banner_url: bannerUrl,
           tags: pairForm.tags,
           user_id: user.id,
+          status: "pending",
         },
       ])
 
@@ -287,6 +289,7 @@ export default function UploadPage() {
           image_url: null, // Emoji combos are text-based, not images
           tags: emojiForm.tags,
           user_id: user.id,
+          status: "pending",
         },
       ])
 
@@ -337,6 +340,7 @@ export default function UploadPage() {
           image_url: url,
           tags: emoteForm.tags,
           user_id: user.id,
+          status: "pending",
         },
       ])
 
@@ -388,6 +392,7 @@ export default function UploadPage() {
           resolution: wallpaperForm.resolution || null,
           tags: wallpaperForm.tags,
           user_id: user.id,
+          status: "pending",
         },
       ])
 

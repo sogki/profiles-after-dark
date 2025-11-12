@@ -98,6 +98,7 @@ const EmotesGallery = memo(function EmotesGallery() {
       const { data, error } = await supabase
         .from("emotes")
         .select("*")
+        .eq("status", "approved")
         .order("created_at", { ascending: false })
 
       if (error) {

@@ -1,6 +1,8 @@
 import { useState } from "react"
 import { BookOpen, Search, ChevronRight, HelpCircle, MessageSquare, Users, FileText, Settings, Shield, Upload, User, Mail, Lock, Bell, Image, Download, Heart, Star, Eye, EyeOff, Globe, AlertCircle, CheckCircle, XCircle, Info } from "lucide-react"
 import { Link } from "react-router-dom"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import Footer from "../Footer"
 
 interface HelpArticle {
@@ -986,8 +988,47 @@ export default function HelpCenter() {
                   Back to articles
                 </button>
                 <h2 className="text-2xl font-bold text-white mb-4">{selectedArticle.title}</h2>
-                <div className="prose prose-invert max-w-none">
-                  <p className="text-slate-300 leading-relaxed whitespace-pre-line">{selectedArticle.content}</p>
+                <div className="prose prose-invert max-w-none prose-headings:text-white prose-p:text-slate-300 prose-strong:text-white prose-a:text-purple-400 prose-a:no-underline hover:prose-a:underline prose-ul:text-slate-300 prose-ol:text-slate-300 prose-li:text-slate-300 prose-code:text-purple-300 prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-700">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      a: ({ node, ...props }) => (
+                        <a {...props} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 underline" />
+                      ),
+                      strong: ({ node, ...props }) => (
+                        <strong {...props} className="font-semibold text-white" />
+                      ),
+                      h1: ({ node, ...props }) => (
+                        <h1 {...props} className="text-2xl font-bold text-white mt-6 mb-4" />
+                      ),
+                      h2: ({ node, ...props }) => (
+                        <h2 {...props} className="text-xl font-bold text-white mt-5 mb-3" />
+                      ),
+                      h3: ({ node, ...props }) => (
+                        <h3 {...props} className="text-lg font-semibold text-white mt-4 mb-2" />
+                      ),
+                      ul: ({ node, ...props }) => (
+                        <ul {...props} className="list-disc list-inside text-slate-300 my-4 space-y-2" />
+                      ),
+                      ol: ({ node, ...props }) => (
+                        <ol {...props} className="list-decimal list-inside text-slate-300 my-4 space-y-2" />
+                      ),
+                      li: ({ node, ...props }) => (
+                        <li {...props} className="text-slate-300" />
+                      ),
+                      p: ({ node, ...props }) => (
+                        <p {...props} className="text-slate-300 leading-relaxed my-3" />
+                      ),
+                      code: ({ node, inline, ...props }: any) => {
+                        if (inline) {
+                          return <code {...props} className="bg-slate-800 text-purple-300 px-1.5 py-0.5 rounded text-sm" />
+                        }
+                        return <code {...props} className="block bg-slate-900 text-slate-300 p-4 rounded-lg overflow-x-auto my-4" />
+                      },
+                    }}
+                  >
+                    {selectedArticle.content}
+                  </ReactMarkdown>
                 </div>
                 {/* Related Articles */}
                 <div className="mt-8 pt-6 border-t border-slate-700/50">

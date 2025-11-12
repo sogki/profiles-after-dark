@@ -105,6 +105,7 @@ const WallpaperGallery = memo(function WallpaperGallery() {
       const { data, error } = await supabase
         .from("wallpapers")
         .select("*")
+        .eq("status", "approved")
         .order("created_at", { ascending: false })
 
       if (error) {

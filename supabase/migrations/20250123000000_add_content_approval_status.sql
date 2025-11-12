@@ -329,3 +329,196 @@ GRANT EXECUTE ON FUNCTION create_content_approval_notification TO authenticated;
 
 COMMENT ON FUNCTION create_content_approval_notification IS 'Allows staff members to create notifications for users when content is approved or rejected. Bypasses RLS to allow cross-user notifications.';
 
+-- Add RLS policies to allow staff to update and delete any content for moderation
+-- This enables the content approval workflow
+
+-- Staff can update any profile for moderation
+DROP POLICY IF EXISTS "Staff can update any profile for moderation" ON public.profiles;
+CREATE POLICY "Staff can update any profile for moderation" ON public.profiles
+    FOR UPDATE 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    );
+
+-- Staff can delete any profile for moderation
+DROP POLICY IF EXISTS "Staff can delete any profile for moderation" ON public.profiles;
+CREATE POLICY "Staff can delete any profile for moderation" ON public.profiles
+    FOR DELETE 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    );
+
+-- Staff can update any profile pair for moderation
+DROP POLICY IF EXISTS "Staff can update any profile pair for moderation" ON public.profile_pairs;
+CREATE POLICY "Staff can update any profile pair for moderation" ON public.profile_pairs
+    FOR UPDATE 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    );
+
+-- Staff can delete any profile pair for moderation
+DROP POLICY IF EXISTS "Staff can delete any profile pair for moderation" ON public.profile_pairs;
+CREATE POLICY "Staff can delete any profile pair for moderation" ON public.profile_pairs
+    FOR DELETE 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    );
+
+-- Staff can update any emote for moderation
+DROP POLICY IF EXISTS "Staff can update any emote for moderation" ON public.emotes;
+CREATE POLICY "Staff can update any emote for moderation" ON public.emotes
+    FOR UPDATE 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    );
+
+-- Staff can delete any emote for moderation
+DROP POLICY IF EXISTS "Staff can delete any emote for moderation" ON public.emotes;
+CREATE POLICY "Staff can delete any emote for moderation" ON public.emotes
+    FOR DELETE 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    );
+
+-- Staff can update any wallpaper for moderation
+DROP POLICY IF EXISTS "Staff can update any wallpaper for moderation" ON public.wallpapers;
+CREATE POLICY "Staff can update any wallpaper for moderation" ON public.wallpapers
+    FOR UPDATE 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    );
+
+-- Staff can delete any wallpaper for moderation
+DROP POLICY IF EXISTS "Staff can delete any wallpaper for moderation" ON public.wallpapers;
+CREATE POLICY "Staff can delete any wallpaper for moderation" ON public.wallpapers
+    FOR DELETE 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    );
+
+-- Staff can update any emoji combo for moderation
+DROP POLICY IF EXISTS "Staff can update any emoji combo for moderation" ON public.emoji_combos;
+CREATE POLICY "Staff can update any emoji combo for moderation" ON public.emoji_combos
+    FOR UPDATE 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    );
+
+-- Staff can delete any emoji combo for moderation
+DROP POLICY IF EXISTS "Staff can delete any emoji combo for moderation" ON public.emoji_combos;
+CREATE POLICY "Staff can delete any emoji combo for moderation" ON public.emoji_combos
+    FOR DELETE 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE user_id = auth.uid() 
+            AND role IN ('admin', 'moderator', 'staff')
+        )
+    );
+
+-- Staff can update any single upload for moderation (if table exists)
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'single_uploads') THEN
+    DROP POLICY IF EXISTS "Staff can update any single upload for moderation" ON public.single_uploads;
+    EXECUTE 'CREATE POLICY "Staff can update any single upload for moderation" ON public.single_uploads
+        FOR UPDATE 
+        USING (
+            EXISTS (
+                SELECT 1 FROM public.user_profiles 
+                WHERE user_id = auth.uid() 
+                AND role IN (''admin'', ''moderator'', ''staff'')
+            )
+        )
+        WITH CHECK (
+            EXISTS (
+                SELECT 1 FROM public.user_profiles 
+                WHERE user_id = auth.uid() 
+                AND role IN (''admin'', ''moderator'', ''staff'')
+            )
+        )';
+
+    DROP POLICY IF EXISTS "Staff can delete any single upload for moderation" ON public.single_uploads;
+    EXECUTE 'CREATE POLICY "Staff can delete any single upload for moderation" ON public.single_uploads
+        FOR DELETE 
+        USING (
+            EXISTS (
+                SELECT 1 FROM public.user_profiles 
+                WHERE user_id = auth.uid() 
+                AND role IN (''admin'', ''moderator'', ''staff'')
+            )
+        )';
+  END IF;
+END $$;
+

@@ -7,15 +7,12 @@ import Hero from "./components/Hero"
 import Gallery from "./components/Gallery"
 import Footer from "./components/Footer"
 import DiscordCTA from "./components/DiscordCTA"
-<<<<<<< HEAD
 import PinterestTracking from "./components/PinterestTracking"
-=======
 import QuickCategories from "./components/QuickCategories"
 import HowItWorks from "./components/HowItWorks"
 import KeyBenefits from "./components/KeyBenefits"
 import CombinedCTAs from "./components/CombinedCTAs"
 import VisualShowcase from "./components/VisualShowcase"
->>>>>>> 7e57a4c10ba97a544246ce52eeb58af7b6fa8b16
 // import MobileBottomNav from "./components/MobileBottomNav"
 
 // Lazy load heavy components

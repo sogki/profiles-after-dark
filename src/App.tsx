@@ -56,6 +56,7 @@ import { Toaster } from "react-hot-toast"
 import { supabase } from "./lib/supabase"
 
 import AnnouncementBanner from "./components/shared/AnnouncementBanner"
+import PinterestTracking from "./components/PinterestTracking"
 
 interface Announcement {
   id: string;
@@ -228,6 +229,7 @@ function App() {
   return (
     <BrowserRouter>
         <div className="min-h-screen bg-background flex flex-col relative">
+        <PinterestTracking />
         <Toaster 
           position="bottom-right" 
           toastOptions={{ 

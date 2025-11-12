@@ -44,6 +44,7 @@ function useProfiles(
       let query = supabase
         .from('profiles')
         .select('*')
+        .eq('status', 'approved')
         .order('created_at', { ascending: false });
 
       if (typeFilter) {

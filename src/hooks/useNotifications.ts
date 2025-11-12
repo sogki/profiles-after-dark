@@ -285,8 +285,9 @@ export function useNotifications() {
                 setUnreadCount((prev) => prev + 1);
                 // Show browser notification if permission granted
                 if ("Notification" in window && Notification.permission === "granted") {
-                  new Notification(newNotification.title || "New Notification", {
-                    body: newNotification.message || newNotification.content || "",
+                  const notificationContent = (newNotification as any).content || newNotification.message || "New Notification";
+                  new Notification("New Notification", {
+                    body: notificationContent,
                     icon: "/favicon.ico",
                     badge: "/favicon.ico",
                   });

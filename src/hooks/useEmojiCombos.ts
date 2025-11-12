@@ -16,7 +16,11 @@ export function useEmojiCombos() {
       setLoading(true)
       setError(null)
 
-      const { data, error } = await supabase.from("emoji_combos").select("*").order("created_at", { ascending: false })
+      const { data, error } = await supabase
+        .from("emoji_combos")
+        .select("*")
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
 
       if (error) {
         console.error("Error fetching emoji combos:", error)

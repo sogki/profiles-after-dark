@@ -1,39 +1,107 @@
 import React from "react";
 import Footer from "../Footer";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, FileText, AlertCircle, Ban, RefreshCw, Mail } from "lucide-react";
+import { motion } from "framer-motion";
+
+const sections = [
+  {
+    icon: ShieldCheck,
+    title: "1. Account Responsibilities",
+    content: "You are responsible for maintaining the confidentiality of your account and for all activities that occur under your account.",
+  },
+  {
+    icon: FileText,
+    title: "2. Content Ownership",
+    content: "You retain ownership of your uploads but grant us a non-exclusive license to display them on our platform.",
+  },
+  {
+    icon: AlertCircle,
+    title: "3. Prohibited Conduct",
+    content: "You agree not to use the platform to post or share content that violates laws or infringes on the rights of others.",
+  },
+  {
+    icon: Ban,
+    title: "4. Termination",
+    content: "We reserve the right to terminate your access if you violate these terms or engage in harmful behavior.",
+  },
+  {
+    icon: RefreshCw,
+    title: "5. Changes to Terms",
+    content: "We may update these terms at any time. Continued use of the platform constitutes acceptance of the updated terms.",
+  },
+  {
+    icon: Mail,
+    title: "6. Contact",
+    content: "If you have questions about these Terms, please contact us via the support channels provided on the platform.",
+  },
+];
 
 export default function Terms() {
   return (
-    <div className="min-h-screen flex flex-col bg-slate-900">
-      <main className="flex-grow w-full max-w-4xl mx-auto px-4 py-10 relative">
-        <div className="bg-slate-600 rounded-2xl shadow-xl p-8 md:p-12 text-center relative z-10">
-          <ShieldCheck className="mx-auto mb-4 text-sky-400 w-12 h-12 animate-bounce" />
-          <h1 className="text-4xl font-bold text-white mb-4">Terms of Service</h1>
-          <p className="text-slate-300 text-lg max-w-2xl mx-auto">
-            By accessing and using our platform, you agree to comply with and be bound by these Terms of Service. Please read them carefully.
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Professional Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-600/20 rounded-xl">
+              <ShieldCheck className="w-8 h-8 text-blue-400" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-white">Terms of Service</h1>
+              <p className="text-slate-400">Legal agreement governing your use of our platform</p>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-slate-800 rounded-2xl shadow-lg p-6 md:p-10 mt-[-40px] relative z-0 hover:shadow-2xl transition-shadow duration-300">
-          <h2 className="text-2xl font-semibold text-white mt-6 mb-2">1. Account Responsibilities</h2>
-          <p className="text-slate-300 mb-4">You are responsible for maintaining the confidentiality of your account and for all activities that occur under your account.</p>
-
-          <h2 className="text-2xl font-semibold text-white mt-6 mb-2">2. Content Ownership</h2>
-          <p className="text-slate-300 mb-4">You retain ownership of your uploads but grant us a non-exclusive license to display them on our platform.</p>
-
-          <h2 className="text-2xl font-semibold text-white mt-6 mb-2">3. Prohibited Conduct</h2>
-          <p className="text-slate-300 mb-4">You agree not to use the platform to post or share content that violates laws or infringes on the rights of others.</p>
-
-          <h2 className="text-2xl font-semibold text-white mt-6 mb-2">4. Termination</h2>
-          <p className="text-slate-300 mb-4">We reserve the right to terminate your access if you violate these terms or engage in harmful behavior.</p>
-
-          <h2 className="text-2xl font-semibold text-white mt-6 mb-2">5. Changes to Terms</h2>
-          <p className="text-slate-300 mb-4">We may update these terms at any time. Continued use of the platform constitutes acceptance of the updated terms.</p>
-
-          <h2 className="text-2xl font-semibold text-white mt-6 mb-2">6. Contact</h2>
-          <p className="text-slate-300">If you have questions about these Terms, please contact us via the support channels provided on the platform.</p>
+        {/* Content Section */}
+        <div className="space-y-6">
+          {sections.map((section, index) => {
+            const IconComponent = section.icon;
+            return (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="bg-slate-800/50 rounded-2xl border border-slate-700 shadow-xl p-6 hover:border-slate-600 transition-all duration-300"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-blue-600/20 rounded-xl flex-shrink-0">
+                    <IconComponent className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-xl font-semibold text-white mb-2">
+                      {section.title}
+                    </h2>
+                    <p className="text-slate-300 leading-relaxed">
+                      {section.content}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
-      </main>
+
+        {/* Additional Info Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
+          className="mt-8 bg-gradient-to-r from-blue-600/10 to-purple-600/10 rounded-2xl border border-blue-500/20 p-6"
+        >
+          <div className="flex items-start gap-4">
+            <AlertCircle className="w-6 h-6 text-blue-400 flex-shrink-0 mt-1" />
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-2">Important Notice</h3>
+              <p className="text-slate-300 leading-relaxed">
+                By using our platform, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service. 
+                If you do not agree with any part of these terms, please do not use our services.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      </div>
 
       <Footer />
     </div>

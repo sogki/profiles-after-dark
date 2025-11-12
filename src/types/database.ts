@@ -471,6 +471,77 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback: {
+        Row: {
+          id: string
+          user_id: string | null
+          type: 'general' | 'bug' | 'feature' | 'improvement' | 'support'
+          message: string
+          status: 'pending' | 'reviewed' | 'resolved' | 'dismissed'
+          reviewed_by: string | null
+          reviewed_at: string | null
+          response: string | null
+          user_agent: string | null
+          platform: string | null
+          created_at: string
+          updated_at: string
+          priority?: 'low' | 'medium' | 'high' | 'urgent' | null
+          assigned_to?: string | null
+          subject?: string | null
+          ticket_number?: string | null
+          owner_id?: string | null
+          is_locked?: boolean | null
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          type: 'general' | 'bug' | 'feature' | 'improvement' | 'support'
+          message: string
+          status?: 'pending' | 'reviewed' | 'resolved' | 'dismissed'
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          response?: string | null
+          user_agent?: string | null
+          platform?: string | null
+          created_at?: string
+          updated_at?: string
+          priority?: 'low' | 'medium' | 'high' | 'urgent' | null
+          assigned_to?: string | null
+          subject?: string | null
+          ticket_number?: string | null
+          owner_id?: string | null
+          is_locked?: boolean | null
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          type?: 'general' | 'bug' | 'feature' | 'improvement' | 'support'
+          message?: string
+          status?: 'pending' | 'reviewed' | 'resolved' | 'dismissed'
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          response?: string | null
+          user_agent?: string | null
+          platform?: string | null
+          created_at?: string
+          updated_at?: string
+          priority?: 'low' | 'medium' | 'high' | 'urgent' | null
+          assigned_to?: string | null
+          subject?: string | null
+          ticket_number?: string | null
+          owner_id?: string | null
+          is_locked?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never

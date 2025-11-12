@@ -27,23 +27,12 @@ export default function SupportSettings({ user, loading, setLoading }: SupportSe
 
     setLoading(true)
     try {
-      // Store feedback in a feedback table (if it exists) or send via API
-      // For now, we'll use a simple approach - store in localStorage or send to an API endpoint
-      const feedbackData = {
-        user_id: user.id,
-        type: feedbackType,
-        message: feedbackText,
-        created_at: new Date().toISOString(),
-        user_agent: navigator.userAgent,
-        platform: navigator.platform,
-      }
-
       // Save feedback to database
       const { data: insertedFeedback, error } = await supabase
         .from("feedback")
         .insert({
           user_id: user.id,
-          type: feedbackType,
+          type: feedbackType as 'general' | 'bug' | 'feature' | 'improvement' | 'support',
           message: feedbackText,
           user_agent: navigator.userAgent,
           platform: navigator.platform,
@@ -67,7 +56,7 @@ export default function SupportSettings({ user, loading, setLoading }: SupportSe
             .single()
 
           await notifyAllStaffOfFeedback(insertedFeedback.id, {
-            username: profile?.username,
+            username: profile?.username || undefined,
             type: feedbackType,
             message: feedbackText
           })
@@ -121,10 +110,10 @@ export default function SupportSettings({ user, loading, setLoading }: SupportSe
             .single()
 
           await notifyAllStaffOfNewTicket(insertedFeedback.id, {
-            ticketNumber: insertedFeedback.ticket_number,
+            ticketNumber: insertedFeedback.ticket_number || null,
             subject: contactSubject,
             priority: contactPriority,
-            username: profile?.username
+            username: profile?.username || undefined
           })
         } catch (notifError) {
           console.error("Failed to notify staff of support request:", notifError)

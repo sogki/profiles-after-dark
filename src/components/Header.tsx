@@ -23,6 +23,7 @@ import { useAuth } from "../context/authContext"
 import { supabase } from "../lib/supabase"
 import { useNotifications } from "../hooks/useNotifications"
 import NotificationCenter from "./NotificationCenter"
+import { trackSearch } from "../lib/pinterestTracking"
 
 interface HeaderProps {
   onUploadClick: () => void
@@ -267,6 +268,8 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                   onFocus={() => searchQuery.length > 1 && setShowSearchSuggestions(true)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && searchQuery.trim()) {
+                      // Track Pinterest search event
+                      trackSearch(searchQuery);
                       navigate(`/trending?search=${encodeURIComponent(searchQuery)}`)
                     }
                   }}
@@ -494,6 +497,8 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                       onFocus={() => searchQuery.length > 1 && setShowSearchSuggestions(true)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && searchQuery.trim()) {
+                          // Track Pinterest search event
+                          trackSearch(searchQuery);
                           navigate(`/trending?search=${encodeURIComponent(searchQuery)}`)
                           setIsMobileSearchOpen(false)
                         }

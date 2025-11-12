@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Mail, Lock, User, Loader, Info, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/authContext';
+import { trackSignup } from '../lib/pinterestTracking';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -71,6 +72,9 @@ export default function AuthModal({ isOpen, onClose, showEmailConfirmed = false 
           setSuccess('Account created successfully! Please check your email to confirm your account.');
           setAwaitingConfirmation(true);
           setError(null);
+          
+          // Track Pinterest signup event
+          trackSignup();
           
           // Don't close modal yet - keep it open to show confirmation message
           // User can close it manually or it will close when they confirm email

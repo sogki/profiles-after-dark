@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAuth } from "../context/authContext";
 import { useLocation } from "react-router-dom";
+import { trackPageVisit } from "../lib/pinterestTracking";
 
 // Extend Window interface for Pinterest tracking
 declare global {
@@ -69,10 +70,14 @@ export default function PinterestTracking() {
     loadPinterest();
   }, [user?.email]);
 
-  // Track page views on route changes
+  // Track page visits on route changes
   useEffect(() => {
-    if (typeof window !== "undefined" && window.pintrk && hasLoadedRef.current) {
-      window.pintrk("page");
+    if (hasLoadedRef.current) {
+      // Small delay to ensure Pinterest script is ready
+      const timer = setTimeout(() => {
+        trackPageVisit();
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [location.pathname]);
 

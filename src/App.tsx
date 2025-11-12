@@ -7,6 +7,7 @@ import Hero from "./components/Hero"
 import Gallery from "./components/Gallery"
 import Footer from "./components/Footer"
 import DiscordCTA from "./components/DiscordCTA"
+import PinterestTracking from "./components/PinterestTracking"
 // import MobileBottomNav from "./components/MobileBottomNav"
 
 // Lazy load heavy components
@@ -168,6 +169,7 @@ function App() {
 
   return (
     <BrowserRouter>
+        <PinterestTracking />
         <div className="min-h-screen bg-background flex flex-col relative">
         <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
 

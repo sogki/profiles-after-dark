@@ -107,21 +107,35 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
     try {
       const searchTerm = `%${query}%`
       const suggestions: Array<{type: string, text: string, id?: string}> = []
+      const seenKeys = new Set<string>() // Track case-insensitive duplicates
+
+      // Helper function to check if suggestion already exists (case-insensitive)
+      const isDuplicate = (type: string, text: string): boolean => {
+        const key = `${type.toLowerCase()}:${text.toLowerCase()}`
+        if (seenKeys.has(key)) {
+          return true
+        }
+        seenKeys.add(key)
+        return false
+      }
 
       // Search profiles (title)
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("id, title, tags")
+        .eq("status", "approved")
         .ilike("title", searchTerm)
         .limit(3)
 
       if (!profilesError && profiles) {
         profiles.forEach(profile => {
-          suggestions.push({ type: "profile", text: profile.title, id: profile.id })
+          if (!isDuplicate("profile", profile.title)) {
+            suggestions.push({ type: "profile", text: profile.title, id: profile.id })
+          }
           // Add matching tags
           if (profile.tags && Array.isArray(profile.tags)) {
             profile.tags.forEach(tag => {
-              if (tag.toLowerCase().includes(query.toLowerCase()) && !suggestions.some(s => s.text === tag && s.type === "tag")) {
+              if (tag.toLowerCase().includes(query.toLowerCase()) && !isDuplicate("tag", tag)) {
                 suggestions.push({ type: "tag", text: tag })
               }
             })
@@ -139,7 +153,7 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
       if (!usersError && users) {
         users.forEach(user => {
           const name = user.display_name || user.username || ""
-          if (name && user.username) {
+          if (name && user.username && !isDuplicate("user", name)) {
             suggestions.push({ type: "user", text: name, id: user.id, username: user.username })
           }
         })
@@ -149,12 +163,15 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
       const { data: emotes, error: emotesError } = await supabase
         .from("emotes")
         .select("id, title, tags")
+        .eq("status", "approved")
         .ilike("title", searchTerm)
         .limit(2)
 
       if (!emotesError && emotes) {
         emotes.forEach(emote => {
-          suggestions.push({ type: "emote", text: emote.title, id: emote.id })
+          if (!isDuplicate("emote", emote.title)) {
+            suggestions.push({ type: "emote", text: emote.title, id: emote.id })
+          }
         })
       }
 
@@ -162,12 +179,15 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
       const { data: wallpapers, error: wallpapersError } = await supabase
         .from("wallpapers")
         .select("id, title, tags")
+        .eq("status", "approved")
         .ilike("title", searchTerm)
         .limit(2)
 
       if (!wallpapersError && wallpapers) {
         wallpapers.forEach(wallpaper => {
-          suggestions.push({ type: "wallpaper", text: wallpaper.title, id: wallpaper.id })
+          if (!isDuplicate("wallpaper", wallpaper.title)) {
+            suggestions.push({ type: "wallpaper", text: wallpaper.title, id: wallpaper.id })
+          }
         })
       }
 

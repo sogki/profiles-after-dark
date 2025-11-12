@@ -104,6 +104,7 @@ export default function ProfilesGallery() {
         const { data, error } = await supabase
           .from("profile_pairs")
           .select("*")
+          .eq("status", "approved")
           .not("pfp_url", "is", null)
           .not("banner_url", "is", null)
           .neq("pfp_url", "")

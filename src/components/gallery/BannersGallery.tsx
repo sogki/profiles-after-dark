@@ -106,6 +106,7 @@ export default function BannerGallery() {
           .from("profiles")
           .select("*")
           .eq("type", "banner")
+          .eq("status", "approved")
           .order("updated_at", { ascending: false })
 
         if (error) {

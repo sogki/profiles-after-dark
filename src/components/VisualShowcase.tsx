@@ -24,10 +24,11 @@ export default function VisualShowcase() {
       setLoading(true);
       const items: ShowcaseItem[] = [];
 
-      // Fetch some profile pairs
+      // Fetch some profile pairs (only approved)
       const { data: pairsData } = await supabase
         .from("profile_pairs")
         .select("id, banner_url, pfp_url, title")
+        .eq("status", "approved")
         .not("banner_url", "is", null)
         .limit(6);
 
@@ -45,10 +46,11 @@ export default function VisualShowcase() {
         });
       }
 
-      // Fetch some single profiles
+      // Fetch some single profiles (only approved)
       const { data: profilesData } = await supabase
         .from("profiles")
         .select("id, image_url, title, type")
+        .eq("status", "approved")
         .not("image_url", "is", null)
         .limit(6);
 
@@ -59,6 +61,25 @@ export default function VisualShowcase() {
             image_url: item.image_url || "",
             title: item.title || "Profile",
             type: item.type || "profile",
+          });
+        });
+      }
+
+      // Fetch some wallpapers (only approved)
+      const { data: wallpapersData } = await supabase
+        .from("wallpapers")
+        .select("id, image_url, title")
+        .eq("status", "approved")
+        .not("image_url", "is", null)
+        .limit(6);
+
+      if (wallpapersData) {
+        wallpapersData.forEach((item) => {
+          items.push({
+            id: item.id,
+            image_url: item.image_url || "",
+            title: item.title || "Wallpaper",
+            type: "wallpaper",
           });
         });
       }

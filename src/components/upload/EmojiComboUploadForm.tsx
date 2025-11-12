@@ -30,14 +30,59 @@ export default function EmojiComboUploadForm({
     onFormChange({ tags: form.tags.filter(t => t !== tag) })
   }
 
-  // Helper function to detect ASCII art
+  // Helper function to detect ASCII art (same logic as gallery)
   const isLikelyAsciiArt = (text: string) => {
-    const asciiChars = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/
-    const hasAsciiChars = asciiChars.test(text)
-    const hasMultipleLines = text.includes('\n')
-    const hasSpaces = text.includes(' ')
-    return hasAsciiChars || (hasMultipleLines && hasSpaces)
+    // Check for newlines (multi-line content)
+    if (text.includes("\n")) return true
+
+    // Check for ASCII art characters
+    if (/[│┌┐└┘├┤┬┴┼═║╔╗╚╝╠╣╦╩╬▀▄█▌▐░▒▓■□▪▫◆◇○●◦‣⁃]/.test(text)) return true
+
+    // Check for repeated characters (common in ASCII art)
+    if (/(.)\1{4,}/.test(text)) return true
+
+    // Check for long text that might be ASCII art
+    if (
+      text.length > 50 &&
+      !/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]/u.test(text)
+    )
+      return true
+
+    return false
   }
+
+  // Get card styles based on content (same logic as gallery)
+  const getCardStyles = (text: string) => {
+    const isAscii = isLikelyAsciiArt(text)
+    const contentLength = text.length
+
+    if (isAscii) {
+      return {
+        fontSize:
+          contentLength > 2000
+            ? "8px"
+            : contentLength > 1000
+              ? "10px"
+              : contentLength > 500
+                ? "12px"
+                : contentLength > 200
+                  ? "14px"
+                  : "16px",
+        lineHeight: "1.0",
+        padding: "12px",
+      }
+    } else {
+      return {
+        minHeight: contentLength > 50 ? "80px" : "60px",
+        fontSize: contentLength > 100 ? "2rem" : contentLength > 50 ? "2.5rem" : "3rem",
+        lineHeight: "1.1",
+        padding: "16px",
+      }
+    }
+  }
+
+  const cardStyles = form.combo_text ? getCardStyles(form.combo_text) : null
+  const isAscii = form.combo_text ? isLikelyAsciiArt(form.combo_text) : false
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
@@ -91,42 +136,77 @@ export default function EmojiComboUploadForm({
         </div>
       </div>
 
-      {/* Preview */}
-      {form.combo_text && (
+      {/* Preview - Shows how it will look on the site */}
+      {form.combo_text && cardStyles && (
         <div className="space-y-3">
           <label className="block text-sm font-medium text-white">
-            Preview
+            Preview (How it will appear on the site)
           </label>
-          <div
-            className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:border-purple-500/30 transition-all duration-200"
-            style={{
-              fontFamily: isLikelyAsciiArt(form.combo_text)
-                ? "'Courier New', 'Monaco', 'Menlo', 'Consolas', monospace"
-                : "inherit",
-              fontSize: isLikelyAsciiArt(form.combo_text)
-                ? form.combo_text.length > 2000
-                  ? "12px"
-                  : form.combo_text.length > 1000
-                    ? "14px"
-                    : form.combo_text.length > 500
-                      ? "16px"
-                      : "18px"
-                : form.combo_text.length > 100
-                  ? "2rem"
-                  : "3rem",
-              whiteSpace: isLikelyAsciiArt(form.combo_text) ? "pre" : "normal",
-              lineHeight: isLikelyAsciiArt(form.combo_text) ? "1" : "1.3",
-              color: "white",
-              letterSpacing: "0",
-              fontWeight: "400",
-              textAlign: isLikelyAsciiArt(form.combo_text) ? "left" : "center",
-              display: isLikelyAsciiArt(form.combo_text) ? "block" : "flex",
-              alignItems: isLikelyAsciiArt(form.combo_text) ? "flex-start" : "center",
-              justifyContent: isLikelyAsciiArt(form.combo_text) ? "flex-start" : "center",
-              minHeight: isLikelyAsciiArt(form.combo_text) ? "auto" : "120px",
-            }}
-          >
-            {form.combo_text}
+          <div className="bg-slate-800/60 backdrop-blur-sm rounded-xl overflow-hidden border border-slate-700/50 hover:border-slate-600 shadow-lg">
+            {/* Content Preview Area - matches gallery style */}
+            <div
+              className="relative cursor-default bg-slate-800/30 hover:bg-slate-800/50 transition-all duration-200"
+              style={{ padding: cardStyles.padding }}
+            >
+              <div
+                className={`w-full flex ${isAscii ? "items-start justify-start" : "items-center justify-center"}`}
+                style={{
+                  fontFamily: isAscii ? "'Courier New', 'Monaco', 'Menlo', 'Consolas', monospace" : "inherit",
+                  fontSize: cardStyles.fontSize,
+                  whiteSpace: isAscii ? "pre" : "normal",
+                  lineHeight: cardStyles.lineHeight,
+                  color: "white",
+                  letterSpacing: isAscii ? "-0.5px" : "0",
+                  fontWeight: isAscii ? "400" : "500",
+                  textAlign: isAscii ? "left" : "center",
+                  wordBreak: "normal",
+                  overflowWrap: "normal",
+                  width: "100%",
+                  minHeight: isAscii ? "auto" : cardStyles.minHeight,
+                }}
+              >
+                <div
+                  className={`${isAscii ? "w-full" : ""}`}
+                  style={{
+                    maxWidth: "100%",
+                    whiteSpace: isAscii ? "pre" : "normal",
+                  }}
+                >
+                  {form.combo_text}
+                </div>
+              </div>
+            </div>
+
+            {/* Info Section - matches gallery style */}
+            <div className="p-3 sm:p-4 bg-slate-900/30">
+              <h3 className="font-semibold text-white mb-2 truncate text-sm sm:text-base">
+                {form.name || "Untitled"}
+              </h3>
+              
+              {form.description && (
+                <p className="text-xs sm:text-sm text-gray-400 mb-2 line-clamp-2">
+                  {form.description}
+                </p>
+              )}
+
+              {form.tags && form.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {form.tags.slice(0, 3).map((tag, i) => (
+                    <span
+                      key={i}
+                      className="text-xs bg-purple-500/20 text-purple-300 px-1.5 sm:px-2 py-0.5 rounded-full"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                  {form.tags.length > 3 && (
+                    <span className="text-xs text-gray-400">
+                      +{form.tags.length - 3}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

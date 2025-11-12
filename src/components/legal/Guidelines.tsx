@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Footer from "../Footer";
-import { BookOpen } from "lucide-react";
+import { BookOpen, ChevronDown, Users, Shield, AlertTriangle, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const rules = [
@@ -62,78 +62,128 @@ export default function Guidelines() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-900">
-      <main className="flex-grow w-full max-w-6xl mx-auto px-4 py-10 relative flex flex-col md:flex-row items-start gap-8">
-        {/* Main Content: Rules */}
-        <section className="flex-1 bg-slate-700 rounded-2xl shadow-xl p-8 md:p-12 text-white relative z-10 max-w-4xl mx-auto md:mx-0">
-          <div className="text-center mb-6">
-            <BookOpen className="mx-auto mb-4 text-sky-400 w-12 h-12 animate-bounce" />
-            <h1 className="text-4xl font-bold mb-4">Community Guidelines</h1>
-            <p className="text-slate-300 text-lg max-w-2xl mx-auto">
-              Our community guidelines help create a safe, respectful, and enjoyable space for everyone. Please read carefully.
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Professional Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-green-600/20 rounded-xl">
+              <BookOpen className="w-8 h-8 text-green-400" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-white">Community Guidelines</h1>
+              <p className="text-slate-400">Help create a safe, respectful, and enjoyable space for everyone</p>
+            </div>
           </div>
+        </div>
 
-          <div className="bg-slate-800 rounded-2xl shadow-lg p-6 md:p-10 mt-6 text-white">
-            <h2 className="text-2xl font-semibold mb-4">Rules</h2>
-            <ul className="list-disc list-inside space-y-2 text-slate-200">
-              {rules.map((rule, idx) => (
-                <li key={idx}>{rule}</li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        {/* Sidebar: FAQ Accordion */}
-        <aside className="w-full md:w-96 bg-slate-800 rounded-2xl shadow-lg p-6 md:p-8 text-white relative z-0 hover:shadow-2xl transition-shadow duration-300">
-          <h2 className="text-2xl font-bold mb-4 border-b border-slate-700 pb-2">FAQs</h2>
-          <div className="space-y-4">
-            {guidelines.map(({ question, answer }, idx) => {
-              const isOpen = openIndexes.includes(idx);
-              return (
-                <div key={idx} className="border-b border-slate-700 last:border-b-0">
-                  <button
-                    onClick={() => toggle(idx)}
-                    className="w-full flex justify-between items-center text-left py-3 font-semibold text-white text-lg focus:outline-none"
-                    aria-expanded={isOpen}
-                    aria-controls={`faq-content-${idx}`}
-                  >
-                    {question}
-                    <motion.svg
-                      animate={{ rotate: isOpen ? 180 : 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="w-5 h-5 ml-2"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"></path>
-                    </motion.svg>
-                  </button>
-
-                  <AnimatePresence initial={false}>
-                    {isOpen && (
-                      <motion.div
-                        id={`faq-content-${idx}`}
-                        key="content"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
-                        className="mt-2 text-slate-300 text-base overflow-hidden"
-                      >
-                        <p>{answer}</p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content: Rules */}
+          <motion.section
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6 }}
+            className="lg:col-span-2 space-y-6"
+          >
+            <div className="bg-slate-800/50 rounded-2xl border border-slate-700 shadow-xl p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-green-600/20 rounded-lg">
+                  <Shield className="w-5 h-5 text-green-400" />
                 </div>
-              );
-            })}
-          </div>
-        </aside>
-      </main>
+                <h2 className="text-2xl font-semibold text-white">Community Rules</h2>
+              </div>
+              <ul className="space-y-3">
+                {rules.map((rule, idx) => (
+                  <motion.li
+                    key={idx}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, delay: idx * 0.05 }}
+                    className="flex items-start gap-3 text-slate-300"
+                  >
+                    <span className="w-1.5 h-1.5 bg-purple-400 rounded-full mt-2 flex-shrink-0" />
+                    <span className="leading-relaxed">{rule}</span>
+                  </motion.li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Additional Info Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="bg-gradient-to-r from-green-600/10 to-blue-600/10 rounded-2xl border border-green-500/20 p-6"
+            >
+              <div className="flex items-start gap-4">
+                <AlertTriangle className="w-6 h-6 text-green-400 flex-shrink-0 mt-1" />
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">Enforcement</h3>
+                  <p className="text-slate-300 leading-relaxed">
+                    Violations of these guidelines are taken seriously. Our moderation team reviews all reports and takes 
+                    appropriate action, which may include warnings, content removal, temporary suspensions, or permanent bans.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </motion.section>
+
+          {/* Sidebar: FAQ Accordion */}
+          <motion.aside
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="bg-slate-800/50 rounded-2xl border border-slate-700 shadow-xl p-6 sticky top-8 h-fit"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-blue-600/20 rounded-lg">
+                <MessageSquare className="w-5 h-5 text-blue-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-white">Frequently Asked Questions</h2>
+            </div>
+            <div className="space-y-4">
+              {guidelines.map(({ question, answer }, idx) => {
+                const isOpen = openIndexes.includes(idx);
+                return (
+                  <div key={idx} className="border-b border-slate-700 last:border-b-0 pb-4 last:pb-0">
+                    <button
+                      onClick={() => toggle(idx)}
+                      className="w-full flex justify-between items-center text-left py-2 font-semibold text-white text-sm focus:outline-none group"
+                      aria-expanded={isOpen}
+                      aria-controls={`faq-content-${idx}`}
+                    >
+                      <span className="pr-2">{question}</span>
+                      <motion.div
+                        animate={{ rotate: isOpen ? 180 : 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="flex-shrink-0"
+                      >
+                        <ChevronDown className="w-5 h-5 text-slate-400 group-hover:text-blue-400 transition-colors" />
+                      </motion.div>
+                    </button>
+
+                    <AnimatePresence initial={false}>
+                      {isOpen && (
+                        <motion.div
+                          id={`faq-content-${idx}`}
+                          key="content"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3, ease: "easeInOut" }}
+                          className="overflow-hidden"
+                        >
+                          <p className="mt-2 text-slate-300 text-sm leading-relaxed pl-0">{answer}</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.aside>
+        </div>
+      </div>
 
       <Footer />
     </div>

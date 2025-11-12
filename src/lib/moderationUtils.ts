@@ -37,26 +37,59 @@ export async function notifyAllStaffOfReport(reportId: string, reportData: {
 
     const reportedUser = reportData.reportedUsername || 'Unknown User';
     const reporterUser = reportData.reporterUsername || 'Unknown User';
-    const title = reportData.urgent 
-      ? `🚨 Urgent Report: ${reportedUser}` 
-      : `📋 New Report: ${reportedUser}`;
-    const message = reportData.urgent
-      ? `Urgent report submitted by ${reporterUser} for ${reportData.reason}`
-      : `New report submitted by ${reporterUser} for ${reportData.reason}`;
+    const content = reportData.urgent
+      ? `🚨 Urgent Report: ${reportedUser} - Submitted by ${reporterUser} for ${reportData.reason}`
+      : `📋 New Report: ${reportedUser} - Submitted by ${reporterUser} for ${reportData.reason}`;
+
+    const staffUserIds = staffMembers.map(staff => staff.user_id);
+
+    const { data, error } = await supabase.rpc('create_staff_notifications', {
+      target_user_ids: staffUserIds,
+      notification_content: content,
+      notification_type: 'report',
+      notification_priority: reportData.urgent ? 'high' : 'medium',
+      notification_action_url: `/moderation/reports/${reportId}`
+    });
+
+    if (error) {
+      console.error('Error creating staff notifications:', error);
+      throw error;
+    }
+
+    return data || 0;
+  } catch (error) {
+    console.error('Error notifying staff of report:', error);
+    throw error;
+  }
+}
+
+/**
+ * Notify all staff members about new feedback
+ */
+export async function notifyAllStaffOfFeedback(feedbackId: string, feedbackData: {
+  username?: string;
+  type: string;
+  message: string;
+}) {
+  try {
+    const staffMembers = await getAllStaffMembers();
+    
+    if (staffMembers.length === 0) {
+      console.warn('No staff members found to notify');
+      return;
+    }
+
+    const user = feedbackData.username || 'Anonymous User';
+    const typeLabel = feedbackData.type.charAt(0).toUpperCase() + feedbackData.type.slice(1);
+    const content = `💬 New Feedback (${typeLabel}): ${user} - ${feedbackData.message.substring(0, 100)}${feedbackData.message.length > 100 ? '...' : ''}`;
 
     const notifications = staffMembers.map(staff => ({
       user_id: staff.user_id,
-      title,
-      message,
-      type: 'report' as const,
+      content,
+      type: 'feedback' as const,
       read: false,
-      action_url: `/moderation/reports/${reportId}`,
-      metadata: {
-        reportId,
-        type: 'report',
-        urgent: reportData.urgent || false
-      },
-      created_at: new Date().toISOString()
+      priority: 'medium',
+      action_url: `/moderation/feedback`
     }));
 
     const { error } = await supabase
@@ -70,7 +103,7 @@ export async function notifyAllStaffOfReport(reportId: string, reportData: {
 
     return notifications.length;
   } catch (error) {
-    console.error('Error notifying staff of report:', error);
+    console.error('Error notifying staff of feedback:', error);
     throw error;
   }
 }
@@ -92,26 +125,17 @@ export async function notifyAllStaffOfAppeal(appealId: string, appealData: {
     }
 
     const user = appealData.username || 'Unknown User';
-    const title = appealData.urgent
-      ? `🚨 Urgent Appeal: ${user}`
-      : `📝 New Appeal: ${user}`;
-    const message = appealData.urgent
-      ? `Urgent appeal submitted by ${user} for ${appealData.banType} ban`
-      : `New appeal submitted by ${user} for ${appealData.banType} ban`;
+    const content = appealData.urgent
+      ? `🚨 Urgent Appeal: ${user} - Appeal submitted for ${appealData.banType} ban`
+      : `📝 New Appeal: ${user} - Appeal submitted for ${appealData.banType} ban`;
 
     const notifications = staffMembers.map(staff => ({
       user_id: staff.user_id,
-      title,
-      message,
+      content,
       type: 'appeal' as const,
       read: false,
-      action_url: `/moderation/appeals/${appealId}`,
-      metadata: {
-        appealId,
-        type: 'appeal',
-        urgent: appealData.urgent || false
-      },
-      created_at: new Date().toISOString()
+      priority: appealData.urgent ? 'high' : 'medium',
+      action_url: `/moderation/appeals/${appealId}`
     }));
 
     const { error } = await supabase
@@ -164,7 +188,7 @@ export async function handleReportOrAppeal(
     // Find all notifications related to this report/appeal
     const { data: allNotifications, error: notificationsError } = await supabase
       .from('notifications')
-      .select('id, user_id, metadata')
+      .select('id, user_id, action_url')
       .eq('type', type)
       .neq('user_id', handlerId); // Exclude the handler
 
@@ -172,14 +196,9 @@ export async function handleReportOrAppeal(
       console.error('Error fetching notifications:', notificationsError);
       // Don't throw, just log - the report/appeal is already handled
     } else if (allNotifications) {
-      // Filter notifications that match this report/appeal ID
+      // Filter notifications that match this report/appeal ID by checking action_url
       const matchingNotifications = allNotifications.filter(notif => {
-        const metadata = notif.metadata as any;
-        return metadata && (
-          metadata.reportId === id || 
-          metadata.appealId === id ||
-          notif.action_url?.includes(`/${id}`)
-        );
+        return notif.action_url?.includes(`/${id}`);
       });
 
       if (matchingNotifications.length > 0) {
@@ -234,17 +253,10 @@ export async function resolveReportWithAction(
         .from('notifications')
         .insert({
           user_id: reportedUserId,
-          title: '⚠️ Warning from Staff',
-          message: resolutionAction.message,
+          content: `⚠️ Warning from Staff: ${resolutionAction.message}`,
           type: 'warning',
           priority: 'high',
-          read: false,
-          metadata: {
-            reportId,
-            type: 'warning',
-            reason: resolutionAction.reason
-          },
-          created_at: new Date().toISOString()
+          read: false
         });
 
       if (notificationError) {
@@ -292,17 +304,12 @@ export async function resolveReportWithAction(
           .from('notifications')
           .insert({
             user_id: reportedUserId,
-            title: resolutionAction.action === 'delete' ? '🚫 Account Deleted' : '⚠️ Account Action',
-            message: actionMessages[resolutionAction.action] || `Account action: ${resolutionAction.reason}`,
+            content: resolutionAction.action === 'delete' 
+              ? `🚫 Account Deleted: ${actionMessages[resolutionAction.action] || `Account action: ${resolutionAction.reason}`}`
+              : `⚠️ Account Action: ${actionMessages[resolutionAction.action] || `Account action: ${resolutionAction.reason}`}`,
             type: 'account_action',
             priority: 'high',
-            read: false,
-            metadata: {
-              reportId,
-              action: resolutionAction.action,
-              reason: resolutionAction.reason
-            },
-            created_at: new Date().toISOString()
+            read: false
           });
 
         if (notificationError) {
@@ -363,18 +370,10 @@ export async function resolveReportWithAction(
           .from('notifications')
           .insert({
             user_id: reportedUserId,
-            title: '🗑️ Content Deleted',
-            message: `Your ${contentType} has been deleted by staff. Reason: ${resolutionAction.reason}`,
+            content: `🗑️ Content Deleted: Your ${contentType} has been deleted by staff. Reason: ${resolutionAction.reason}`,
             type: 'content_action',
             priority: 'medium',
-            read: false,
-            metadata: {
-              reportId,
-              contentId,
-              contentType,
-              reason: resolutionAction.reason
-            },
-            created_at: new Date().toISOString()
+            read: false
           });
 
         if (notificationError) {
@@ -391,12 +390,6 @@ export async function resolveReportWithAction(
         action: `resolve_report_${resolutionAction.type}_${resolutionAction.action}`,
         target_user_id: reportedUserId || null,
         description: `Resolved report ${reportId}: ${resolutionAction.type} action - ${resolutionAction.action}. Reason: ${resolutionAction.reason}`,
-        metadata: {
-          reportId,
-          resolutionAction,
-          contentId,
-          contentType
-        },
         created_at: new Date().toISOString()
       });
 
@@ -405,8 +398,37 @@ export async function resolveReportWithAction(
       // Don't throw - the action was successful
     }
 
-    // 5. Finally, mark the report as resolved
+    // 5. Get reporter ID to notify them
+    const { data: reportData } = await supabase
+      .from('reports')
+      .select('reporter_user_id, status')
+      .eq('id', reportId)
+      .single();
+
+    // 6. Finally, mark the report as resolved
     await handleReportOrAppeal('report', reportId, handlerId, 'resolve');
+
+    // 7. Notify the reporter that their report was accepted/resolved
+    if (reportData?.reporter_user_id) {
+      try {
+        const { error: reporterNotificationError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: reportData.reporter_user_id,
+            content: `✅ Report Accepted: Our staff has reviewed your report and has accepted it. Thank you for keeping the community safe!`,
+            type: 'success',
+            priority: 'medium',
+            read: false,
+            action_url: `/moderation/reports/${reportId}`
+          });
+
+        if (reporterNotificationError) {
+          console.error('Error creating reporter notification:', reporterNotificationError);
+        }
+      } catch (error) {
+        console.error('Error notifying reporter of report resolution:', error);
+      }
+    }
 
     return { success: true };
   } catch (error: any) {

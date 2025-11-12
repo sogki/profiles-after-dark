@@ -16,13 +16,42 @@ export default function useRetrieveProfileFavorites() {
         .select(
           `
         id,
+        profile_id,
+        emote_id,
+        wallpaper_id,
+        emoji_combo_id,
         upload:profiles (
           id,
           title,
           image_url,
           tags,
-           category,
+          category,
           type,
+          created_at
+        ),
+        emote:emotes (
+          id,
+          title,
+          image_url,
+          tags,
+          category,
+          created_at
+        ),
+        wallpaper:wallpapers (
+          id,
+          title,
+          image_url,
+          tags,
+          category,
+          resolution,
+          created_at
+        ),
+        emoji_combo:emoji_combos (
+          id,
+          name,
+          combo_text,
+          description,
+          tags,
           created_at
         )
       `

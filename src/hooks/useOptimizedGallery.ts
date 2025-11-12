@@ -59,10 +59,12 @@ export function useOptimizedGallery() {
         supabase
           .from("profile_pairs")
           .select("*")
+          .eq("status", "approved")
           .order("updated_at", { ascending: false }),
         supabase
           .from("profiles")
           .select("*")
+          .eq("status", "approved")
           .order("updated_at", { ascending: false })
       ]);
 

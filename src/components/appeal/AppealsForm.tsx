@@ -99,7 +99,7 @@ export default function AppealsFormSystem() {
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase.from("appeals").insert([
+      const { data: insertedAppeal, error } = await supabase.from("appeals").insert([
         {
           user_id: userId,
           username: username,
@@ -109,12 +109,26 @@ export default function AppealsFormSystem() {
           status: "pending",
           created_at: new Date().toISOString(),
         },
-      ]);
+      ]).select().single();
 
       if (error) {
         console.error("Supabase insert error:", error);
         toast.error("Failed to submit appeal: " + error.message);
       } else {
+        // Notify all staff members
+        if (insertedAppeal) {
+          try {
+            const { notifyAllStaffOfAppeal } = await import("../../lib/moderationUtils");
+            await notifyAllStaffOfAppeal(insertedAppeal.id, {
+              username: username,
+              banType: banType,
+              urgent: false
+            });
+          } catch (notifError) {
+            console.error("Failed to notify staff of appeal:", notifError);
+            // Don't fail the whole operation if notification fails
+          }
+        }
         toast.success("Appeal submitted successfully!");
         setSubmitted(true);
       }

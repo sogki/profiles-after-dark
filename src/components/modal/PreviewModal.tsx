@@ -1,6 +1,7 @@
 import React, { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
-import { X, Download } from 'lucide-react';
+import { X, Download, Tag, Calendar, User } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface Profile {
   id: string;
@@ -33,7 +34,23 @@ export default function PreviewModal({
         className="fixed inset-0 z-50 overflow-y-auto"
         onClose={onClose}
       >
-        <div className="min-h-screen px-4 text-center bg-black bg-opacity-70">
+        <div className="min-h-screen px-4 text-center bg-black/80 backdrop-blur-sm">
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+          </Transition.Child>
+
+          <span className="inline-block h-screen align-middle" aria-hidden="true">
+            &#8203;
+          </span>
+
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -43,58 +60,103 @@ export default function PreviewModal({
             leaveFrom="opacity-100 scale-100"
             leaveTo="opacity-0 scale-95"
           >
-            <Dialog.Panel className="inline-block w-full max-w-3xl p-6 my-20 overflow-hidden text-left align-middle transition-all transform bg-slate-900 shadow-xl rounded-lg relative">
-              <button
-                onClick={onClose}
-                className="absolute top-4 right-4 text-white hover:text-purple-400"
-                aria-label="Close preview modal"
-              >
-                <X className="h-6 w-6" />
-              </button>
-
+            <Dialog.Panel className="inline-block w-full max-w-4xl my-8 overflow-hidden text-left align-middle transition-all transform bg-slate-900 shadow-2xl rounded-2xl border border-slate-700">
               {previewProfile ? (
                 <>
-                  <Dialog.Title
-                    as="h3"
-                    className="text-lg font-semibold text-white mb-4"
-                  >
-                    {previewProfile.title}
-                  </Dialog.Title>
-
-                  <img
-                    src={previewProfile.image_url}
-                    alt={previewProfile.title}
-                    className="w-full max-h-[70vh] object-contain rounded-md mb-4"
-                  />
-
-                  <p className="text-slate-400 mb-2">
-                    {previewProfile.category} / {previewProfile.type}
-                  </p>
-
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {(previewProfile.tags || []).map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-block bg-purple-700 text-purple-200 px-3 py-1 rounded-full text-sm"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
+                  {/* Image Section */}
+                  <div className="relative bg-slate-800">
+                    <img
+                      src={previewProfile.image_url}
+                      alt={previewProfile.title}
+                      className="w-full max-h-[60vh] object-contain"
+                    />
+                    <button
+                      onClick={onClose}
+                      className="absolute top-4 right-4 p-2 bg-black/70 hover:bg-black/90 rounded-full text-white transition-all duration-200 backdrop-blur-sm z-10"
+                      aria-label="Close preview modal"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
                   </div>
 
-                  {/* Download Button */}
-                  <button
-                    onClick={() => handleDownload(previewProfile)}
-                    className="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors"
-                    aria-label={`Download ${previewProfile.title}`}
-                  >
-                    <Download className="h-5 w-5 mr-2" />
-                    Download
-                  </button>
+                  {/* Content Section */}
+                  <div className="p-8">
+                    <Dialog.Title
+                      as="h3"
+                      className="text-3xl font-bold text-white mb-6"
+                    >
+                      {previewProfile.title}
+                    </Dialog.Title>
+
+                    {/* Metadata */}
+                    <div className="flex flex-wrap items-center gap-6 mb-6 text-sm text-slate-400">
+                      <div className="flex items-center gap-2">
+                        <Tag className="h-4 w-4 text-purple-400" />
+                        <span className="text-purple-300 font-medium">{previewProfile.category}</span>
+                        <span className="text-slate-600">•</span>
+                        <span className="capitalize">{previewProfile.type}</span>
+                      </div>
+                      {previewProfile.created_at && (
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-blue-400" />
+                          <span>{new Date(previewProfile.created_at).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                      {previewProfile.download_count !== undefined && (
+                        <div className="flex items-center gap-2">
+                          <Download className="h-4 w-4 text-green-400" />
+                          <span>{previewProfile.download_count} downloads</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Tags */}
+                    {(previewProfile.tags || []).length > 0 && (
+                      <div className="mb-6">
+                        <h4 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+                          <Tag className="h-4 w-4" />
+                          Tags
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {previewProfile.tags.map((tag) => (
+                            <motion.span
+                              key={tag}
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className="inline-block bg-purple-600/20 text-purple-300 px-3 py-1.5 rounded-lg text-sm border border-purple-600/30 hover:bg-purple-600/30 transition-colors"
+                            >
+                              #{tag}
+                            </motion.span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-4 pt-6 border-t border-slate-700">
+                      <motion.button
+                        onClick={() => handleDownload(previewProfile)}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg font-semibold transition-all duration-200 shadow-lg shadow-purple-500/25"
+                        aria-label={`Download ${previewProfile.title}`}
+                      >
+                        <Download className="h-5 w-5" />
+                        Download
+                      </motion.button>
+                      <button
+                        onClick={onClose}
+                        className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors duration-200"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
                 </>
               ) : (
-                <p className="text-white">No profile selected.</p>
+                <div className="p-12 text-center">
+                  <p className="text-slate-400">No profile selected.</p>
+                </div>
               )}
             </Dialog.Panel>
           </Transition.Child>

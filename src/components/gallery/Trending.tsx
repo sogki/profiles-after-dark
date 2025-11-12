@@ -344,10 +344,11 @@ export default function TrendingPage() {
       // Fetch trending profiles and profile pairs
       const queries = []
 
-      // Fetch from profiles table
+      // Fetch from profiles table (only approved content)
       let profileQuery = supabase
         .from("profiles")
         .select("*")
+        .eq("status", "approved")
         .gte("updated_at", dateFilter.toISOString())
         .order("download_count", { ascending: false })
         .limit(20)
@@ -358,11 +359,12 @@ export default function TrendingPage() {
 
       queries.push(profileQuery)
 
-      // Fetch from profile_pairs table if needed
+      // Fetch from profile_pairs table if needed (only approved content)
       if (categoryFilter === "all" || categoryFilter === "pair") {
         const pairQuery = supabase
           .from("profile_pairs")
           .select("*")
+          .eq("status", "approved")
           .gte("updated_at", dateFilter.toISOString())
           .order("created_at", { ascending: false })
           .limit(10)
@@ -468,11 +470,11 @@ export default function TrendingPage() {
         console.warn("No trending items found for time filter:", timeFilter, "category filter:", categoryFilter)
       }
 
-      // Fetch stats with error handling
+      // Fetch stats with error handling (only approved content)
       try {
         const [profilesCount, pairsCount, usersCount] = await Promise.all([
-          supabase.from("profiles").select("download_count", { count: "exact" }),
-          supabase.from("profile_pairs").select("id", { count: "exact" }),
+          supabase.from("profiles").select("download_count", { count: "exact" }).eq("status", "approved"),
+          supabase.from("profile_pairs").select("id", { count: "exact" }).eq("status", "approved"),
           supabase.from("user_profiles").select("id", { count: "exact" }),
         ])
 

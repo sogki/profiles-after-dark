@@ -32,11 +32,11 @@ const TagBrowse = lazy(() => import("./components/browse/TagBrowse"))
 const UploadPage = lazy(() => import("./components/upload/UploadPage"))
 const ModerationLogs = lazy(() => import("./components/users/moderation/ModerationLogs"))
 const EnhancedModerationPage = lazy(() => import("./components/moderation/EnhancedModerationPage"))
-const EnhancedReportModal = lazy(() => import("./components/moderation/modals/EnhancedReportModal"))
 const Terms = lazy(() => import("./components/legal/Terms"))
 const Policies = lazy(() => import("./components/legal/Policies"))
 const Guidelines = lazy(() => import("./components/legal/Guidelines"))
 const ReportContent = lazy(() => import("./components/legal/ReportContent"))
+const ReportFormPage = lazy(() => import("./components/report/ReportFormPage"))
 const AppealsFormSystem = lazy(() => import("./components/appeal/AppealsForm"))
 const AuthCallback = lazy(() => import("./components/AuthCallback"))
 const ReportDetailView = lazy(() => import("./components/moderation/views/ReportDetailView"))
@@ -55,7 +55,19 @@ import { Toaster } from "react-hot-toast"
 
 import { supabase } from "./lib/supabase"
 
-import { Megaphone } from "lucide-react"
+import AnnouncementBanner from "./components/shared/AnnouncementBanner"
+
+interface Announcement {
+  id: string;
+  title?: string | null;
+  message: string;
+  type: 'info' | 'warning' | 'success' | 'error' | 'system';
+  priority: number;
+  action_url?: string | null;
+  action_text?: string | null;
+  is_dismissible: boolean;
+  created_at: string;
+}
 
 function App() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -71,7 +83,7 @@ function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [showEmailConfirmed, setShowEmailConfirmed] = useState(false)
 
-  const [announcement, setAnnouncement] = useState<string | null>(null)
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
 
   const { user, loading } = useAuth()
   
@@ -80,40 +92,55 @@ function App() {
 
   const [showScrollTop, setShowScrollTop] = useState(false)
 
-  // Enhanced Report Modal State
-  const [showEnhancedReport, setShowEnhancedReport] = useState(false)
-  const [reportTarget, setReportTarget] = useState<{
-    userId?: string;
-    username?: string;
-    contentId?: string;
-    contentType?: string;
-    contentUrl?: string;
-  } | null>(null)
-
-  // Fetch announcement on mount
+  // Fetch announcements on mount and when user changes
   useEffect(() => {
-    const fetchAnnouncement = async () => {
-      const { data, error } = await supabase
+    const fetchAnnouncements = async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_active_announcements', {
+          p_user_id: user?.id || null,
+        });
 
-        .from("announcements")
+        if (error) throw error;
 
-        .select("message")
+        setAnnouncements(data || []);
+      } catch (error) {
+        console.error("Error fetching announcements:", error);
+        // Fallback to old method if RPC doesn't exist yet
+        const { data, error: fallbackError } = await supabase
+          .from("announcements")
+          .select("id, title, message, type, priority, action_url, action_text, is_dismissible, created_at")
+          .eq("is_active", true)
+          .order("priority", { ascending: false })
+          .order("created_at", { ascending: false });
 
-        .eq("is_active", true)
-
-        .limit(1)
-
-        .single()
-
-      if (error && error.code !== "PGRST116") {
-        console.error("Error fetching announcement:", error)
-      } else if (data) {
-        setAnnouncement(data.message)
+        if (!fallbackError && data) {
+          setAnnouncements(data);
+        }
       }
-    }
+    };
 
-    fetchAnnouncement()
-  }, [])
+    fetchAnnouncements();
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel('realtime:announcements')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'announcements',
+        },
+        () => {
+          fetchAnnouncements();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user])
 
   // Check for email confirmation in URL
   useEffect(() => {
@@ -172,8 +199,14 @@ function App() {
     contentUrl?: string;
   }) => {
     if (user) {
-      setReportTarget(target)
-      setShowEnhancedReport(true)
+      // Navigate to report form page using URL params
+      const params = new URLSearchParams()
+      if (target.userId) params.set('userId', target.userId)
+      if (target.username) params.set('username', target.username)
+      if (target.contentId) params.set('contentId', target.contentId)
+      if (target.contentType) params.set('contentType', target.contentType)
+      if (target.contentUrl) params.set('contentUrl', target.contentUrl)
+      window.location.href = `/report-form?${params.toString()}`
     } else {
       setIsAuthModalOpen(true)
     }
@@ -246,11 +279,16 @@ function App() {
           onSearchChange={setSearchQuery}
         />
 
-        {/* Announcement banner */}
-
-        {announcement && (
-         <div className="flex justify-center bg-purple-800/50 text-white px-4 py-2 text-center font-semibold"> <Megaphone className="mr-5"/> {announcement}</div>
-        )}
+        {/* Announcement banners */}
+        {announcements.map((announcement) => (
+          <AnnouncementBanner
+            key={announcement.id}
+            announcement={announcement}
+            onDismiss={(id) => {
+              setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+            }}
+          />
+        ))}
 
         <div className="flex-grow">
           <Suspense fallback={<div className="min-h-screen flex items-center justify-center">
@@ -296,6 +334,7 @@ function App() {
               <Route path="/policies" element={<Policies />} />
               <Route path="/guidelines" element={<Guidelines />} />
               <Route path="/report-content" element={<ReportContent />} />
+              <Route path="/report-form" element={<ReportFormPage />} />
               <Route path="/appeals" element={<AppealsFormSystem/>} />
               <Route path="/auth/callback" element={<AuthCallbackWrapper onEmailConfirmed={() => {
                 setShowEmailConfirmed(true);
@@ -324,27 +363,6 @@ function App() {
           />
         </Suspense>
 
-        <Suspense fallback={<div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
-        </div>}>
-          <EnhancedReportModal
-            isOpen={showEnhancedReport}
-            onClose={() => {
-              setShowEnhancedReport(false)
-              setReportTarget(null)
-            }}
-            reportedUserId={reportTarget?.userId}
-            reportedUsername={reportTarget?.username}
-            contentId={reportTarget?.contentId}
-            contentType={reportTarget?.contentType as any}
-            contentUrl={reportTarget?.contentUrl}
-            reporterUserId={user?.id || ''}
-            onReportSubmitted={() => {
-              setShowEnhancedReport(false)
-              setReportTarget(null)
-            }}
-          />
-        </Suspense>
 
 
         {/* Mobile Bottom Navigation - Temporarily disabled */}

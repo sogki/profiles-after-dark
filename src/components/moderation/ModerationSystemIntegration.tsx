@@ -185,7 +185,7 @@ import {
 } from 'lucide-react';
 import { useModerationSystem } from './hooks/useModerationSystem';
 import { useAuth } from '../../context/authContext';
-import EnhancedReportModal from './modals/EnhancedReportModal';
+import { useNavigate } from 'react-router-dom';
 import EnhancedModerationPanel from './EnhancedModerationPanel';
 import ModerationMessaging from './modals/ModerationMessaging';
 import EnhancedNotificationSystem from './modals/EnhancedNotificationSystem';
@@ -217,7 +217,6 @@ export default function ModerationSystemIntegration({ isOpen, onClose }: Moderat
   } = useModerationSystem();
 
   const [activeView, setActiveView] = useState<'dashboard' | 'reports' | 'users' | 'analytics' | 'messaging' | 'notifications' | 'settings'>('dashboard');
-  const [showReportModal, setShowReportModal] = useState(false);
   const [showMessaging, setShowMessaging] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -603,15 +602,6 @@ export default function ModerationSystemIntegration({ isOpen, onClose }: Moderat
             </div>
 
             {/* Modals */}
-            <EnhancedReportModal
-              isOpen={showReportModal}
-              onClose={() => setShowReportModal(false)}
-              reporterUserId={user?.id || ''}
-              onReportSubmitted={() => {
-                setShowReportModal(false);
-                refreshData();
-              }}
-            />
 
             <ModerationMessaging
               isOpen={showMessaging}

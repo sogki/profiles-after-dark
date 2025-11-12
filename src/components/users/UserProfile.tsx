@@ -26,7 +26,7 @@ import { BsFillEmojiHeartEyesFill } from "react-icons/bs";
 import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
-import EnhancedReportModal from "../moderation/modals/EnhancedReportModal";
+import { useNavigate } from "react-router-dom";
 import { useFollows } from "../../hooks/useFollows";
 import { useShare } from "../../hooks/useShare";
 import { supabase } from "../../lib/supabase";
@@ -114,7 +114,7 @@ export default function UserProfile() {
     UserUpload | ProfilePair | null
   >(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<
     "pairs" | "pfps" | "banners" | "emotes" | "wallpapers" | "emojicombos" | "favorites"
@@ -417,11 +417,12 @@ export default function UserProfile() {
   };
 
   const openReportModal = () => {
-    setIsReportModalOpen(true);
-  };
-
-  const closeReportModal = () => {
-    setIsReportModalOpen(false);
+    navigate('/report-form', {
+      state: {
+        reportedUserId: profile?.id,
+        reportedUsername: profile?.username
+      }
+    });
   };
 
   const formatDate = (dateString: string) => {
@@ -1624,17 +1625,6 @@ export default function UserProfile() {
           </Dialog>
         </Transition>
 
-        {/* Enhanced Report Modal */}
-        <EnhancedReportModal
-          isOpen={isReportModalOpen}
-          onClose={closeReportModal}
-          reporterUserId={currentUserProfileId || ''}
-          reportedUserId={profile?.id}
-          reportedUsername={profile?.username || ''}
-          onReportSubmitted={() => {
-            closeReportModal();
-          }}
-        />
 
         {/* Followers/Following Modal */}
         <Transition appear show={showFollowModal} as={Fragment}>

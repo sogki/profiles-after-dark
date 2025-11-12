@@ -203,7 +203,6 @@ import { handleReportOrAppeal } from '../../lib/moderationUtils';
 import Footer from '../Footer';
 
 // Import child components
-import EnhancedReportModal from './modals/EnhancedReportModal';
 import EnhancedModerationPanel from './EnhancedModerationPanel';
 import ModerationMessaging from './modals/ModerationMessaging';
 import EnhancedNotificationSystem from './modals/EnhancedNotificationSystem';

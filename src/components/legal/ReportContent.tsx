@@ -1,5 +1,5 @@
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   AlertCircle,
@@ -14,7 +14,13 @@ import {
   Eye,
   Lock,
   BarChart3,
+  Search,
+  Image as ImageIcon,
+  User,
 } from "lucide-react"
+import { supabase } from "../../lib/supabase"
+import { useAuth } from "../../context/authContext"
+import { useNavigate } from "react-router-dom"
 import Footer from "../Footer"
 
 const reportCategories = [
@@ -133,25 +139,85 @@ const faqs = [
   },
 ]
 
-const moderationStats = {
-  totalReports: 0,
-  resolvedReports: 0,
-  averageResponseTime: "1 hour",
-  accuracyRate: "100.0%",
-  activeReports: 1,
-  thisWeekReports: 1,
-}
-
 export default function ReportContent() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
   const [openFaqs, setOpenFaqs] = useState<number[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [reportForm, setReportForm] = useState({
-    category: "",
-    description: "",
-    evidence: "",
-    urgent: false,
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searching, setSearching] = useState(false)
+  const [moderationStats, setModerationStats] = useState({
+    totalReports: 0,
+    resolvedReports: 0,
+    averageResponseTime: "0 hours",
+    accuracyRate: "0%",
+    activeReports: 0,
+    thisWeekReports: 0,
+    loading: true,
   })
-  const [showReportForm, setShowReportForm] = useState(false)
+
+  // Fetch real stats from database
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const now = new Date()
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+        const [
+          { count: totalReports },
+          { count: resolvedReports },
+          { count: pendingReports },
+          { data: recentReports },
+          { data: resolvedReportsData },
+        ] = await Promise.all([
+          supabase.from('reports').select('*', { count: 'exact', head: true }),
+          supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'resolved'),
+          supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+          supabase.from('reports').select('created_at').gte('created_at', weekAgo.toISOString()),
+          supabase.from('reports').select('created_at, handled_at, updated_at').eq('status', 'resolved'),
+        ])
+
+        const thisWeekReports = recentReports?.length || 0
+        const total = totalReports || 0
+        const resolved = resolvedReports || 0
+        const active = pendingReports || 0
+
+        // Calculate average response time using handled_at or updated_at when status is resolved
+        let avgResponseTime = 0
+        if (resolvedReportsData && resolvedReportsData.length > 0) {
+          const responseTimes = resolvedReportsData
+            .filter(r => r.created_at && (r.handled_at || r.updated_at))
+            .map(r => {
+              const created = new Date(r.created_at).getTime()
+              const resolved = new Date(r.handled_at || r.updated_at).getTime()
+              return (resolved - created) / (1000 * 60 * 60) // Convert to hours
+            })
+          if (responseTimes.length > 0) {
+            avgResponseTime = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+          }
+        }
+
+        // Calculate accuracy rate (resolved / total * 100)
+        const accuracyRate = total > 0 ? ((resolved / total) * 100).toFixed(1) : "0.0"
+
+        setModerationStats({
+          totalReports: total,
+          resolvedReports: resolved,
+          averageResponseTime: avgResponseTime > 0 ? `${avgResponseTime.toFixed(1)} hours` : "N/A",
+          accuracyRate: `${accuracyRate}%`,
+          activeReports: active,
+          thisWeekReports: thisWeekReports,
+          loading: false,
+        })
+      } catch (error) {
+        console.error('Error fetching moderation stats:', error)
+        setModerationStats(prev => ({ ...prev, loading: false }))
+      }
+    }
+
+    fetchStats()
+  }, [])
 
   const toggleFaq = (index: number) => {
     if (openFaqs.includes(index)) {
@@ -167,6 +233,155 @@ export default function ReportContent() {
     console.log("Report submitted:", reportForm)
     setShowReportForm(false)
     setReportForm({ category: "", description: "", evidence: "", urgent: false })
+  }
+
+  const searchContent = async (query: string) => {
+    if (!query.trim() || query.length < 2) {
+      setSearchResults([])
+      return
+    }
+
+    setSearching(true)
+    try {
+      const searchTerm = `%${query}%`
+      const results: any[] = []
+
+      // Search profiles
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, title, image_url, user_id, type")
+        .eq("status", "approved")
+        .ilike("title", searchTerm)
+        .limit(5)
+
+      if (profiles) {
+        profiles.forEach(p => {
+          results.push({
+            id: p.id,
+            title: p.title,
+            type: "profile",
+            contentType: p.type === "banner" ? "banner" : "profile",
+            imageUrl: p.image_url,
+            userId: p.user_id
+          })
+        })
+      }
+
+      // Search profile pairs
+      const { data: pairs } = await supabase
+        .from("profile_pairs")
+        .select("id, title, banner_url, pfp_url, user_id")
+        .eq("status", "approved")
+        .ilike("title", searchTerm)
+        .limit(5)
+
+      if (pairs) {
+        pairs.forEach(p => {
+          results.push({
+            id: p.id,
+            title: p.title,
+            type: "profile_pair",
+            contentType: "profile_pair",
+            imageUrl: p.banner_url || p.pfp_url,
+            userId: p.user_id
+          })
+        })
+      }
+
+      // Search emotes
+      const { data: emotes } = await supabase
+        .from("emotes")
+        .select("id, title, image_url, user_id")
+        .eq("status", "approved")
+        .ilike("title", searchTerm)
+        .limit(5)
+
+      if (emotes) {
+        emotes.forEach(e => {
+          results.push({
+            id: e.id,
+            title: e.title,
+            type: "emote",
+            contentType: "emote",
+            imageUrl: e.image_url,
+            userId: e.user_id
+          })
+        })
+      }
+
+      // Search wallpapers
+      const { data: wallpapers } = await supabase
+        .from("wallpapers")
+        .select("id, title, image_url, user_id")
+        .eq("status", "approved")
+        .ilike("title", searchTerm)
+        .limit(5)
+
+      if (wallpapers) {
+        wallpapers.forEach(w => {
+          results.push({
+            id: w.id,
+            title: w.title,
+            type: "wallpaper",
+            contentType: "wallpaper",
+            imageUrl: w.image_url,
+            userId: w.user_id
+          })
+        })
+      }
+
+      // Search emoji combos
+      const { data: combos } = await supabase
+        .from("emoji_combos")
+        .select("id, name, user_id")
+        .eq("status", "approved")
+        .ilike("name", searchTerm)
+        .limit(5)
+
+      if (combos) {
+        combos.forEach(c => {
+          results.push({
+            id: c.id,
+            title: c.name,
+            type: "emoji_combo",
+            contentType: "emoji_combo",
+            imageUrl: null,
+            userId: c.user_id
+          })
+        })
+      }
+
+      setSearchResults(results)
+    } catch (error) {
+      console.error("Error searching content:", error)
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      searchContent(searchQuery)
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery])
+
+  const handleReportContent = (content: any) => {
+    if (!user) {
+      alert("Please log in to report content")
+      return
+    }
+
+    navigate('/report-form', {
+      state: {
+        contentId: content.id,
+        contentType: content.contentType,
+        contentUrl: content.imageUrl,
+        reportedUserId: content.userId,
+        reportedUsername: content.username
+      }
+    })
   }
 
   const getSeverityColor = (severity: string) => {
@@ -196,152 +411,171 @@ export default function ReportContent() {
   }
 
   return (
-    <><div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20"></div>
-        <div className="relative max-w-7xl mx-auto px-4 py-16 sm:py-24">
-          <div className="text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="flex justify-center mb-6"
-            >
-              <div className="relative">
-                <AlertCircle className="w-20 h-20 text-red-400 animate-pulse" />
-                <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-                  <Shield className="w-3 h-3 text-white" />
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-5xl md:text-6xl font-bold text-white mb-6"
-            >
-              Report Content
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-xl text-slate-300 max-w-3xl mx-auto mb-8"
-            >
-              Help us maintain a safe and welcoming community by reporting content or behavior that violates our
-              guidelines. Your reports help protect all users and improve the platform experience.
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center"
-            >
-              <button
-                onClick={() => setShowReportForm(true)}
-                className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-red-500/25"
-              >
-                Submit a Report
-              </button>
-              <a
-                href="#guidelines"
-                className="bg-slate-700 hover:bg-slate-600 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 border border-slate-600 hover:border-slate-500"
-              >
-                View Guidelines
-              </a>
-            </motion.div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Professional Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-red-600/20 rounded-xl">
+              <AlertCircle className="w-8 h-8 text-red-400" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-white">Report Content</h1>
+              <p className="text-slate-400">Help us maintain a safe and welcoming community</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Moderation Stats */}
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-8 mb-12"
-        >
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-white mb-2 flex items-center justify-center gap-2">
-              <BarChart3 className="w-6 h-6 text-blue-400" />
-              Community Safety Statistics
-            </h2>
-            <p className="text-slate-400">Our commitment to maintaining a safe platform</p>
+        {/* Search Section */}
+        <div className="bg-slate-800/50 rounded-2xl border border-slate-700 shadow-xl p-6 mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <Search className="w-5 h-5 text-purple-400" />
+            <h2 className="text-xl font-semibold text-white">Search for Content to Report</h2>
           </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-400 mb-1">
-                {moderationStats.totalReports.toLocaleString()}
-              </div>
-              <div className="text-sm text-slate-400">Total Reports</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-green-400 mb-1">
-                {moderationStats.resolvedReports.toLocaleString()}
-              </div>
-              <div className="text-sm text-slate-400">Resolved</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-orange-400 mb-1">{moderationStats.activeReports}</div>
-              <div className="text-sm text-slate-400">Active Reports</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-purple-400 mb-1">{moderationStats.averageResponseTime}</div>
-              <div className="text-sm text-slate-400">Avg Response</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-cyan-400 mb-1">{moderationStats.accuracyRate}</div>
-              <div className="text-sm text-slate-400">Accuracy Rate</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-yellow-400 mb-1">{moderationStats.thisWeekReports}</div>
-              <div className="text-sm text-slate-400">This Week</div>
-            </div>
+          <div className="relative mb-4">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 z-10 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search for content to report..."
+              className="w-full pl-12 pr-4 py-3 rounded-xl bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
+            />
           </div>
-        </motion.div>
-      </div>
-
-      <main className="max-w-7xl mx-auto px-4 py-12 flex flex-col lg:flex-row gap-12">
-        {/* Main Content */}
-        <section className="flex-1">
-          {/* Report Categories */}
-          <div className="mb-12">
-            <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-2">
-              <Flag className="w-8 h-8 text-red-400" />
-              Report Categories
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {reportCategories.map((category, idx) => {
-                const IconComponent = category.icon
-                return (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: idx * 0.1 }}
-                    className={`bg-slate-800/50 backdrop-blur-sm rounded-xl border-2 ${getSeverityColor(category.severity)} p-6 hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-105`}
-                    onClick={() => setSelectedCategory(selectedCategory === category.title ? null : category.title)}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className={`p-3 rounded-lg ${getSeverityColor(category.severity)}`}>
-                        <IconComponent className={`w-6 h-6 ${getSeverityTextColor(category.severity)}`} />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-xl font-semibold text-white">{category.title}</h3>
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${getSeverityTextColor(category.severity)} bg-slate-700`}
-                          >
-                            {category.severity.toUpperCase()}
-                          </span>
+          
+          {/* Search Results */}
+          {searchQuery.length >= 2 && (
+            <div className="mt-4 bg-slate-700/30 rounded-xl border border-slate-600/50 max-h-96 overflow-y-auto">
+              {searching ? (
+                <div className="p-8 text-center text-slate-400">Searching...</div>
+              ) : searchResults.length > 0 ? (
+                <div className="p-2">
+                  <div className="text-xs text-slate-400 px-3 py-2 uppercase tracking-wider font-semibold">
+                    Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+                  </div>
+                  {searchResults.map((result) => (
+                    <button
+                      key={`${result.type}-${result.id}`}
+                      onClick={() => handleReportContent(result)}
+                      className="w-full text-left p-3 rounded-lg hover:bg-slate-600/50 transition-colors flex items-center gap-3 group"
+                    >
+                      {result.imageUrl ? (
+                        <img
+                          src={result.imageUrl}
+                          alt={result.title}
+                          className="w-12 h-12 object-cover rounded-lg"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-slate-700 rounded-lg flex items-center justify-center">
+                          <ImageIcon className="h-6 w-6 text-slate-400" />
                         </div>
-                        <p className="text-slate-300 text-sm leading-relaxed mb-3">{category.description}</p>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white font-medium truncate">{result.title}</div>
+                        <div className="text-xs text-slate-400 capitalize">{result.type.replace('_', ' ')}</div>
+                      </div>
+                      <Flag className="h-4 w-4 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center text-slate-400">No content found matching "{searchQuery}"</div>
+              )}
+            </div>
+          )}
+          
+          <button
+            onClick={() => navigate('/report-form')}
+            className="mt-4 w-full bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-red-500/25"
+          >
+            Submit a General Report
+          </button>
+        </div>
+
+        {/* Moderation Stats */}
+        <div className="bg-slate-800/50 rounded-2xl border border-slate-700 shadow-xl p-6 mb-8">
+          <div className="flex items-center gap-3 mb-6">
+            <BarChart3 className="w-6 h-6 text-blue-400" />
+            <div>
+              <h2 className="text-xl font-semibold text-white">Community Safety Statistics</h2>
+              <p className="text-sm text-slate-400">Our commitment to maintaining a safe platform</p>
+            </div>
+          </div>
+
+          {moderationStats.loading ? (
+            <div className="text-center py-8">
+              <div className="inline-block w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-slate-400 mt-4">Loading statistics...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="bg-slate-700/30 rounded-xl border border-slate-600/50 p-4">
+                <div className="text-2xl font-bold text-blue-400 mb-1">
+                  {moderationStats.totalReports.toLocaleString()}
+                </div>
+                <div className="text-xs text-slate-400">Total Reports</div>
+              </div>
+              <div className="bg-slate-700/30 rounded-xl border border-slate-600/50 p-4">
+                <div className="text-2xl font-bold text-green-400 mb-1">
+                  {moderationStats.resolvedReports.toLocaleString()}
+                </div>
+                <div className="text-xs text-slate-400">Resolved</div>
+              </div>
+              <div className="bg-slate-700/30 rounded-xl border border-slate-600/50 p-4">
+                <div className="text-2xl font-bold text-orange-400 mb-1">{moderationStats.activeReports}</div>
+                <div className="text-xs text-slate-400">Active</div>
+              </div>
+              <div className="bg-slate-700/30 rounded-xl border border-slate-600/50 p-4">
+                <div className="text-2xl font-bold text-purple-400 mb-1">{moderationStats.averageResponseTime}</div>
+                <div className="text-xs text-slate-400">Avg Response</div>
+              </div>
+              <div className="bg-slate-700/30 rounded-xl border border-slate-600/50 p-4">
+                <div className="text-2xl font-bold text-cyan-400 mb-1">{moderationStats.accuracyRate}</div>
+                <div className="text-xs text-slate-400">Accuracy</div>
+              </div>
+              <div className="bg-slate-700/30 rounded-xl border border-slate-600/50 p-4">
+                <div className="text-2xl font-bold text-yellow-400 mb-1">{moderationStats.thisWeekReports}</div>
+                <div className="text-xs text-slate-400">This Week</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <section className="lg:col-span-2 space-y-6">
+            {/* Report Categories */}
+            <div className="bg-slate-800/50 rounded-2xl border border-slate-700 shadow-xl p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <Flag className="w-6 h-6 text-red-400" />
+                <h2 className="text-xl font-semibold text-white">Report Categories</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {reportCategories.map((category, idx) => {
+                  const IconComponent = category.icon
+                  return (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: idx * 0.05 }}
+                      className={`bg-slate-700/30 rounded-xl border ${getSeverityColor(category.severity)} p-5 hover:shadow-xl transition-all duration-300 cursor-pointer`}
+                      onClick={() => setSelectedCategory(selectedCategory === category.title ? null : category.title)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-lg ${getSeverityColor(category.severity)}`}>
+                          <IconComponent className={`w-5 h-5 ${getSeverityTextColor(category.severity)}`} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="text-lg font-semibold text-white">{category.title}</h3>
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-medium ${getSeverityTextColor(category.severity)} bg-slate-700/50`}
+                            >
+                              {category.severity.toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="text-slate-300 text-sm leading-relaxed mb-3">{category.description}</p>
 
                         <AnimatePresence>
                           {selectedCategory === category.title && (
@@ -365,40 +599,38 @@ export default function ReportContent() {
                             </motion.div>
                           )}
                         </AnimatePresence>
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                )
-              })}
+                    </motion.div>
+                  )
+                })}
+              </div>
             </div>
-          </div>
 
-          {/* Reporting Process */}
-          <div className="mb-12" id="guidelines">
-            <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-2">
-              <HelpCircle className="w-8 h-8 text-blue-400" />
-              How to Report
-            </h2>
-            <div className="space-y-6">
-              {reportItems.map(({ title, description }, idx) => (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.6, delay: idx * 0.1 }}
-                  className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700 p-6 hover:shadow-2xl transition-all duration-300 hover:border-slate-600"
-                >
-                  <h3 className="text-xl font-semibold text-white mb-3 flex items-center gap-2">
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                      {idx + 1}
-                    </div>
-                    {title}
-                  </h3>
-                  <p className="text-slate-300 leading-relaxed pl-10">{description}</p>
-                </motion.div>
-              ))}
+            {/* Reporting Process */}
+            <div className="bg-slate-800/50 rounded-2xl border border-slate-700 shadow-xl p-6" id="guidelines">
+              <div className="flex items-center gap-3 mb-6">
+                <HelpCircle className="w-6 h-6 text-blue-400" />
+                <h2 className="text-xl font-semibold text-white">How to Report</h2>
+              </div>
+              <div className="space-y-4">
+                {reportItems.map(({ title, description }, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-slate-700/30 rounded-xl border border-slate-600/50 p-4 hover:border-slate-500/50 transition-all duration-300"
+                  >
+                    <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-3">
+                      <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        {idx + 1}
+                      </div>
+                      {title}
+                    </h3>
+                    <p className="text-slate-300 leading-relaxed pl-10 text-sm">{description}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          </section>
 
           {/* Emergency Contact */}
           {/* <motion.div
@@ -432,16 +664,15 @@ export default function ReportContent() {
         </div>
       </div>
     </motion.div> */}
-        </section>
 
-        {/* Sidebar */}
-        <aside className="w-full lg:w-96">
-          {/* FAQ Section */}
-          <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-8 sticky top-8">
-            <h2 className="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-4 flex items-center gap-2">
-              <MessageSquare className="w-6 h-6 text-green-400" />
-              Frequently Asked Questions
-            </h2>
+          {/* Sidebar */}
+          <aside className="lg:col-span-1">
+            {/* FAQ Section */}
+            <div className="bg-slate-800/50 rounded-2xl border border-slate-700 shadow-xl p-6 sticky top-8">
+              <div className="flex items-center gap-3 mb-6 border-b border-slate-700 pb-4">
+                <MessageSquare className="w-6 h-6 text-green-400" />
+                <h2 className="text-xl font-semibold text-white">Frequently Asked Questions</h2>
+              </div>
 
             <div className="space-y-4 max-h-96 overflow-y-auto">
               {faqs.map(({ question, answer }, idx) => {
@@ -493,7 +724,7 @@ export default function ReportContent() {
               <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
               <div className="space-y-3">
                 <button
-                  onClick={() => setShowReportForm(true)}
+                  onClick={() => navigate('/report-form')}
                   className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 justify-center"
                 >
                   <Flag className="w-4 h-4" />
@@ -516,117 +747,10 @@ export default function ReportContent() {
               </div>
             </div>
           </div>
-        </aside>
-      </main>
-
-      {/* Report Form Modal */}
-      <AnimatePresence>
-        {showReportForm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-            onClick={() => setShowReportForm(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-slate-800 rounded-2xl border border-slate-700 p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <Flag className="w-8 h-8 text-red-400" />
-                <h2 className="text-2xl font-bold text-white">Submit a Report</h2>
-              </div>
-
-              <form onSubmit={handleReportSubmit} className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Report Category *</label>
-                  <select
-                    value={reportForm.category}
-                    onChange={(e) => setReportForm({ ...reportForm, category: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="">Select a category...</option>
-                    {reportCategories.map((cat) => (
-                      <option key={cat.title} value={cat.title}>
-                        {cat.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Description *</label>
-                  <textarea
-                    value={reportForm.description}
-                    onChange={(e) => setReportForm({ ...reportForm, description: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                    rows={4}
-                    placeholder="Please provide details about what you're reporting..."
-                    required />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Evidence (URLs, Screenshots, etc.)
-                  </label>
-                  <textarea
-                    value={reportForm.evidence}
-                    onChange={(e) => setReportForm({ ...reportForm, evidence: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                    rows={3}
-                    placeholder="Provide any additional evidence or context..." />
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="urgent"
-                    checked={reportForm.urgent}
-                    onChange={(e) => setReportForm({ ...reportForm, urgent: e.target.checked })}
-                    className="w-4 h-4 text-red-600 bg-slate-700 border-slate-600 rounded focus:ring-red-500" />
-                  <label htmlFor="urgent" className="text-sm text-slate-300">
-                    This is an urgent safety concern
-                  </label>
-                </div>
-
-                <div className="bg-slate-700/50 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Eye className="w-5 h-5 text-blue-400 mt-0.5" />
-                    <div>
-                      <h4 className="font-medium text-white mb-1">Privacy Notice</h4>
-                      <p className="text-sm text-slate-300">
-                        Your report will be reviewed confidentially by our moderation team. Your identity will not be
-                        shared with the reported user.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowReportForm(false)}
-                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                  >
-                    Submit Report
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div><Footer /></>
+          </aside>
+        </div>
+      </div>
+      <Footer />
+    </div>
   )
 }

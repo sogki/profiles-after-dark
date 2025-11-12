@@ -36,10 +36,11 @@ export default function FeaturedGallery() {
       setLoading(true);
       const allItems: GalleryItem[] = [];
 
-      // Fetch top profile pairs by download count
+      // Fetch top profile pairs by download count (only approved)
       const { data: pairsData } = await supabase
         .from("profile_pairs")
         .select("*")
+        .eq("status", "approved")
         .order("download_count", { ascending: false })
         .limit(3);
 
@@ -57,10 +58,11 @@ export default function FeaturedGallery() {
         });
       }
 
-      // Fetch top profiles by download count
+      // Fetch top profiles by download count (only approved)
       const { data: profilesData } = await supabase
         .from("profiles")
         .select("*")
+        .eq("status", "approved")
         .order("download_count", { ascending: false })
         .limit(3);
 

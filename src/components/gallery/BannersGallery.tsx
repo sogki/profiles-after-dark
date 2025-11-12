@@ -5,6 +5,7 @@ import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useAuth } from "../../context/authContext"
 import { supabase } from "../../lib/supabase"
+import ReportContentButton from "../shared/ReportContentButton"
 
 import Footer from "../Footer"
 
@@ -587,16 +588,27 @@ export default function BannerGallery() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
                         <div className="w-full">
                           <div className="flex items-center justify-between mb-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownload(banner);
-                              }}
-                              className="p-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
-                              title="Download"
-                            >
-                              <Download className="h-4 w-4 text-white" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownload(banner);
+                                }}
+                                className="p-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                                title="Download"
+                              >
+                                <Download className="h-4 w-4 text-white" />
+                              </button>
+                              <ReportContentButton
+                                contentId={banner.id}
+                                contentType="profile"
+                                contentUrl={banner.image_url}
+                                reportedUserId={banner.user_id}
+                                variant="icon"
+                                showOnHover={false}
+                                className="z-10"
+                              />
+                            </div>
                             {user && (
                               <button
                                 onClick={(e) => {
@@ -724,6 +736,14 @@ export default function BannerGallery() {
                           <Download className="h-4 w-4" />
                           <span>Download</span>
                         </button>
+                        <ReportContentButton
+                          contentId={banner.id}
+                          contentType="profile"
+                          contentUrl={banner.image_url}
+                          reportedUserId={banner.user_id}
+                          variant="text"
+                          showOnHover={false}
+                        />
                       </div>
                       {banner.user_profiles && (
                         <Link

@@ -329,6 +329,58 @@ GRANT EXECUTE ON FUNCTION create_content_approval_notification TO authenticated;
 
 COMMENT ON FUNCTION create_content_approval_notification IS 'Allows staff members to create notifications for users when content is approved or rejected. Bypasses RLS to allow cross-user notifications.';
 
+-- Create function to allow staff to create notifications for multiple users (for staff notifications)
+CREATE OR REPLACE FUNCTION create_staff_notifications(
+  target_user_ids UUID[],
+  notification_content TEXT,
+  notification_type TEXT,
+  notification_priority TEXT DEFAULT 'medium',
+  notification_action_url TEXT DEFAULT NULL
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  notification_count INTEGER := 0;
+  target_user_id UUID;
+BEGIN
+  -- Verify the caller is staff or authenticated user (for reports, any authenticated user can notify staff)
+  -- For staff notifications, we allow any authenticated user to create them
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Only authenticated users can create notifications';
+  END IF;
+
+  -- Insert notifications for each target user
+  FOREACH target_user_id IN ARRAY target_user_ids
+  LOOP
+    INSERT INTO public.notifications (
+      user_id,
+      content,
+      type,
+      priority,
+      action_url,
+      read
+    ) VALUES (
+      target_user_id,
+      notification_content,
+      notification_type,
+      notification_priority,
+      notification_action_url,
+      false
+    );
+    notification_count := notification_count + 1;
+  END LOOP;
+
+  RETURN notification_count;
+END;
+$$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION create_staff_notifications TO authenticated;
+
+COMMENT ON FUNCTION create_staff_notifications IS 'Allows authenticated users to create notifications for multiple users (e.g., staff notifications). Bypasses RLS to allow cross-user notifications.';
+
 -- Add RLS policies to allow staff to update and delete any content for moderation
 -- This enables the content approval workflow
 

@@ -11,24 +11,143 @@ export type Database = {
     Tables: {
       announcements: {
         Row: {
-          created_at: string | null
-          id: number
-          is_active: boolean | null
+          id: string
+          title: string | null
           message: string
+          type: 'info' | 'warning' | 'success' | 'error' | 'system'
+          priority: number
+          is_active: boolean
+          start_date: string | null
+          end_date: string | null
+          action_url: string | null
+          action_text: string | null
+          is_dismissible: boolean
+          target_roles: string[] | null
+          created_at: string
+          created_by: string | null
+          updated_at: string
         }
         Insert: {
-          created_at?: string | null
-          id?: number
-          is_active?: boolean | null
+          id?: string
+          title?: string | null
           message: string
+          type?: 'info' | 'warning' | 'success' | 'error' | 'system'
+          priority?: number
+          is_active?: boolean
+          start_date?: string | null
+          end_date?: string | null
+          action_url?: string | null
+          action_text?: string | null
+          is_dismissible?: boolean
+          target_roles?: string[] | null
+          created_at?: string
+          created_by?: string | null
+          updated_at?: string
         }
         Update: {
-          created_at?: string | null
-          id?: number
-          is_active?: boolean | null
+          id?: string
+          title?: string | null
           message?: string
+          type?: 'info' | 'warning' | 'success' | 'error' | 'system'
+          priority?: number
+          is_active?: boolean
+          start_date?: string | null
+          end_date?: string | null
+          action_url?: string | null
+          action_text?: string | null
+          is_dismissible?: boolean
+          target_roles?: string[] | null
+          created_at?: string
+          created_by?: string | null
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "announcements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      announcement_dismissals: {
+        Row: {
+          id: string
+          announcement_id: string
+          user_id: string
+          dismissed_at: string
+        }
+        Insert: {
+          id?: string
+          announcement_id: string
+          user_id: string
+          dismissed_at?: string
+        }
+        Update: {
+          id?: string
+          announcement_id?: string
+          user_id?: string
+          dismissed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_dismissals_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcement_dismissals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      announcement_views: {
+        Row: {
+          id: string
+          announcement_id: string
+          user_id: string | null
+          viewed_at: string
+          ip_address: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          id?: string
+          announcement_id: string
+          user_id?: string | null
+          viewed_at?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          id?: string
+          announcement_id?: string
+          user_id?: string | null
+          viewed_at?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_views_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcement_views_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       downloads: {
         Row: {

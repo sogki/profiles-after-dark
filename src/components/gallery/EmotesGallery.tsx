@@ -6,6 +6,7 @@ import { Search, Filter, Grid3X3, List, Download, Heart, User, Tag, Calendar, X 
 import { supabase } from "../../lib/supabase"
 import { useAuth } from "../../context/authContext"
 import Footer from "../Footer"
+import ReportContentButton from "../shared/ReportContentButton"
 
 interface UserProfile {
   username: string | null
@@ -609,16 +610,27 @@ const EmotesGallery = memo(function EmotesGallery() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
                         <div className="w-full">
                           <div className="flex items-center justify-between mb-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownloadEmote(emote);
-                              }}
-                              className="p-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
-                              title="Download"
-                            >
-                              <Download className="h-4 w-4 text-white" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownloadEmote(emote);
+                                }}
+                                className="p-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                                title="Download"
+                              >
+                                <Download className="h-4 w-4 text-white" />
+                              </button>
+                              <ReportContentButton
+                                contentId={emote.id}
+                                contentType="emote"
+                                contentUrl={emote.image_url}
+                                reportedUserId={emote.user_id}
+                                variant="icon"
+                                showOnHover={false}
+                                className="z-10"
+                              />
+                            </div>
                             {user && (
                               <button
                                 onClick={(e) => {

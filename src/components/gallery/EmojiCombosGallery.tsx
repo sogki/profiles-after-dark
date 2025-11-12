@@ -9,6 +9,7 @@ import { useAuth } from "../../context/authContext"
 import { supabase } from "../../lib/supabase"
 import type { Database } from "../../types/database"
 import { useEmojiCombos } from "../../hooks/useEmojiCombos"
+import ReportContentButton from "../shared/ReportContentButton"
 import Footer from "../Footer"
 
 type EmojiCombo = Database["public"]["Tables"]["emoji_combos"]["Row"]
@@ -578,6 +579,14 @@ export default function EmojiCombosGallery() {
                         >
                           {copiedId === combo.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
+                        <ReportContentButton
+                          contentId={combo.id}
+                          contentType="emoji_combo"
+                          reportedUserId={combo.user_id || undefined}
+                          variant="icon"
+                          showOnHover={false}
+                          className="z-10"
+                        />
                       </div>
 
                       {user && (

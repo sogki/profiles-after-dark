@@ -31,7 +31,7 @@ interface HeaderProps {
   onSearchChange: (query: string) => void
 }
 
-export default function Header({ onUploadClick, onAuthClick, searchQuery, onSearchChange }: HeaderProps) {
+export default function Header({ onAuthClick, searchQuery, onSearchChange }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
   const { user, userProfile, signOut } = useAuth()
@@ -290,13 +290,13 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
               {user ? (
                 <>
                   {/* Upload Button */}
-                  <button
-                    onClick={onUploadClick}
+                  <Link
+                    to="/upload"
                     className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-xl transition-all transform hover:scale-105 shadow-lg hover:shadow-purple-500/30 font-medium"
                   >
                     <Upload className="h-4 w-4" />
                     <span className="hidden lg:inline">Upload</span>
-                  </button>
+                  </Link>
 
                   {/* Enhanced Notifications */}
                   <div className="relative" ref={notifRef}>
@@ -599,7 +599,7 @@ export default function Header({ onUploadClick, onAuthClick, searchQuery, onSear
                     <div className="space-y-2">
                       <button
                         onClick={() => {
-                          onUploadClick()
+                          navigate("/upload")
                           setIsMobileMenuOpen(false)
                         }}
                         className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all font-medium"

@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { X } from "lucide-react"
+import { X, Image, User, Smile, Monitor } from "lucide-react"
+import { BsFillEmojiHeartEyesFill } from "react-icons/bs"
 import { useAuth } from "../context/authContext"
 import { supabase } from "../lib/supabase"
 import SingleUploadForm from "./upload/SingleUploadForm"
@@ -42,7 +43,6 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     combo_text: "",
     description: "",
     tags: [] as string[],
-    file: null as File | null,
   })
 
   const [emoteForm, setEmoteForm] = useState({
@@ -68,9 +68,9 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     return filename.replace(/[^a-zA-Z0-9.-]/g, "_")
   }
 
-  const uploadImage = async (file: File, fileName: string) => {
+  const uploadImage = async (file: File, fileName: string, bucket: string = "images") => {
     const { data, error } = await supabase.storage
-      .from("images")
+      .from(bucket)
       .upload(fileName, file, {
         cacheControl: "3600",
         upsert: false,
@@ -79,7 +79,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     if (error) return { error: error.message }
 
     const { data: { publicUrl } } = supabase.storage
-      .from("images")
+      .from(bucket)
       .getPublicUrl(fileName)
 
     return { url: publicUrl }
@@ -205,7 +205,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
 
   const handleSubmitEmoji = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (isSubmitting || !emojiForm.file || !emojiForm.name || !emojiForm.combo_text || !user) return
+    if (isSubmitting || !emojiForm.name || !emojiForm.combo_text || !user) return
 
     setIsSubmitting(true)
     setError(null)
@@ -216,23 +216,16 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         setUploadProgress((prev) => Math.min(prev + 10, 90))
       }, 200)
 
-      const cleanFileName = sanitizeFilename(emojiForm.file.name)
-      const fileName = `${Date.now()}-emoji-${cleanFileName}`
-      const { url, error: uploadError } = await uploadImage(emojiForm.file, fileName)
-
+      // Emoji combos don't need image uploads - they're ASCII text
       clearInterval(progressInterval)
       setUploadProgress(100)
-
-      if (uploadError || !url) {
-        throw new Error(uploadError || "Failed to upload emoji combo")
-      }
 
       const { error: insertError } = await supabase.from("emoji_combos").insert([
         {
         name: emojiForm.name,
         combo_text: emojiForm.combo_text,
           description: emojiForm.description,
-          image_url: url,
+          image_url: null, // Emoji combos are text-based, not images
         tags: emojiForm.tags,
           user_id: user.id,
         },
@@ -246,7 +239,6 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         combo_text: "",
         description: "",
         tags: [],
-        file: null,
       })
       setUploadProgress(0)
     } catch (err) {
@@ -272,7 +264,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
 
       const cleanFileName = sanitizeFilename(emoteForm.file.name)
       const fileName = `${Date.now()}-emote-${cleanFileName}`
-      const { url, error: uploadError } = await uploadImage(emoteForm.file, fileName)
+      const { url, error: uploadError } = await uploadImage(emoteForm.file, fileName, "emotes")
 
       clearInterval(progressInterval)
       setUploadProgress(100)
@@ -325,7 +317,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
 
       const cleanFileName = sanitizeFilename(wallpaperForm.file.name)
       const fileName = `${Date.now()}-wallpaper-${cleanFileName}`
-      const { url, error: uploadError } = await uploadImage(wallpaperForm.file, fileName)
+      const { url, error: uploadError } = await uploadImage(wallpaperForm.file, fileName, "wallpapers")
 
       clearInterval(progressInterval)
       setUploadProgress(100)
@@ -376,89 +368,72 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     }
   }
 
+  const uploadModes = [
+    { id: "single", label: "PFP/Banner", icon: Image },
+    { id: "profilePair", label: "Profile Pair", icon: User },
+    { id: "emote", label: "Emote", icon: Smile },
+    { id: "wallpaper", label: "Wallpaper", icon: Monitor },
+    { id: "emojiCombo", label: "Emoji Combo", icon: BsFillEmojiHeartEyesFill },
+  ]
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl max-w-4xl w-full border border-slate-700 shadow-2xl">
+    <div 
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isSubmitting) {
+          onClose()
+        }
+      }}
+    >
+      <div 
+        className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl max-w-4xl w-full border border-slate-700 shadow-2xl my-8 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <h2 className="text-2xl font-bold text-white">
-            {getModeTitle()}
-          </h2>
+        <div className="flex items-center justify-between p-6 border-b border-slate-700 sticky top-0 bg-slate-800/95 backdrop-blur-sm z-10">
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-1">
+              Upload Content
+            </h2>
+            <p className="text-sm text-slate-400">
+              Choose a content type to get started
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all duration-200"
+            disabled={isSubmitting}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <X className="h-6 w-6" />
           </button>
         </div>
 
-        {/* Mode Switch Buttons */}
-        <div className="flex space-x-4 p-4 border-b border-slate-700">
-          <button
-            onClick={() => {
-              setError(null)
-              setUploadMode("single")
-            }}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-              uploadMode === "single"
-                ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg"
-                : "bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white"
-            }`}
-          >
-            Single Upload
-          </button>
-          <button
-            onClick={() => {
-              setError(null)
-              setUploadMode("profilePair")
-            }}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-              uploadMode === "profilePair"
-                ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg"
-                : "bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white"
-            }`}
-          >
-            Profile Pair Upload
-          </button>
-          <button
-            onClick={() => {
-              setError(null)
-              setUploadMode("emojiCombo")
-            }}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-              uploadMode === "emojiCombo"
-                ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg"
-                : "bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white"
-            }`}
-          >
-            Emoji Combo Upload
-          </button>
-          <button
-            onClick={() => {
-              setError(null)
-              setUploadMode("emote")
-            }}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-              uploadMode === "emote"
-                ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg"
-                : "bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white"
-            }`}
-          >
-            Emote Upload
-          </button>
-          <button
-            onClick={() => {
-              setError(null)
-              setUploadMode("wallpaper")
-            }}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-              uploadMode === "wallpaper"
-                ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg"
-                : "bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white"
-            }`}
-          >
-            Wallpaper Upload
-          </button>
+        {/* Mode Switch Buttons - Improved Layout */}
+        <div className="p-4 border-b border-slate-700 bg-slate-800/50">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            {uploadModes.map((mode) => {
+              const IconComponent = mode.icon
+              const isActive = uploadMode === mode.id
+              return (
+                <button
+                  key={mode.id}
+                  onClick={() => {
+                    setError(null)
+                    setUploadMode(mode.id as any)
+                  }}
+                  disabled={isSubmitting}
+                  className={`flex flex-col items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                    isActive
+                      ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/30"
+                      : "bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-white"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <IconComponent className={`h-5 w-5 ${isActive ? "text-white" : "text-slate-400"}`} />
+                  <span className="text-xs sm:text-sm text-center">{mode.label}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Progress Bar */}
@@ -487,7 +462,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
           {uploadMode === "single" && (
             <SingleUploadForm
               form={singleForm}
-              onFormChange={setSingleForm}
+              onFormChange={(updates) => setSingleForm({ ...singleForm, ...updates })}
               onFileSelect={(e) => setSingleForm({ ...singleForm, file: e.target.files?.[0] || null })}
               onSubmit={handleSubmitSingle}
               isSubmitting={isSubmitting}
@@ -497,7 +472,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
           {uploadMode === "profilePair" && (
             <ProfilePairUploadForm
               form={pairForm}
-              onFormChange={setPairForm}
+              onFormChange={(updates) => setPairForm({ ...pairForm, ...updates })}
               onPfpFileSelect={(e) => setPairForm({ ...pairForm, pfpFile: e.target.files?.[0] || null })}
               onBannerFileSelect={(e) => setPairForm({ ...pairForm, bannerFile: e.target.files?.[0] || null })}
               onSubmit={handleSubmitPair}
@@ -508,17 +483,16 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
           {uploadMode === "emojiCombo" && (
             <EmojiComboUploadForm
               form={emojiForm}
-              onFormChange={setEmojiForm}
-              onFileSelect={(e) => setEmojiForm({ ...emojiForm, file: e.target.files?.[0] || null })}
+              onFormChange={(updates) => setEmojiForm({ ...emojiForm, ...updates })}
               onSubmit={handleSubmitEmoji}
               isSubmitting={isSubmitting}
             />
-                    )}
+          )}
 
           {uploadMode === "emote" && (
             <EmoteUploadForm
               form={emoteForm}
-              onFormChange={setEmoteForm}
+              onFormChange={(updates) => setEmoteForm({ ...emoteForm, ...updates })}
               onFileSelect={(e) => setEmoteForm({ ...emoteForm, file: e.target.files?.[0] || null })}
               onSubmit={handleSubmitEmote}
               isSubmitting={isSubmitting}
@@ -528,7 +502,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
           {uploadMode === "wallpaper" && (
             <WallpaperUploadForm
               form={wallpaperForm}
-              onFormChange={setWallpaperForm}
+              onFormChange={(updates) => setWallpaperForm({ ...wallpaperForm, ...updates })}
               onFileSelect={(e) => setWallpaperForm({ ...wallpaperForm, file: e.target.files?.[0] || null })}
               onSubmit={handleSubmitWallpaper}
               isSubmitting={isSubmitting}

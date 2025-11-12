@@ -29,6 +29,7 @@ const EmojiCombosGallery = lazy(() => import("./components/gallery/EmojiCombosGa
 const WallpaperGallery = lazy(() => import("./components/gallery/WallpaperGallery"))
 const TrendingPage = lazy(() => import("./components/gallery/Trending"))
 const TagBrowse = lazy(() => import("./components/browse/TagBrowse"))
+const UploadPage = lazy(() => import("./components/upload/UploadPage"))
 const ModerationLogs = lazy(() => import("./components/users/moderation/ModerationLogs"))
 const EnhancedModerationPage = lazy(() => import("./components/moderation/EnhancedModerationPage"))
 const EnhancedReportModal = lazy(() => import("./components/moderation/modals/EnhancedReportModal"))
@@ -188,10 +189,52 @@ function App() {
   return (
     <BrowserRouter>
         <div className="min-h-screen bg-background flex flex-col relative">
-        <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+        <Toaster 
+          position="bottom-right" 
+          toastOptions={{ 
+            duration: 4000,
+            style: {
+              background: '#1e293b',
+              color: '#fff',
+              border: '1px solid #475569',
+              borderRadius: '0.75rem',
+              padding: '16px',
+              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2)',
+            },
+            success: {
+              iconTheme: {
+                primary: '#10b981',
+                secondary: '#fff',
+              },
+              style: {
+                background: '#1e293b',
+                border: '1px solid #10b981',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: '#ef4444',
+                secondary: '#fff',
+              },
+              style: {
+                background: '#1e293b',
+                border: '1px solid #ef4444',
+              },
+            },
+            loading: {
+              iconTheme: {
+                primary: '#8b5cf6',
+                secondary: '#fff',
+              },
+              style: {
+                background: '#1e293b',
+                border: '1px solid #8b5cf6',
+              },
+            },
+          }} 
+        />
 
         <Header
-          onUploadClick={handleUploadClick}
           onAuthClick={() => setIsAuthModalOpen(true)}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -226,6 +269,7 @@ function App() {
                 }
               />
               <Route path="/profile-settings" element={<ProfileSettings />} />
+              <Route path="/upload" element={<UploadPage />} />
               <Route path="/users" element={<CommunityPage />} />
               <Route path="/community" element={<CommunityPage />} />
               <Route path="/user/:username" element={<UserProfile />} />

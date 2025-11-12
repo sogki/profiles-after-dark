@@ -209,11 +209,12 @@ const EmotesGallery = memo(function EmotesGallery() {
         try {
           const { data, error } = await supabase
             .from("favorites")
-            .select("profile_id")
-            .eq("user_id", user.id);
+            .select("emote_id")
+            .eq("user_id", user.id)
+            .not("emote_id", "is", null);
 
           if (!error && data) {
-            setFavorites(new Set(data.map(f => f.profile_id)));
+            setFavorites(new Set(data.map(f => f.emote_id).filter(Boolean)));
           }
         } catch (err) {
           console.error("Error loading favorites:", err);
@@ -244,14 +245,14 @@ const EmotesGallery = memo(function EmotesGallery() {
           .from("favorites")
           .delete()
           .eq("user_id", user.id)
-          .eq("profile_id", emoteId);
+          .eq("emote_id", emoteId);
 
         if (error) throw error;
       } else {
         // Add to favorites
         const { error } = await supabase
           .from("favorites")
-          .insert([{ user_id: user.id, profile_id: emoteId }]);
+          .insert([{ user_id: user.id, emote_id: emoteId }]);
 
         if (error) throw error;
       }

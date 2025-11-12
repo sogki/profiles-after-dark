@@ -2,7 +2,6 @@ import { Dialog, Menu, Transition } from "@headlessui/react";
 import {
   Calendar,
   Flag,
-  Grid3X3,
   Heart,
   MoreHorizontal,
   Settings,
@@ -13,18 +12,33 @@ import {
   UserMinus,
   Share2,
   Users,
+  Check,
+  Copy,
+  Image,
+  ImageIcon,
+  Smile,
+  Monitor,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { Fragment, useState } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { BsFillEmojiHeartEyesFill } from "react-icons/bs";
 import { Link } from "react-router-dom";
-// import { supabase } from "../../lib/supabase";
+import { Helmet } from "react-helmet-async";
+import { motion } from "framer-motion";
 import EnhancedReportModal from "../moderation/modals/EnhancedReportModal";
 import { useFollows } from "../../hooks/useFollows";
 import { useShare } from "../../hooks/useShare";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../context/authContext";
+import { useIsUserOnline } from "../../hooks/useOnlineStatus";
 
 import useRetrieveProfileFavorites from "@/hooks/users/profile-info/use-retrieve-profile-favorites";
 import useRetrieveProfilePairs from "@/hooks/users/profile-info/use-retrieve-profile-pairs";
 import useRetrieveProfileUploads from "@/hooks/users/profile-info/use-retrieve-profile-uploads";
+import useRetrieveProfileEmojiCombos from "@/hooks/users/profile-info/use-retrieve-profile-emoji-combos";
+import useRetrieveProfileEmotes from "@/hooks/users/profile-info/use-retrieve-profile-emotes";
+import useRetrieveProfileWallpapers from "@/hooks/users/profile-info/use-retrieve-profile-wallpapers";
 import useRetrieveUserProfile from "@/hooks/users/profile-info/use-retrieve-user-profile";
 import Footer from "../Footer";
 
@@ -69,16 +83,6 @@ interface ProfilePair {
   created_at?: string;
 }
 
-interface UserEmojiUpload {
-  id: string;
-  user_id: string;
-  name: string;
-  combo_text: string | null;
-  description: string | null;
-  tags?: string[];
-  created_at?: string;
-}
-
 export default function UserProfile() {
   const {
     data: profile,
@@ -95,10 +99,17 @@ export default function UserProfile() {
   const { data: favorites, isLoading: favoritesLoading } =
     useRetrieveProfileFavorites();
 
-  const loading =
-    profileLoading || uploadsLoading || profilePairsLoading || favoritesLoading;
+  const { data: emojicombos, isLoading: emojicombosLoading } =
+    useRetrieveProfileEmojiCombos();
 
-  const [emojicombos] = useState<UserEmojiUpload[]>([]);
+  const { data: emotes, isLoading: emotesLoading } =
+    useRetrieveProfileEmotes();
+
+  const { data: wallpapers, isLoading: wallpapersLoading } =
+    useRetrieveProfileWallpapers();
+
+  const loading =
+    profileLoading || uploadsLoading || profilePairsLoading || favoritesLoading || emojicombosLoading || emotesLoading || wallpapersLoading;
   const [previewItem, setPreviewItem] = useState<
     UserUpload | ProfilePair | null
   >(null);
@@ -106,13 +117,294 @@ export default function UserProfile() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const [activeTab, setActiveTab] = useState<
-    "uploads" | "pairs" | "favorites" | "emojicombos"
-  >("uploads");
+    "pairs" | "pfps" | "banners" | "emotes" | "wallpapers" | "emojicombos" | "favorites"
+  >("pairs");
   const [showAllBadges, setShowAllBadges] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  
+  // Followers/Following modal state
+  const [showFollowModal, setShowFollowModal] = useState(false);
+  const [followModalType, setFollowModalType] = useState<"followers" | "following">("followers");
+  const [followList, setFollowList] = useState<any[]>([]);
+  const [loadingFollowList, setLoadingFollowList] = useState(false);
+  
+  // Profile visibility state
+  const [profileVisibility, setProfileVisibility] = useState<string>("public");
+  const [isMutualFollow, setIsMutualFollow] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
+  // Filtered data for PFPs and Banners
+  const pfps = uploads?.filter((upload) => upload.type === "profile") || [];
+  const banners = uploads?.filter((upload) => upload.type === "banner") || [];
+
+  // Pagination helper function
+  const getPaginatedData = <T,>(data: T[] | undefined): T[] => {
+    if (!data) return [];
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return data.slice(startIndex, endIndex);
+  };
+
+  // Get total pages for pagination
+  const getTotalPages = (data: any[] | undefined): number => {
+    if (!data || data.length === 0) return 1;
+    return Math.ceil(data.length / itemsPerPage);
+  };
+
+  // Reset to page 1 when tab changes
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId as any);
+    setCurrentPage(1);
+  };
+
+  // Pagination component
+  const Pagination = ({ totalPages, currentPage, onPageChange }: { totalPages: number; currentPage: number; onPageChange: (page: number) => void }) => {
+    if (totalPages <= 1) return null;
+
+    const pages = [];
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+    if (endPage - startPage < maxVisible - 1) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+
+    return (
+      <div className="flex items-center justify-center gap-2 mt-8">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        
+        {startPage > 1 && (
+          <>
+            <button
+              onClick={() => onPageChange(1)}
+              className="px-3 py-2 rounded-lg bg-slate-800/60 hover:bg-slate-700/50 text-white transition-colors"
+            >
+              1
+            </button>
+            {startPage > 2 && <span className="text-slate-400">...</span>}
+          </>
+        )}
+
+        {pages.map((page) => (
+          <button
+            key={page}
+            onClick={() => onPageChange(page)}
+            className={`px-3 py-2 rounded-lg transition-colors ${
+              currentPage === page
+                ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                : "bg-slate-800/60 hover:bg-slate-700/50 text-white"
+            }`}
+          >
+            {page}
+          </button>
+        ))}
+
+        {endPage < totalPages && (
+          <>
+            {endPage < totalPages - 1 && <span className="text-slate-400">...</span>}
+            <button
+              onClick={() => onPageChange(totalPages)}
+              className="px-3 py-2 rounded-lg bg-slate-800/60 hover:bg-slate-700/50 text-white transition-colors"
+            >
+              {totalPages}
+            </button>
+          </>
+        )}
+
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      </div>
+    );
+  };
 
   // Follow functionality
   const { stats: followStats, toggleFollow, loading: followLoading } = useFollows(profile?.user_id);
   const { shareProfile } = useShare();
+  const { user } = useAuth();
+  
+  const isOwnProfile = currentUserProfileId === profile?.user_id;
+  
+  // Online status
+  const { isOnline } = useIsUserOnline(profile?.user_id);
+
+  // Handle share with feedback
+  const handleShare = async () => {
+    if (profile?.username) {
+      const success = await shareProfile(profile.username);
+      if (success) {
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2000);
+      }
+    }
+  };
+
+  // Fetch followers or following list
+  const fetchFollowList = async (type: "followers" | "following") => {
+    if (!profile?.user_id) return;
+    
+    setLoadingFollowList(true);
+    try {
+      let query;
+      if (type === "followers") {
+        // Get users who follow this profile
+        query = supabase
+          .from("follows" as any)
+          .select("follower_id, created_at")
+          .eq("following_id", profile.user_id)
+          .order("created_at", { ascending: false });
+      } else {
+        // Get users this profile is following
+        query = supabase
+          .from("follows" as any)
+          .select("following_id, created_at")
+          .eq("follower_id", profile.user_id)
+          .order("created_at", { ascending: false });
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Get user profiles
+      const userIds = type === "followers" 
+        ? data.map((f: any) => f.follower_id)
+        : data.map((f: any) => f.following_id);
+
+      if (userIds.length > 0) {
+        const { data: profiles, error: profileError } = await supabase
+          .from("user_profiles")
+          .select("user_id, username, display_name, avatar_url")
+          .in("user_id", userIds);
+
+        if (profileError) throw profileError;
+
+        // Combine follow data with profile data
+        const combined = data.map((follow: any) => {
+          const userId = type === "followers" ? follow.follower_id : follow.following_id;
+          const userProfile = profiles?.find((p: any) => p.user_id === userId);
+          return {
+            ...follow,
+            user: userProfile || null,
+          };
+        });
+
+        setFollowList(combined);
+      } else {
+        setFollowList([]);
+      }
+    } catch (error) {
+      console.error(`Error fetching ${type}:`, error);
+      setFollowList([]);
+    } finally {
+      setLoadingFollowList(false);
+    }
+  };
+
+  // Open follow modal
+  const openFollowModal = async (type: "followers" | "following") => {
+    setFollowModalType(type);
+    setShowFollowModal(true);
+    await fetchFollowList(type);
+  };
+
+  // Check profile visibility and mutual follow status
+  useEffect(() => {
+    const checkProfileAccess = async () => {
+      if (!profile?.user_id) {
+        setCheckingAccess(false);
+        return;
+      }
+
+      setCheckingAccess(true);
+
+      try {
+        // Get profile visibility setting
+        const { data: profileData } = await supabase
+          .from("user_profiles")
+          .select("profile_visibility")
+          .eq("user_id", profile.user_id)
+          .single();
+
+        const visibility = profileData?.profile_visibility || 
+          JSON.parse(localStorage.getItem("privacy_settings") || "{}").profile_visibility || 
+          "public";
+        
+        setProfileVisibility(visibility);
+
+        // If it's the user's own profile, always allow access
+        if (isOwnProfile) {
+          setIsMutualFollow(true);
+          setCheckingAccess(false);
+          return;
+        }
+
+        // If visibility is public, allow access
+        if (visibility === "public") {
+          setIsMutualFollow(true);
+          setCheckingAccess(false);
+          return;
+        }
+
+        // If visibility is private, deny access
+        if (visibility === "private") {
+          setIsMutualFollow(false);
+          setCheckingAccess(false);
+          return;
+        }
+
+        // If visibility is "friends", check for mutual follow
+        if (visibility === "friends" && user?.id) {
+          // Check if current user follows profile owner
+          const { data: currentUserFollows } = await supabase
+            .from("follows" as any)
+            .select("id")
+            .eq("follower_id", user.id)
+            .eq("following_id", profile.user_id)
+            .maybeSingle();
+
+          // Check if profile owner follows current user
+          const { data: profileOwnerFollows } = await supabase
+            .from("follows" as any)
+            .select("id")
+            .eq("follower_id", profile.user_id)
+            .eq("following_id", user.id)
+            .maybeSingle();
+
+          // Both must follow each other
+          setIsMutualFollow(!!currentUserFollows && !!profileOwnerFollows);
+        } else {
+          setIsMutualFollow(false);
+        }
+      } catch (error) {
+        console.error("Error checking profile access:", error);
+        // Default to allowing access on error
+        setIsMutualFollow(true);
+      } finally {
+        setCheckingAccess(false);
+      }
+    };
+
+    checkProfileAccess();
+  }, [profile?.user_id, user?.id, isOwnProfile]);
 
   const openPreview = (item: UserUpload | ProfilePair) => {
     setPreviewItem(item);
@@ -140,7 +432,7 @@ export default function UserProfile() {
     });
   };
 
-  if (loading) {
+  if (loading || checkingAccess) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 flex items-center justify-center">
         <div className="text-center">
@@ -165,16 +457,68 @@ export default function UserProfile() {
     );
   }
 
-  const isOwnProfile = currentUserProfileId === profile.id;
+  // Check if user has access to view this profile
+  const hasAccess = isOwnProfile || profileVisibility === "public" || 
+    (profileVisibility === "friends" && isMutualFollow);
+  
+  // Show access denied message if user doesn't have access
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="mb-6">
+            <div className="h-24 w-24 mx-auto bg-slate-800 rounded-full flex items-center justify-center border-2 border-slate-700">
+              <User className="h-12 w-12 text-slate-500" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Profile is Private</h2>
+          <p className="text-gray-400 mb-6">
+            {profileVisibility === "private" 
+              ? "This profile is set to private. Only the owner can view it."
+              : "This profile is only visible to friends. You need to follow each other to view this profile."}
+          </p>
+          {!user && (
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all"
+            >
+              Sign in to view
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // OpenGraph meta tags
+  const profileUrl = `https://profilesafterdark.com/user/${profile.username}`;
+  const profileImage = profile.avatar_url || profile.banner_url || "https://zzywottwfffyddnorein.supabase.co/storage/v1/object/public/static-assets//profiles_after_dark_logo.png";
+  const profileDescription = profile.bio || `Check out @${profile.username}'s profile on Profiles After Dark`;
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
+      <Helmet>
+        <title>{`@${profile.username} | Profiles After Dark`}</title>
+        <meta name="description" content={profileDescription} />
+        <meta property="og:type" content="profile" />
+        <meta property="og:url" content={profileUrl} />
+        <meta property="og:title" content={`@${profile.username} | Profiles After Dark`} />
+        <meta property="og:description" content={profileDescription} />
+        <meta property="og:image" content={profileImage} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={`@${profile.username} | Profiles After Dark`} />
+        <meta name="twitter:description" content={profileDescription} />
+        <meta name="twitter:image" content={profileImage} />
+        <link rel="canonical" href={profileUrl} />
+      </Helmet>
+      <div className="min-h-screen bg-slate-900">
         <div className="max-w-7xl mx-auto px-4 py-4 md:py-8">
           {/* Profile Header */}
           <div className="relative mb-6 md:mb-8">
-            {/* Banner */}
-            <div className="relative h-48 sm:h-64 md:h-80 rounded-xl md:rounded-2xl overflow-y-visible bg-gradient-to-r from-purple-600 to-blue-600">
+            {/* Banner Container with overflow for rounded corners */}
+            <div className="relative h-48 sm:h-64 md:h-80 rounded-xl md:rounded-2xl overflow-hidden bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 shadow-2xl">
               {profile.banner_url ? (
                 <img
                   src={profile.banner_url || "/placeholder.svg"}
@@ -182,70 +526,46 @@ export default function UserProfile() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
+                <div className="w-full h-full bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 flex items-center justify-center">
                   <div className="text-white/20 text-6xl">
                     <User />
                   </div>
                 </div>
               )}
-              <div className="absolute inset-0 bg-black/20"></div>
-
-              {/* Avatar */}
-              <img
-                src={profile.avatar_url || "/default-avatar.png"}
-                alt={`${profile.username}'s avatar`}
-                className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full border-4 border-white absolute top-36 sm:top-48 md:top-60 left-1/2 sm:left-1/2 md:left-40 transform -translate-x-1/2 md:translate-x-0 border-solid bg-slate-900 shadow-xl object-cover"
-              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
             </div>
 
-            {/* Profile Info */}
-            <div className="relative px-4 sm:px-6 pb-4 sm:pb-6">
-              {/* Action Buttons */}
-              <div className="absolute -top-2 sm:-top-4 right-4 sm:right-6 flex items-center gap-2">
+            {/* Action Buttons - positioned outside banner container to prevent dropdown clipping, half on/half off banner like profile picture */}
+            <div className="absolute right-4 sm:right-6 flex items-center gap-2 z-20 top-36 sm:top-48 md:top-60">
                 {!isOwnProfile && (
                   <>
-                    <button
-                      onClick={() => profile?.username && shareProfile(profile.username)}
-                      className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-white/10 backdrop-blur-sm text-white rounded-full hover:bg-white/20 transition-colors"
-                      title="Share profile"
-                    >
-                      <Share2 className="h-4 w-4 sm:h-5 sm:w-5" />
-                    </button>
-                    <button
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                       onClick={() => profile?.user_id && toggleFollow(profile.user_id)}
                       disabled={followLoading}
-                      className={`inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-full font-semibold transition-colors shadow-lg text-sm sm:text-base ${
+                    className={`inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-3 rounded-xl font-semibold transition-all shadow-lg text-sm sm:text-base ${
                         followStats.isFollowing
-                          ? "bg-slate-700 text-white hover:bg-slate-600"
-                          : "bg-purple-600 text-white hover:bg-purple-700"
+                        ? "bg-slate-700/90 backdrop-blur-md text-white hover:bg-slate-600 border border-slate-600"
+                        : "bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 border border-purple-500/50"
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
-                      {followStats.isFollowing ? (
+                    {followLoading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : followStats.isFollowing ? (
                         <>
-                          <UserMinus className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <UserMinus className="h-4 w-4" />
                           <span className="hidden sm:inline">Unfollow</span>
                         </>
                       ) : (
                         <>
-                          <UserPlus className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <UserPlus className="h-4 w-4" />
                           <span className="hidden sm:inline">Follow</span>
                         </>
                       )}
-                    </button>
-                  </>
-                )}
-                {isOwnProfile ? (
-                  <Link
-                    to="/profile-settings"
-                    className="inline-flex items-center gap-2 bg-white text-gray-900 px-3 py-2 sm:px-4 sm:py-3 rounded-full font-semibold hover:bg-gray-100 transition-colors shadow-lg text-sm sm:text-base"
-                  >
-                    <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
-                    <span className="hidden sm:inline">Edit Profile</span>
-                    <span className="sm:hidden">Edit</span>
-                  </Link>
-                ) : (
-                  <Menu as="div" className="relative">
-                    <Menu.Button className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-white/10 backdrop-blur-sm text-white rounded-full hover:bg-white/20 transition-colors">
+                  </motion.button>
+                  <Menu as="div" className="relative z-30">
+                    <Menu.Button className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-slate-800/90 backdrop-blur-md text-white rounded-xl hover:bg-slate-700 transition-colors shadow-lg border border-slate-700">
                       <MoreHorizontal className="h-4 w-4 sm:h-5 sm:w-5" />
                     </Menu.Button>
                     <Transition
@@ -257,19 +577,28 @@ export default function UserProfile() {
                       leaveFrom="transform opacity-100 scale-100"
                       leaveTo="transform opacity-0 scale-95"
                     >
-                      <Menu.Items className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg ring-1 ring-black/5 focus:outline-none z-50">
+                      <Menu.Items className="absolute right-0 mt-2 w-56 bg-slate-800/95 backdrop-blur-md rounded-xl shadow-2xl ring-1 ring-slate-700 focus:outline-none z-[100] border border-slate-700">
                         <Menu.Item>
                           {({ active }) => (
                             <button
-                              onClick={() => profile?.username && shareProfile(profile.username)}
+                              onClick={handleShare}
                               className={`${
                                 active
-                                  ? "bg-gray-50 text-gray-900"
-                                  : "text-gray-700"
-                              } flex items-center gap-3 w-full px-4 py-3 text-left text-sm rounded-xl`}
+                                  ? "bg-slate-700 text-white"
+                                  : "text-slate-300"
+                              } flex items-center gap-3 w-full px-4 py-3 text-left text-sm rounded-xl transition-colors`}
                             >
+                              {shareCopied ? (
+                                <>
+                                  <Check className="h-4 w-4 text-green-400" />
+                                  Link Copied!
+                                </>
+                              ) : (
+                                <>
                               <Share2 className="h-4 w-4" />
                               Share Profile
+                                </>
+                              )}
                             </button>
                           )}
                         </Menu.Item>
@@ -279,9 +608,9 @@ export default function UserProfile() {
                               onClick={openReportModal}
                               className={`${
                                 active
-                                  ? "bg-red-50 text-red-600"
-                                  : "text-gray-700"
-                              } flex items-center gap-3 w-full px-4 py-3 text-left text-sm rounded-xl`}
+                                  ? "bg-red-500/20 text-red-400"
+                                  : "text-slate-300"
+                              } flex items-center gap-3 w-full px-4 py-3 text-left text-sm rounded-xl transition-colors`}
                             >
                               <Flag className="h-4 w-4" />
                               Report User
@@ -291,119 +620,176 @@ export default function UserProfile() {
                       </Menu.Items>
                     </Transition>
                   </Menu>
+                </>
+              )}
+              {isOwnProfile && (
+                <Link
+                  to="/profile-settings"
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 sm:px-5 sm:py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg text-sm sm:text-base border border-purple-500/50"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span className="hidden sm:inline">Edit Profile</span>
+                  <span className="sm:hidden">Edit</span>
+                </Link>
                 )}
               </div>
 
-              {/* Profile Details */}
-              <div className="pt-16 sm:pt-20 text-center">
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 mb-3">
+            {/* Avatar - positioned outside banner container to maintain rounded corners on banner */}
+            <div className="relative w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 absolute top-36 sm:top-48 md:top-60 left-1/2 sm:left-1/2 md:left-40 transform -translate-x-1/2 md:translate-x-0 z-10">
+              <motion.img
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                src={profile.avatar_url || "/default-avatar.png"}
+                alt={`${profile.username}'s avatar`}
+                className="w-full h-full rounded-full border-4 border-slate-900 shadow-2xl object-cover bg-slate-800"
+              />
+              {/* Online status indicator */}
+              {isOnline && (
+                <div className="absolute bottom-0 right-0 sm:bottom-1 sm:right-1 md:bottom-2 md:right-2 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 bg-green-500 rounded-full border-4 border-slate-900 shadow-lg animate-pulse">
+                  <div className="w-full h-full bg-green-400 rounded-full animate-ping opacity-75"></div>
+                </div>
+              )}
+            </div>
+
+            {/* Profile Info */}
+            <div className="relative px-4 sm:px-6 pb-4 sm:pb-6 overflow-visible">
+
+              {/* Profile Details - Discord-like flow */}
+              <div className="pt-16 sm:pt-20 md:pt-24 overflow-visible">
+                {/* Username and Badges - Inline horizontal flow */}
+                <div className="flex items-center justify-center gap-3 mb-2 flex-wrap">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
                     @{profile.username}
                   </h1>
-                  {profile.user_badges && profile.user_badges.length > 0 && (
+                  
+                  {/* Badges - Inline with username, properly aligned */}
+                  {profile.user_badges && Array.isArray(profile.user_badges) && profile.user_badges.length > 0 && (
                     <div
-                      className="relative"
+                      className="relative inline-flex items-center gap-2"
                       onMouseEnter={() => setShowAllBadges(true)}
                       onMouseLeave={() => setShowAllBadges(false)}
                     >
-                      <div
-                        className={`flex gap-1 transition-all duration-300 ${
-                          showAllBadges ? "flex-wrap" : ""
-                        }`}
-                      >
-                        {(showAllBadges
-                          ? profile.user_badges
-                          : profile.user_badges.slice(0, 3)
-                        ).map((ub, idx) => (
-                          <div
-                            key={idx}
-                            className={`transition-all duration-300 ${
-                              showAllBadges
-                                ? "transform scale-110 hover:scale-125"
-                                : idx >= 3
-                                ? "opacity-0 w-0 overflow-hidden"
-                                : ""
-                            }`}
-                          >
-                            <img
-                              src={ub.badges.image_url || "/placeholder.svg"}
-                              alt={ub.badges.name}
-                              title={ub.badges.name}
-                              className="h-6 w-6 sm:h-8 sm:w-8 rounded-full border-2 border-white/20 cursor-pointer"
-                            />
+                      {(profile.user_badges as UserBadge[]).slice(0, 5).map((ub: any, idx: number) => (
+                        <motion.div
+                          key={idx}
+                          whileHover={{ scale: 1.15, y: -2 }}
+                          className="relative group"
+                        >
+                          <img
+                            src={ub.badges?.image_url || "/placeholder.svg"}
+                            alt={ub.badges?.name}
+                            title={ub.badges?.name}
+                            className="h-7 w-7 sm:h-8 sm:w-8 rounded-full cursor-pointer hover:scale-110 transition-transform border border-slate-600/50"
+                          />
+                          {/* Badge name tooltip */}
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900/95 backdrop-blur-sm rounded text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 border border-slate-700 shadow-lg">
+                            {ub.badges?.name}
+                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px">
+                              <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-slate-700 transform rotate-45"></div>
+                            </div>
                           </div>
-                        ))}
-                        {!showAllBadges && profile.user_badges.length > 3 && (
-                          <div className="h-6 w-6 sm:h-8 sm:w-8 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-xs text-white font-semibold cursor-pointer hover:bg-white/20 transition-colors">
-                            +{profile.user_badges.length - 3}
+                        </motion.div>
+                      ))}
+                      {profile.user_badges.length > 5 && (
+                        <motion.div
+                          whileHover={{ scale: 1.15, y: -2 }}
+                          className="relative group"
+                        >
+                          <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-slate-700/50 border border-slate-600 flex items-center justify-center text-[10px] sm:text-xs text-slate-300 font-semibold cursor-pointer hover:bg-slate-700 transition-colors">
+                            +{profile.user_badges.length - 5}
                           </div>
-                        )}
-                      </div>
+                          {/* Badge count tooltip */}
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900/95 backdrop-blur-sm rounded text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 border border-slate-700 shadow-lg">
+                            {profile.user_badges.length - 5} more badge{profile.user_badges.length - 5 !== 1 ? 's' : ''}
+                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px">
+                              <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-slate-700 transform rotate-45"></div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
 
-                      {/* Expanded badges tooltip */}
-                      {showAllBadges && profile.user_badges.length > 3 && (
-                        <div className="absolute top-full left-0 mt-2 bg-black/80 backdrop-blur-sm rounded-lg p-3 z-10 min-w-max">
-                          <div className="grid grid-cols-4 gap-2">
-                            {profile.user_badges.map((ub, idx) => (
-                              <div key={idx} className="text-center">
-                                <img
-                                  src={
-                                    ub.badges.image_url || "/placeholder.svg"
-                                  }
-                                  alt={ub.badges.name}
-                                  className="h-10 w-10 rounded-full border-2 border-white/20 mx-auto mb-1"
-                                />
-                                <p className="text-xs text-white truncate max-w-[60px]">
-                                  {ub.badges.name}
+                      {/* Expanded badges modal */}
+                      {showAllBadges && profile.user_badges.length > 5 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                          className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-slate-800/95 backdrop-blur-md rounded-xl p-4 z-50 min-w-[280px] shadow-2xl border border-slate-700"
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-sm font-semibold text-white">All Badges</p>
+                            <span className="text-xs text-slate-400">{profile.user_badges.length} total</span>
+                          </div>
+                          <div 
+                            className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto pr-2"
+                            style={{
+                              scrollbarWidth: 'thin',
+                              scrollbarColor: 'rgba(139, 92, 246, 0.3) transparent'
+                            }}
+                          >
+                            {Array.isArray(profile.user_badges) && profile.user_badges.map((ub: any, idx: number) => (
+                              <motion.div
+                                key={idx}
+                                whileHover={{ scale: 1.1 }}
+                                className="text-center group"
+                              >
+                                <div className="relative mb-2">
+                                  <img
+                                    src={ub.badges?.image_url || "/placeholder.svg"}
+                                    alt={ub.badges?.name}
+                                    className="h-12 w-12 rounded-full border-2 border-purple-500/50 mx-auto shadow-lg group-hover:border-purple-400 transition-all"
+                                  />
+                                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                </div>
+                                <p className="text-xs text-white truncate max-w-[60px] mx-auto font-medium">
+                                  {ub.badges?.name}
                                 </p>
-                              </div>
+                              </motion.div>
                             ))}
                           </div>
-                        </div>
+                        </motion.div>
                       )}
                     </div>
                   )}
                 </div>
 
+                {/* Bio - Centered, natural flow */}
                 {profile.bio && (
-                  <p className="text-gray-300 text-base sm:text-lg mb-4 max-w-2xl mx-auto px-4">
+                  <p className="text-slate-300 text-sm sm:text-base mb-3 max-w-2xl mx-auto leading-relaxed text-center">
                     {profile.bio}
                   </p>
                 )}
 
-                <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-gray-400">
-                  <div className="flex items-center gap-2">
+                {/* Stats - Compact horizontal flow like Discord */}
+                <div className="flex items-center justify-center gap-4 sm:gap-5 mt-3 text-center">
+                  <div className="flex items-center gap-1.5 text-slate-400 hover:text-slate-300 transition-colors cursor-default">
                     <Calendar className="h-4 w-4" />
                     <span className="text-sm">
-                      Joined{" "}
-                      {profile.created_at
-                        ? formatDate(profile.created_at)
-                        : "Unknown"}
+                      Joined {profile.created_at ? formatDate(profile.created_at) : "Unknown"}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Grid3X3 className="h-4 w-4" />
-                    <span className="text-sm">
-                      {uploads?.length || 0} uploads
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Heart className="h-4 w-4" />
-                    <span className="text-sm">
-                      {favorites?.length || 0} favorites
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
+                  
+                  <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+                  
+                  <div 
+                    className="flex items-center gap-1.5 text-slate-400 hover:text-slate-300 transition-colors cursor-pointer"
+                    onClick={() => openFollowModal("followers")}
+                  >
                     <Users className="h-4 w-4" />
-                    <span className="text-sm">
-                      {followStats.followers} followers
-                    </span>
+                    <span className="text-sm font-medium text-white">{followStats.followers}</span>
+                    <span className="text-sm">followers</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  
+                  <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+                  
+                  <div 
+                    className="flex items-center gap-1.5 text-slate-400 hover:text-slate-300 transition-colors cursor-pointer"
+                    onClick={() => openFollowModal("following")}
+                  >
                     <UserPlus className="h-4 w-4" />
-                    <span className="text-sm">
-                      {followStats.following} following
-                    </span>
+                    <span className="text-sm font-medium text-white">{followStats.following}</span>
+                    <span className="text-sm">following</span>
                   </div>
                 </div>
               </div>
@@ -412,14 +798,8 @@ export default function UserProfile() {
 
           {/* Content Tabs */}
           <div className="mb-6 md:mb-8">
-            <div className="flex space-x-1 bg-white/5 backdrop-blur-sm rounded-xl p-1 overflow-x-auto no-scrollbar">
+            <div className="flex space-x-1 bg-slate-800/60 backdrop-blur-sm rounded-xl p-1 overflow-x-auto no-scrollbar border border-slate-700/50 shadow-lg">
               {[
-                {
-                  id: "uploads",
-                  label: "Uploads",
-                  count: uploads?.length || 0,
-                  icon: Grid3X3,
-                },
                 {
                   id: "pairs",
                   label: "Profile Pairs",
@@ -427,42 +807,58 @@ export default function UserProfile() {
                   icon: User,
                 },
                 {
+                  id: "pfps",
+                  label: "PFPs",
+                  count: pfps.length,
+                  icon: Image,
+                },
+                {
+                  id: "banners",
+                  label: "Banners",
+                  count: banners.length,
+                  icon: ImageIcon,
+                },
+                {
+                  id: "emotes",
+                  label: "Emotes",
+                  count: emotes?.length || 0,
+                  icon: Smile,
+                },
+                {
+                  id: "wallpapers",
+                  label: "Wallpapers",
+                  count: wallpapers?.length || 0,
+                  icon: Monitor,
+                },
+                {
+                  id: "emojicombos",
+                  label: "Emoji Combos",
+                  count: emojicombos?.length || 0,
+                  icon: BsFillEmojiHeartEyesFill,
+                },
+                {
                   id: "favorites",
                   label: "Favorites",
                   count: favorites?.length ?? 0,
                   icon: Heart,
                 },
-                {
-                  id: "emojicombos",
-                  label: "Emoji Combos",
-                  count: emojicombos.length,
-                  icon: BsFillEmojiHeartEyesFill,
-                },
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() =>
-                    setActiveTab(
-                      tab.id as
-                        | "uploads"
-                        | "pairs"
-                        | "favorites"
-                        | "emojicombos"
-                    )
-                  }
+                  onClick={() => handleTabChange(tab.id)}
                   className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
                     activeTab === tab.id
-                      ? "bg-white text-gray-900 shadow-lg"
-                      : "text-white/70 hover:text-white hover:bg-white/10"
+                      ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/30"
+                      : "text-slate-300 hover:text-white hover:bg-slate-700/50"
                   }`}
                 >
                   <tab.icon className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span className="text-sm sm:text-base">{tab.label}</span>
                   <span
-                    className={`text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ${
+                    className={`text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full font-semibold ${
                       activeTab === tab.id
-                        ? "bg-gray-100 text-gray-600"
-                        : "bg-white/10 text-white/60"
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-700/50 text-slate-400"
                     }`}
                   >
                     {tab.count}
@@ -474,68 +870,6 @@ export default function UserProfile() {
 
           {/* Content */}
           <div className="space-y-8">
-            {/* Uploads Tab */}
-            {activeTab === "uploads" && (
-              <div>
-                {uploads?.length === 0 ? (
-                  <div className="text-center py-16">
-                    <Grid3X3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-white mb-2">
-                      No uploads yet
-                    </h3>
-                    <p className="text-gray-400">
-                      {isOwnProfile
-                        ? "You haven't uploaded anything yet."
-                        : "This user hasn't uploaded anything yet."}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
-                    {uploads?.map((upload) => (
-                      <div
-                        key={upload.id}
-                        className="group bg-white/5 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-white/10 transition-all cursor-pointer hover:scale-105"
-                        onClick={() => openPreview(upload as UserUpload)}
-                      >
-                        <div className="aspect-square overflow-hidden">
-                          <img
-                            src={upload.image_url || "/placeholder.svg"}
-                            alt={upload.title || "Upload image"}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                          />
-                        </div>
-                        <div className="p-2 sm:p-4">
-                          <h3 className="font-semibold text-white mb-1 truncate text-sm sm:text-base">
-                            {upload.title || "Untitled"}
-                          </h3>
-                          <p className="text-xs sm:text-sm text-gray-400 mb-2">
-                            {upload.category || "No category"}
-                          </p>
-                          {upload.tags && upload.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {upload.tags.slice(0, 2).map((tag, i) => (
-                                <span
-                                  key={i}
-                                  className="text-xs bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                              {upload.tags.length > 2 && (
-                                <span className="text-xs text-gray-400">
-                                  +{upload.tags.length - 2}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Profile Pairs Tab - Using gallery.tsx style */}
             {activeTab === "pairs" && (
               <div>
@@ -552,8 +886,9 @@ export default function UserProfile() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-                    {profilePairs?.map((pair) => (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                      {getPaginatedData(profilePairs).map((pair) => (
                       <div
                         key={pair.id}
                         className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 border border-slate-700 hover:border-slate-600 cursor-pointer"
@@ -599,8 +934,301 @@ export default function UserProfile() {
                           </div>
                         </div>
                       </div>
-                    ))}
+                      ))}
+                    </div>
+                    <Pagination
+                      totalPages={getTotalPages(profilePairs)}
+                      currentPage={currentPage}
+                      onPageChange={setCurrentPage}
+                    />
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* PFPs Tab */}
+            {activeTab === "pfps" && (
+              <div>
+                {pfps.length === 0 ? (
+                  <div className="text-center py-16">
+                    <Image className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-white mb-2">
+                      No PFPs yet
+                    </h3>
+                    <p className="text-gray-400">
+                      {isOwnProfile
+                        ? "You haven't uploaded any profile pictures yet."
+                        : "This user hasn't uploaded any profile pictures yet."}
+                    </p>
                   </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
+                      {getPaginatedData(pfps).map((upload) => (
+                        <motion.div
+                          key={upload.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          whileHover={{ scale: 1.05 }}
+                          className="group bg-slate-800/60 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-slate-800/80 transition-all cursor-pointer border border-slate-700/50 hover:border-slate-600 shadow-lg hover:shadow-purple-500/10"
+                          onClick={() => openPreview(upload as UserUpload)}
+                        >
+                          <div className="aspect-square overflow-hidden">
+                            <img
+                              src={upload.image_url || "/placeholder.svg"}
+                              alt={upload.title || "PFP"}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            />
+                          </div>
+                          <div className="p-2 sm:p-4">
+                            <h3 className="font-semibold text-white mb-1 truncate text-sm sm:text-base">
+                              {upload.title || "Untitled"}
+                            </h3>
+                            <p className="text-xs sm:text-sm text-gray-400 mb-2">
+                              {upload.category || "No category"}
+                            </p>
+                            {upload.tags && upload.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {upload.tags.slice(0, 2).map((tag, i) => (
+                                  <span
+                                    key={i}
+                                    className="text-xs bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                                {upload.tags.length > 2 && (
+                                  <span className="text-xs text-gray-400">
+                                    +{upload.tags.length - 2}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                    <Pagination
+                      totalPages={getTotalPages(pfps)}
+                      currentPage={currentPage}
+                      onPageChange={setCurrentPage}
+                    />
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Banners Tab */}
+            {activeTab === "banners" && (
+              <div>
+                {banners.length === 0 ? (
+                  <div className="text-center py-16">
+                    <ImageIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-white mb-2">
+                      No banners yet
+                    </h3>
+                    <p className="text-gray-400">
+                      {isOwnProfile
+                        ? "You haven't uploaded any banners yet."
+                        : "This user hasn't uploaded any banners yet."}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
+                      {getPaginatedData(banners).map((upload) => (
+                        <motion.div
+                          key={upload.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          whileHover={{ scale: 1.05 }}
+                          className="group bg-slate-800/60 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-slate-800/80 transition-all cursor-pointer border border-slate-700/50 hover:border-slate-600 shadow-lg hover:shadow-purple-500/10"
+                          onClick={() => openPreview(upload as UserUpload)}
+                        >
+                          <div className="aspect-video overflow-hidden">
+                            <img
+                              src={upload.image_url || "/placeholder.svg"}
+                              alt={upload.title || "Banner"}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            />
+                          </div>
+                          <div className="p-2 sm:p-4">
+                            <h3 className="font-semibold text-white mb-1 truncate text-sm sm:text-base">
+                              {upload.title || "Untitled"}
+                            </h3>
+                            <p className="text-xs sm:text-sm text-gray-400 mb-2">
+                              {upload.category || "No category"}
+                            </p>
+                            {upload.tags && upload.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {upload.tags.slice(0, 2).map((tag, i) => (
+                                  <span
+                                    key={i}
+                                    className="text-xs bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                                {upload.tags.length > 2 && (
+                                  <span className="text-xs text-gray-400">
+                                    +{upload.tags.length - 2}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                    <Pagination
+                      totalPages={getTotalPages(banners)}
+                      currentPage={currentPage}
+                      onPageChange={setCurrentPage}
+                    />
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Emotes Tab */}
+            {activeTab === "emotes" && (
+              <div>
+                {emotes?.length === 0 ? (
+                  <div className="text-center py-16">
+                    <Smile className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-white mb-2">
+                      No emotes yet
+                    </h3>
+                    <p className="text-gray-400">
+                      {isOwnProfile
+                        ? "You haven't uploaded any emotes yet."
+                        : "This user hasn't uploaded any emotes yet."}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
+                      {getPaginatedData(emotes).map((emote) => (
+                        <motion.div
+                          key={emote.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          whileHover={{ scale: 1.05 }}
+                          className="group bg-slate-800/60 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-slate-800/80 transition-all cursor-pointer border border-slate-700/50 hover:border-slate-600 shadow-lg hover:shadow-purple-500/10"
+                        >
+                          <div className="aspect-square overflow-hidden">
+                            <img
+                              src={emote.image_url || "/placeholder.svg"}
+                              alt={emote.title || "Emote"}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            />
+                          </div>
+                          <div className="p-2 sm:p-4">
+                            <h3 className="font-semibold text-white mb-1 truncate text-sm sm:text-base">
+                              {emote.title || "Untitled"}
+                            </h3>
+                            <p className="text-xs sm:text-sm text-gray-400 mb-2">
+                              {emote.category || "No category"}
+                            </p>
+                            {emote.tags && emote.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {emote.tags.slice(0, 2).map((tag, i) => (
+                                  <span
+                                    key={i}
+                                    className="text-xs bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                                {emote.tags.length > 2 && (
+                                  <span className="text-xs text-gray-400">
+                                    +{emote.tags.length - 2}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                    <Pagination
+                      totalPages={getTotalPages(emotes)}
+                      currentPage={currentPage}
+                      onPageChange={setCurrentPage}
+                    />
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Wallpapers Tab */}
+            {activeTab === "wallpapers" && (
+              <div>
+                {wallpapers?.length === 0 ? (
+                  <div className="text-center py-16">
+                    <Monitor className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-white mb-2">
+                      No wallpapers yet
+                    </h3>
+                    <p className="text-gray-400">
+                      {isOwnProfile
+                        ? "You haven't uploaded any wallpapers yet."
+                        : "This user hasn't uploaded any wallpapers yet."}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
+                      {getPaginatedData(wallpapers).map((wallpaper) => (
+                        <motion.div
+                          key={wallpaper.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          whileHover={{ scale: 1.05 }}
+                          className="group bg-slate-800/60 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-slate-800/80 transition-all cursor-pointer border border-slate-700/50 hover:border-slate-600 shadow-lg hover:shadow-purple-500/10"
+                        >
+                          <div className="aspect-video overflow-hidden">
+                            <img
+                              src={wallpaper.image_url || "/placeholder.svg"}
+                              alt={wallpaper.title || "Wallpaper"}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            />
+                          </div>
+                          <div className="p-2 sm:p-4">
+                            <h3 className="font-semibold text-white mb-1 truncate text-sm sm:text-base">
+                              {wallpaper.title || "Untitled"}
+                            </h3>
+                            <p className="text-xs sm:text-sm text-gray-400 mb-2">
+                              {wallpaper.category || "No category"}
+                              {wallpaper.resolution && ` • ${wallpaper.resolution}`}
+                            </p>
+                            {wallpaper.tags && wallpaper.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {wallpaper.tags.slice(0, 2).map((tag, i) => (
+                                  <span
+                                    key={i}
+                                    className="text-xs bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                                {wallpaper.tags.length > 2 && (
+                                  <span className="text-xs text-gray-400">
+                                    +{wallpaper.tags.length - 2}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                    <Pagination
+                      totalPages={getTotalPages(wallpapers)}
+                      currentPage={currentPage}
+                      onPageChange={setCurrentPage}
+                    />
+                  </>
                 )}
               </div>
             )}
@@ -621,34 +1249,86 @@ export default function UserProfile() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
-                    {favorites?.map((fav) => (
-                      <div
-                        key={fav.id}
-                        className="group bg-white/5 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-white/10 transition-all cursor-pointer hover:scale-105"
-                        onClick={() => openPreview(fav?.upload as UserUpload)}
-                      >
-                        <div className="aspect-square overflow-hidden relative">
-                          <img
-                            src={fav?.upload?.image_url || "/placeholder.svg"}
-                            alt={fav?.upload?.title || "Favorite image"}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                          />
-                          <div className="absolute top-2 right-2">
-                            <Heart className="h-5 w-5 text-red-500 fill-current" />
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
+                      {getPaginatedData(favorites).map((fav) => {
+                        // Determine which content type this favorite is
+                        const content = fav?.upload || fav?.emote || fav?.wallpaper || fav?.emoji_combo
+                        const contentType = fav?.upload ? 'profile' : fav?.emote ? 'emote' : fav?.wallpaper ? 'wallpaper' : fav?.emoji_combo ? 'emoji_combo' : null
+                        
+                        if (!content) return null
+
+                        // For emoji combos, show text preview instead of image
+                        if (contentType === 'emoji_combo') {
+                          const combo = fav.emoji_combo
+                          return (
+                            <div
+                              key={fav.id}
+                              className="group bg-white/5 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-white/10 transition-all cursor-pointer hover:scale-105"
+                            >
+                              <div className="aspect-square overflow-hidden relative bg-slate-800/50 p-4 flex items-center justify-center">
+                                <div className="text-2xl sm:text-3xl text-center break-words">
+                                  {combo?.combo_text || "Untitled"}
+                                </div>
+                                <div className="absolute top-2 right-2">
+                                  <Heart className="h-5 w-5 text-red-500 fill-current" />
+                                </div>
+                              </div>
+                              <div className="p-2 sm:p-4">
+                                <h3 className="font-semibold text-white mb-1 truncate text-sm sm:text-base">
+                                  {combo?.name || "Untitled"}
+                                </h3>
+                                <p className="text-xs sm:text-sm text-gray-400">
+                                  Emoji Combo
+                                </p>
+                              </div>
+                            </div>
+                          )
+                        }
+
+                        // For profiles, emotes, and wallpapers, show image
+                        const imageUrl = 'image_url' in content ? content.image_url : "/placeholder.svg"
+                        const title = 'title' in content ? content.title : ('name' in content ? content.name : "Untitled")
+                        const category = 'category' in content ? content.category : contentType || "No category"
+                        
+                        return (
+                          <div
+                            key={fav.id}
+                            className="group bg-white/5 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-white/10 transition-all cursor-pointer hover:scale-105"
+                            onClick={() => {
+                              if (contentType === 'profile' && fav?.upload) {
+                                openPreview(fav.upload as UserUpload)
+                              }
+                            }}
+                          >
+                            <div className="aspect-square overflow-hidden relative">
+                              <img
+                                src={imageUrl}
+                                alt={title}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                              />
+                              <div className="absolute top-2 right-2">
+                                <Heart className="h-5 w-5 text-red-500 fill-current" />
+                              </div>
+                            </div>
+                            <div className="p-2 sm:p-4">
+                              <h3 className="font-semibold text-white mb-1 truncate text-sm sm:text-base">
+                                {title}
+                              </h3>
+                              <p className="text-xs sm:text-sm text-gray-400">
+                                {category}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="p-2 sm:p-4">
-                          <h3 className="font-semibold text-white mb-1 truncate text-sm sm:text-base">
-                            {fav?.upload?.title || "Untitled"}
-                          </h3>
-                          <p className="text-xs sm:text-sm text-gray-400">
-                            {fav?.upload?.category || "No category"}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                        )
+                      })}
+                    </div>
+                    <Pagination
+                      totalPages={getTotalPages(favorites)}
+                      currentPage={currentPage}
+                      onPageChange={setCurrentPage}
+                    />
+                  </>
                 )}
               </div>
             )}
@@ -656,25 +1336,153 @@ export default function UserProfile() {
             {/* Emoji Combos Tab */}
             {activeTab === "emojicombos" && (
               <div>
-                {favorites?.length === 0 ? (
+                {emojicombos?.length === 0 ? (
                   <div className="text-center py-16">
-                    <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <BsFillEmojiHeartEyesFill className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-white mb-2">
-                      Emoji Combos will be displayed here soon.
+                      No emoji combos yet
                     </h3>
                     <p className="text-gray-400">
                       {isOwnProfile
-                        ? "You haven't uploaded Emoji Combos yet."
-                        : "This user hasn't uploaded Emoji Combos yet."}
+                        ? "You haven't created any emoji combos yet."
+                        : "This user hasn't created any emoji combos yet."}
                     </p>
                   </div>
                 ) : (
-                  // <div className="grid grid-cols-1 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  <div>
-                    <p className="text-center text-white text-lg">
-                      Emoji Combos will be displayed soon.
-                    </p>
-                  </div>
+                  <>
+                    <div 
+                      className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 sm:gap-6"
+                      style={{ columnGap: '1.5rem' }}
+                    >
+                      {getPaginatedData(emojicombos).map((combo) => {
+                      const isAscii = combo.combo_text && (
+                        combo.combo_text.includes("\n") ||
+                        /[│┌┐└┘├┤┬┴┼═║╔╗╚╝╠╣╦╩╬▀▄█▌▐░▒▓■□▪▫◆◇○●◦‣⁃]/.test(combo.combo_text) ||
+                        /(.)\1{4,}/.test(combo.combo_text)
+                      );
+                      const contentLength = combo.combo_text?.length || 0;
+                      
+                      const cardStyles = isAscii
+                        ? {
+                            fontSize:
+                              contentLength > 2000
+                                ? "8px"
+                                : contentLength > 1000
+                                  ? "10px"
+                                  : contentLength > 500
+                                    ? "12px"
+                                    : contentLength > 200
+                                      ? "14px"
+                                      : "16px",
+                            lineHeight: "1.0",
+                            padding: "12px",
+                          }
+                        : {
+                            minHeight: contentLength > 50 ? "80px" : "60px",
+                            fontSize: contentLength > 100 ? "2rem" : contentLength > 50 ? "2.5rem" : "3rem",
+                            lineHeight: "1.1",
+                            padding: "16px",
+                          };
+
+                      return (
+                        <motion.div
+                          key={combo.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          whileHover={{ scale: 1.02 }}
+                          className="group bg-slate-800/60 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-slate-800/80 transition-all border border-slate-700/50 hover:border-slate-600 shadow-lg hover:shadow-purple-500/10 mb-4 sm:mb-6 break-inside-avoid"
+                          style={{ pageBreakInside: 'avoid' }}
+                        >
+                          {/* Content Preview Area */}
+                          <div
+                            className="relative cursor-pointer bg-slate-800/30 hover:bg-slate-800/50 transition-all duration-200"
+                            style={{ padding: cardStyles.padding }}
+                          >
+                            <div
+                              className={`w-full flex ${isAscii ? "items-start justify-start" : "items-center justify-center"}`}
+                              style={{
+                                fontFamily: isAscii ? "'Courier New', 'Monaco', 'Menlo', 'Consolas', monospace" : "inherit",
+                                fontSize: cardStyles.fontSize,
+                                whiteSpace: isAscii ? "pre" : "normal",
+                                lineHeight: cardStyles.lineHeight,
+                                color: "white",
+                                letterSpacing: isAscii ? "-0.5px" : "0",
+                                fontWeight: isAscii ? "400" : "500",
+                                textAlign: isAscii ? "left" : "center",
+                                wordBreak: "normal",
+                                overflowWrap: "normal",
+                                width: "100%",
+                                minHeight: isAscii ? "auto" : cardStyles.minHeight,
+                              }}
+                            >
+                              <div
+                                className={`${isAscii ? "w-full" : ""}`}
+                                style={{
+                                  maxWidth: "100%",
+                                  whiteSpace: isAscii ? "pre" : "normal",
+                                }}
+                              >
+                                {combo.combo_text || ""}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Info Section */}
+                          <div className="p-3 sm:p-4 bg-slate-900/30">
+                            <h3 className="font-semibold text-white mb-2 truncate text-sm sm:text-base">
+                              {combo.name || "Untitled"}
+                            </h3>
+                            
+                            {combo.description && (
+                              <p className="text-xs sm:text-sm text-gray-400 mb-2 line-clamp-2">
+                                {combo.description}
+                              </p>
+                            )}
+
+                            {combo.tags && combo.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mb-3">
+                                {combo.tags.slice(0, 3).map((tag, i) => (
+                                  <span
+                                    key={i}
+                                    className="text-xs bg-purple-500/20 text-purple-300 px-1.5 sm:px-2 py-0.5 rounded-full"
+                                  >
+                                    #{tag}
+                                  </span>
+                                ))}
+                                {combo.tags.length > 3 && (
+                                  <span className="text-xs text-gray-400">
+                                    +{combo.tags.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            <div className="flex items-center justify-end gap-2 mt-3">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (combo.combo_text) {
+                                    navigator.clipboard.writeText(combo.combo_text);
+                                  }
+                                }}
+                                className="p-1.5 sm:p-2 bg-green-600/80 hover:bg-green-600 rounded-lg text-white transition-colors"
+                                title="Copy"
+                                type="button"
+                              >
+                                <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                      })}
+                    </div>
+                    <Pagination
+                      totalPages={getTotalPages(emojicombos)}
+                      currentPage={currentPage}
+                      onPageChange={setCurrentPage}
+                    />
+                  </>
                 )}
               </div>
             )}
@@ -823,6 +1631,103 @@ export default function UserProfile() {
             closeReportModal();
           }}
         />
+
+        {/* Followers/Following Modal */}
+        <Transition appear show={showFollowModal} as={Fragment}>
+          <Dialog as="div" className="relative z-50" onClose={() => setShowFollowModal(false)}>
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+            </Transition.Child>
+
+            <div className="fixed inset-0 overflow-y-auto">
+              <div className="flex min-h-full items-center justify-center p-4">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-out duration-300"
+                  enterFrom="opacity-0 scale-95"
+                  enterTo="opacity-100 scale-100"
+                  leave="ease-in duration-200"
+                  leaveFrom="opacity-100 scale-100"
+                  leaveTo="opacity-0 scale-95"
+                >
+                  <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-slate-800 border border-slate-700 shadow-xl">
+                    <div className="p-6">
+                      <div className="flex items-center justify-between mb-6">
+                        <Dialog.Title className="text-xl font-bold text-white flex items-center gap-2">
+                          {followModalType === "followers" ? (
+                            <>
+                              <Users className="h-5 w-5 text-purple-400" />
+                              Followers
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="h-5 w-5 text-purple-400" />
+                              Following
+                            </>
+                          )}
+                        </Dialog.Title>
+                        <button
+                          onClick={() => setShowFollowModal(false)}
+                          className="text-slate-400 hover:text-white transition-colors"
+                        >
+                          <X className="h-5 w-5" />
+                        </button>
+                      </div>
+
+                      {loadingFollowList ? (
+                        <div className="flex items-center justify-center py-12">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                        </div>
+                      ) : followList.length === 0 ? (
+                        <div className="text-center py-12">
+                          <Users className="h-16 w-16 mx-auto text-slate-400 mb-4" />
+                          <p className="text-slate-400">
+                            No {followModalType === "followers" ? "followers" : "following"} yet
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                          {followList.map((item) => (
+                            item.user && (
+                              <Link
+                                key={item.user.user_id}
+                                to={`/user/${item.user.username}`}
+                                onClick={() => setShowFollowModal(false)}
+                                className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-700/50 transition-colors group"
+                              >
+                                <img
+                                  src={item.user.avatar_url || "/placeholder.svg"}
+                                  alt={item.user.display_name || item.user.username}
+                                  className="w-12 h-12 rounded-full object-cover border-2 border-slate-600 group-hover:border-purple-500 transition-colors"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-white truncate">
+                                    {item.user.display_name || item.user.username}
+                                  </p>
+                                  <p className="text-sm text-slate-400 truncate">
+                                    @{item.user.username}
+                                  </p>
+                                </div>
+                              </Link>
+                            )
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </Dialog.Panel>
+                </Transition.Child>
+              </div>
+            </div>
+          </Dialog>
+        </Transition>
       </div>
       <Footer />
     </>

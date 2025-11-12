@@ -69,12 +69,9 @@ export function useShare() {
   }, [copyToClipboard]);
 
   const shareProfile = useCallback(async (username: string) => {
-    const url = `/user/${username}`;
-    return await shareLink(url, {
-      title: `Check out @${username}'s profile on Profiles After Dark`,
-      text: `Check out @${username}'s profile!`,
-    });
-  }, [shareLink]);
+    const fullUrl = `https://profilesafterdark.com/user/${username}`;
+    return await copyToClipboard(fullUrl);
+  }, [copyToClipboard]);
 
   const shareProfileCombo = useCallback(async (comboId: string, title?: string) => {
     const url = `/gallery/profiles/${comboId}`;

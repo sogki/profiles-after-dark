@@ -214,6 +214,7 @@ import AppealsView from './views/AppealsView';
 import EnhancedUserManagementView from './views/EnhancedUserManagementView';
 import AnnouncementsView from './views/AnnouncementsView';
 import ReportDetailView from './views/ReportDetailView';
+import FeedbackView from './views/FeedbackView';
 
 export default function EnhancedModerationPage() {
   // ALL HOOKS MUST BE CALLED FIRST - before any conditional returns
@@ -222,7 +223,7 @@ export default function EnhancedModerationPage() {
   const params = useParams();
   const [searchParams] = useSearchParams();
   const reportId = params.reportId || searchParams.get('reportId');
-  const [activeView, setActiveView] = useState<'dashboard' | 'reports' | 'content' | 'logs' | 'analytics' | 'users' | 'automation' | 'announcements' | 'settings' | 'appeals' | 'messaging' | 'notifications'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'reports' | 'content' | 'logs' | 'analytics' | 'users' | 'automation' | 'announcements' | 'settings' | 'appeals' | 'messaging' | 'notifications' | 'feedback'>('dashboard');
   const [showReportModal, setShowReportModal] = useState(false);
   const [showMessaging, setShowMessaging] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -272,7 +273,7 @@ export default function EnhancedModerationPage() {
       // Don't change activeView, just ensure we're showing the report detail
     } else if (searchParams.get('view')) {
       const view = searchParams.get('view') as any;
-      if (['dashboard', 'reports', 'content', 'logs', 'analytics', 'users', 'automation', 'announcements', 'settings', 'appeals', 'messaging', 'notifications'].includes(view)) {
+      if (['dashboard', 'reports', 'content', 'logs', 'analytics', 'users', 'automation', 'announcements', 'settings', 'appeals', 'messaging', 'notifications', 'feedback'].includes(view)) {
         setActiveView(view);
       }
     }
@@ -638,6 +639,7 @@ export default function EnhancedModerationPage() {
                   {[
                     { id: 'reports', label: 'Reports', icon: Flag },
                     { id: 'appeals', label: 'Appeals', icon: AlertTriangle },
+                    { id: 'feedback', label: 'Feedback', icon: MessageSquare },
                     { id: 'logs', label: 'Logs', icon: Clock }
                   ].map((item) => {
                     const IconComponent = item.icon;
@@ -1556,6 +1558,11 @@ export default function EnhancedModerationPage() {
                 {/* Logs View */}
                 {activeView === 'logs' && (
                   <LogsView />
+                )}
+
+                {/* Feedback View */}
+                {activeView === 'feedback' && (
+                  <FeedbackView />
                 )}
 
                 {/* Automation View */}

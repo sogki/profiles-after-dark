@@ -40,6 +40,7 @@ export default function VisualShowcase() {
             image_url: item.banner_url || item.pfp_url || "",
             title: item.title || "Profile",
             type: "pair",
+            size: "large",
           });
         });
       }

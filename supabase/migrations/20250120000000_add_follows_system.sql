@@ -105,17 +105,12 @@ BEGIN
   WHERE user_id = NEW.follower_id;
 
   -- Create notification for the followed user (using following_id)
-  INSERT INTO public.notifications (user_id, title, message, type, metadata, action_url)
+  INSERT INTO public.notifications (user_id, content, type, priority, action_url)
   VALUES (
     NEW.following_id,
-    'New Follower! 👤',
-    COALESCE(follower_username, 'Someone') || ' started following you!',
+    '👤 New Follower: ' || COALESCE(follower_username, 'Someone') || ' started following you!',
     'follow',
-    jsonb_build_object(
-      'follower_id', NEW.follower_id,
-      'follower_username', follower_username,
-      'follower_avatar_url', follower_avatar_url
-    ),
+    'medium',
     '/user/' || COALESCE(follower_username, '')
   );
   

@@ -216,11 +216,12 @@ const WallpaperGallery = memo(function WallpaperGallery() {
         try {
           const { data, error } = await supabase
             .from("favorites")
-            .select("profile_id")
-            .eq("user_id", user.id);
+            .select("wallpaper_id")
+            .eq("user_id", user.id)
+            .not("wallpaper_id", "is", null);
 
           if (!error && data) {
-            setFavorites(new Set(data.map(f => f.profile_id)));
+            setFavorites(new Set(data.map(f => f.wallpaper_id).filter(Boolean)));
           }
         } catch (err) {
           console.error("Error loading favorites:", err);
@@ -296,14 +297,14 @@ const WallpaperGallery = memo(function WallpaperGallery() {
           .from("favorites")
           .delete()
           .eq("user_id", user.id)
-          .eq("profile_id", wallpaperId);
+          .eq("wallpaper_id", wallpaperId);
 
         if (error) throw error;
       } else {
         // Add to favorites
         const { error } = await supabase
           .from("favorites")
-          .insert([{ user_id: user.id, profile_id: wallpaperId }]);
+          .insert([{ user_id: user.id, wallpaper_id: wallpaperId }]);
 
         if (error) throw error;
       }

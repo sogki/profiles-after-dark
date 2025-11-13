@@ -1,6 +1,6 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from 'discord.js';
 import fetch from 'node-fetch';
-import { getConfig } from '../../utils/config.js';
+import { loadConfig } from '../../utils/config.js';
 
 export const data = new SlashCommandBuilder()
     .setName('userinfo')
@@ -15,12 +15,12 @@ export const category = 'Info'; // Command category
 
 export async function execute(interaction) {
     // Defer reply immediately to avoid timeout (ephemeral)
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     
     try {
-        const config = await getConfig();
-        const API_URL = config.API_URL || config.BACKEND_URL || 'http://localhost:3000';
-        const WEB_URL = config.WEB_URL || 'https://profilesafterdark.com';
+        const config = await loadConfig();
+        const API_URL = config?.API_URL || config?.BACKEND_URL || process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:3000';
+        const WEB_URL = config?.WEB_URL || process.env.WEB_URL || 'https://profilesafterdark.com';
 
         const target = interaction.options.getUser('target') || interaction.user;
 

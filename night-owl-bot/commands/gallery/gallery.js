@@ -310,7 +310,6 @@ export const data = new SlashCommandBuilder()
         option.setName('type')
             .setDescription('Content type to browse')
             .setRequired(false)
-            .setAutocomplete(false)
             .addChoices(
                 { name: 'Profiles', value: 'profiles' },
                 { name: 'Emotes', value: 'emotes' },

@@ -12,6 +12,9 @@ export const data = new SlashCommandBuilder()
   export const category = 'Information'; // Command category
 
 export async function execute(interaction) {
+  // Defer reply immediately to avoid timeout
+  await interaction.deferReply();
+
   const user = interaction.options.getUser('target') || interaction.user;
 
   const embed = new EmbedBuilder()
@@ -20,5 +23,5 @@ export async function execute(interaction) {
     .setColor('Purple')
     .setTimestamp();
 
-  await interaction.reply({ embeds: [embed] });
+  await interaction.editReply({ embeds: [embed] });
 }

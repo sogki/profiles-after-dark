@@ -14,6 +14,9 @@ export const data = new SlashCommandBuilder()
 export const category = 'Info'; // Command category
 
 export async function execute(interaction) {
+    // Defer reply immediately to avoid timeout
+    await interaction.deferReply();
+    
     try {
         const config = await getConfig();
         const API_URL = config.API_URL || config.BACKEND_URL || 'http://localhost:3000';
@@ -74,12 +77,11 @@ export async function execute(interaction) {
             embed.setFooter({ text: 'Linked to web account' });
         }
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
     } catch (error) {
         console.error('Error fetching user info:', error);
-        await interaction.reply({
-            content: '⚠️ Failed to fetch user information. Please try again later.',
-            ephemeral: true
+        await interaction.editReply({
+            content: '⚠️ Failed to fetch user information. Please try again later.'
         });
     }
 }

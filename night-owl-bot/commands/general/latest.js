@@ -9,24 +9,41 @@ export const data = new SlashCommandBuilder()
 export const category = 'General'; // Command category
 
 export async function execute(interaction) {
+    // Defer reply immediately to avoid timeout
+    await interaction.deferReply();
+    
     try {
         const config = await getConfig();
         const API_URL = config.API_URL || config.BACKEND_URL || 'http://localhost:3000';
         const res = await fetch(`${API_URL}/api/v1/latest`);
+        
+        if (!res.ok) {
+            return await interaction.editReply('⚠️ Failed to fetch the latest update.');
+        }
+        
         const data = await res.json();
+        
+        if (!data || !data.title) {
+            return await interaction.editReply('⚠️ No latest update found.');
+        }
+        
         const embed = new EmbedBuilder()
             .setTitle('🦉 Latest Update')
             .setColor('Purple')
             .addFields(
-                { name: 'Title', value: data.title },
-                { name: 'Date', value: data.date },
-                { name: 'Summary', value: data.summary.substring(0, 200) + '...' },
+                { name: 'Title', value: data.title || 'N/A' },
+                { name: 'Date', value: data.date || 'N/A' },
+                { name: 'Summary', value: (data.summary || 'No summary available').substring(0, 200) + (data.summary && data.summary.length > 200 ? '...' : '') },
             )
-            .setURL(data.url)
             .setTimestamp();
-        await interaction.reply({ embeds: [embed] });
+            
+        if (data.url) {
+            embed.setURL(data.url);
+        }
+        
+        await interaction.editReply({ embeds: [embed] });
     } catch (error) {
-        console.error(error);
-        await interaction.reply('⚠️ Failed to fetch the latest update.');
+        console.error('Error fetching latest:', error);
+        await interaction.editReply('⚠️ Failed to fetch the latest update.');
     }
 }

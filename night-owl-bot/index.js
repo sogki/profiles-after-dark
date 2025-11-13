@@ -278,9 +278,55 @@ async function loadCommands() {
     });
 
     client.on("interactionCreate", async (interaction) => {
+      // Handle select menu interactions
+      if (interaction.isStringSelectMenu()) {
+        try {
+          // Try to handle help command select menu
+          const helpCommand = client.commands.get('help');
+          if (helpCommand && helpCommand.handleHelpInteraction) {
+            const handled = await helpCommand.handleHelpInteraction(interaction);
+            if (handled) return;
+          }
+
+          // Try to handle gallery command select menu
+          const galleryCommand = client.commands.get('gallery');
+          if (galleryCommand && galleryCommand.handleGalleryInteraction) {
+            const handled = await galleryCommand.handleGalleryInteraction(interaction);
+            if (handled) return;
+          }
+        } catch (error) {
+          console.error('Error handling select menu interaction:', error);
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+              content: "⚠️ There was an error processing this interaction.",
+              ephemeral: true,
+            });
+          } else if (interaction.deferred) {
+            await interaction.editReply({
+              content: "⚠️ There was an error processing this interaction.",
+            });
+          }
+        }
+        return;
+      }
+
       // Handle button interactions (for pagination, etc.)
       if (interaction.isButton()) {
         try {
+          // Try to handle help command buttons
+          const helpCommand = client.commands.get('help');
+          if (helpCommand && helpCommand.handleHelpInteraction) {
+            const handled = await helpCommand.handleHelpInteraction(interaction);
+            if (handled) return;
+          }
+
+          // Try to handle gallery command buttons
+          const galleryCommand = client.commands.get('gallery');
+          if (galleryCommand && galleryCommand.handleGalleryInteraction) {
+            const handled = await galleryCommand.handleGalleryInteraction(interaction);
+            if (handled) return;
+          }
+
           // Try to handle button interaction in search command
           const searchCommand = client.commands.get('search');
           if (searchCommand && searchCommand.handleButtonInteraction) {
@@ -305,25 +351,78 @@ async function loadCommands() {
         return;
       }
 
+      // Handle autocomplete interactions
+      if (interaction.isAutocomplete()) {
+        const command = client.commands.get(interaction.commandName);
+        if (command && command.autocomplete) {
+          try {
+            await command.autocomplete(interaction);
+          } catch (error) {
+            console.error('Error handling autocomplete:', error);
+          }
+        }
+        return;
+      }
+
       // Handle slash commands
       if (!interaction.isChatInputCommand()) return;
 
       const command = client.commands.get(interaction.commandName);
-      if (!command) return;
-
-      try {
-        await command.execute(interaction);
-      } catch (error) {
-        console.error(error);
+      if (!command) {
+        // Unknown command - respond quickly
         if (!interaction.replied && !interaction.deferred) {
           await interaction.reply({
-            content: "⚠️ There was an error executing this command.",
+            content: "❌ Unknown command. Use `/help` to see available commands.",
             ephemeral: true,
           });
+        }
+        return;
+      }
+
+      try {
+        // Execute command with timeout protection
+        const timeout = setTimeout(async () => {
+          if (!interaction.replied && !interaction.deferred) {
+            try {
+              await interaction.deferReply({ ephemeral: true });
+            } catch (err) {
+              // Already responded or expired
+            }
+          }
+        }, 2500); // Defer at 2.5 seconds to be safe
+
+        await command.execute(interaction);
+        clearTimeout(timeout);
+      } catch (error) {
+        console.error('Command execution error:', error);
+        
+        // Handle unknown interaction errors gracefully
+        if (error.code === 10062) {
+          console.warn('Interaction expired - command took too long to respond');
+          return; // Don't try to respond to expired interactions
+        }
+        
+        if (!interaction.replied && !interaction.deferred) {
+          try {
+            await interaction.reply({
+              content: "⚠️ There was an error executing this command.",
+              ephemeral: true,
+            });
+          } catch (err) {
+            if (err.code !== 10062) {
+              console.error('Failed to send error response:', err);
+            }
+          }
         } else if (interaction.deferred) {
-          await interaction.editReply({
-            content: "⚠️ There was an error executing this command.",
-          });
+          try {
+            await interaction.editReply({
+              content: "⚠️ There was an error executing this command.",
+            });
+          } catch (err) {
+            if (err.code !== 10062) {
+              console.error('Failed to edit error response:', err);
+            }
+          }
         }
       }
     });

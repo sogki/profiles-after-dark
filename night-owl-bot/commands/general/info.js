@@ -7,6 +7,9 @@ export const data = new SlashCommandBuilder()
 export const category = 'General'; // Command category
 
 export async function execute(interaction) {
+  // Defer reply immediately to avoid timeout
+  await interaction.deferReply({ ephemeral: true });
+
   const embed = new EmbedBuilder()
     .setTitle('NightOwl')
     .setDescription('This bot helps you manage your server and has cool commands!')
@@ -19,5 +22,5 @@ export async function execute(interaction) {
     .setTimestamp()
     .setAuthor({name: "NightOwl 🌙 Showcasing aesthetic profiles"});
 
-  await interaction.reply({ embeds: [embed], ephemeral: true });
+  await interaction.editReply({ embeds: [embed] });
 }

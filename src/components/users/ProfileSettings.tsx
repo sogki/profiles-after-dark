@@ -1,7 +1,7 @@
 import type React from "react"
 import { useEffect, useState, useRef, useMemo, useCallback } from "react"
 import { supabase } from "../../lib/supabase"
-import { Settings, ArrowLeft, Menu, User, Shield, Bell, Palette, Lock, Database, HelpCircle } from 'lucide-react'
+import { Settings, ArrowLeft, Menu, User, Shield, Bell, Palette, Lock, Database, HelpCircle, Trophy } from 'lucide-react'
 import toast from "react-hot-toast"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { useNavigate, useSearchParams } from "react-router-dom"
@@ -48,7 +48,7 @@ export default function ProfileSettings() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [activeTab, setActiveTab] = useState<
-    "account" | "security" | "notifications" | "appearance" | "privacy" | "data" | "support"
+    "account" | "security" | "notifications" | "appearance" | "privacy" | "data" | "support" | "unlockables"
   >("account")
 
   const bannerInputRef = useRef<HTMLInputElement>(null)
@@ -82,6 +82,7 @@ export default function ProfileSettings() {
   // Privacy settings
   const [profileVisibility, setProfileVisibility] = useState("public")
   const [showOnlineStatus, setShowOnlineStatus] = useState(true)
+  const [showBadgesOnProfile, setShowBadgesOnProfile] = useState(true)
 
   // Feedback
   const [feedbackText, setFeedbackText] = useState("")
@@ -171,6 +172,7 @@ export default function ProfileSettings() {
             setProfileVisibility(data.profile_visibility || "public")
             setShowOnlineStatus(data.show_online_status ?? true)
           }
+          setShowBadgesOnProfile(data.show_badges_on_profile ?? true)
         } else if (error) {
           toast.error("Failed to fetch profile")
         }
@@ -500,6 +502,7 @@ export default function ProfileSettings() {
 
   const navigationItems = useMemo(() => [
     { id: "account", label: "Account", icon: User },
+    { id: "unlockables", label: "Unlockables", icon: Trophy },
     { id: "security", label: "Security", icon: Shield },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "appearance", label: "Appearance", icon: Palette },
@@ -675,6 +678,138 @@ export default function ProfileSettings() {
                   loading={loading}
                   setLoading={setLoading}
                 />
+              )}
+
+              {/* Unlockables Tab */}
+              {activeTab === "unlockables" && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-white mb-2">Unlockables & Badges</h2>
+                    <p className="text-slate-400">
+                      View your achievements and discover badges you can unlock by engaging with the platform.
+                    </p>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 rounded-lg p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-purple-500/20 rounded-lg">
+                        <Trophy className="w-6 h-6 text-yellow-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-white mb-2">Badge Showcase</h3>
+                        <p className="text-slate-300 mb-4">
+                          Explore all available badges, track your progress, and see which achievements you've unlocked. 
+                          Earn badges by uploading content, following users, and engaging with the community!
+                        </p>
+                        <button
+                          onClick={() => navigate('/badges')}
+                          className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg"
+                        >
+                          <Trophy className="w-5 h-5" />
+                          <span>View Badge Showcase</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                      <h4 className="text-white font-semibold mb-2">How to Earn Badges</h4>
+                      <ul className="space-y-2 text-sm text-slate-300">
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400 mt-1">•</span>
+                          <span>Upload your first piece of content</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400 mt-1">•</span>
+                          <span>Follow other users and build connections</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400 mt-1">•</span>
+                          <span>Get your content approved by moderators</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400 mt-1">•</span>
+                          <span>Reach download and favorite milestones</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400 mt-1">•</span>
+                          <span>Stay active and celebrate milestones</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                      <h4 className="text-white font-semibold mb-2">Badge Rarities</h4>
+                      <ul className="space-y-2 text-sm">
+                        <li className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-gray-400"></span>
+                          <span className="text-slate-300">Common - Easy to obtain</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-green-400"></span>
+                          <span className="text-slate-300">Uncommon - Moderate achievements</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-blue-400"></span>
+                          <span className="text-slate-300">Rare - Significant accomplishments</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-purple-400"></span>
+                          <span className="text-slate-300">Epic - Major milestones</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
+                          <span className="text-slate-300">Legendary - Exceptional achievements</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Badge Display Toggle */}
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="text-white font-semibold mb-1">Display Badges on Profile</h4>
+                        <p className="text-sm text-slate-400">
+                          Toggle whether your earned badges are visible on your public profile
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (!user) return;
+                          const newValue = !showBadgesOnProfile;
+                          setShowBadgesOnProfile(newValue);
+                          setLoading(true);
+                          try {
+                            const { error } = await supabase
+                              .from("user_profiles")
+                              .update({ show_badges_on_profile: newValue })
+                              .eq("user_id", user.id);
+                            if (error) throw error;
+                            toast.success(newValue ? "Badges will be shown on your profile" : "Badges hidden from your profile");
+                          } catch (error: any) {
+                            console.error("Error updating badge display setting:", error);
+                            toast.error("Failed to update setting");
+                            setShowBadgesOnProfile(!newValue); // Revert on error
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        disabled={loading}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                          showBadgesOnProfile ? "bg-purple-600" : "bg-slate-600"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            showBadgesOnProfile ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
 
               </div>

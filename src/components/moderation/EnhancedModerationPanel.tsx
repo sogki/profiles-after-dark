@@ -29,7 +29,8 @@ import {
   FileText,
   Image,
   Video,
-  Music
+  Music,
+  X
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/authContext';
@@ -89,7 +90,10 @@ interface UserProfile {
 
 export default function EnhancedModerationPanel() {
   const { user, userProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'reports' | 'users' | 'content' | 'analytics' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'reports' | 'users' | 'content' | 'analytics' | 'settings' | 'roles'>('dashboard');
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [newRole, setNewRole] = useState<string>('');
   const [stats, setStats] = useState<ModerationStats | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
   const [logs, setLogs] = useState<ModerationLog[]>([]);
@@ -388,7 +392,8 @@ export default function EnhancedModerationPanel() {
             { id: 'users', label: 'Users', icon: Users },
             { id: 'content', label: 'Content', icon: Image },
             { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-            { id: 'settings', label: 'Settings', icon: Settings }
+            { id: 'settings', label: 'Settings', icon: Settings },
+            ...(userProfile?.role === 'admin' ? [{ id: 'roles', label: 'Role Management', icon: Shield }] : [])
           ].map((tab) => {
             const IconComponent = tab.icon;
             return (

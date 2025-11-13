@@ -20,6 +20,7 @@ import {
   Monitor,
   ChevronLeft,
   ChevronRight,
+  Trophy,
 } from "lucide-react";
 import { Fragment, useState, useEffect, useMemo } from "react";
 import { BsFillEmojiHeartEyesFill } from "react-icons/bs";
@@ -41,10 +42,15 @@ import useRetrieveProfileEmotes from "@/hooks/users/profile-info/use-retrieve-pr
 import useRetrieveProfileWallpapers from "@/hooks/users/profile-info/use-retrieve-profile-wallpapers";
 import useRetrieveUserProfile from "@/hooks/users/profile-info/use-retrieve-user-profile";
 import Footer from "../Footer";
+import BadgeIcon from "../achievements/BadgeIcon";
 
 interface Badge {
+  id: string;
   name: string;
   image_url: string;
+  code?: string | null;
+  category?: string | null;
+  rarity?: string | null;
 }
 
 interface UserBadge {
@@ -59,6 +65,7 @@ interface UserProfile {
   banner_url: string | null;
   bio: string | null;
   user_badges?: UserBadge[];
+  show_badges_on_profile?: boolean;
   created_at?: string;
 }
 
@@ -659,143 +666,168 @@ export default function UserProfile() {
 
             {/* Profile Info */}
             <div className="relative px-4 sm:px-6 pb-4 sm:pb-6 mt-0">
+              <div className="pt-16 sm:pt-20 md:pt-24">
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-6">
+                  {/* Left side - Profile info */}
+                  <div className="flex-1 md:max-w-2xl">
+                    {/* Username and Special Badges - Inline horizontal flow */}
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
+                      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
+                        @{profile.username}
+                      </h1>
+                      
+                      {/* Special Badges - Only show special category badges (admin, staff, member, verified, bug_tester) */}
+                      {profile.show_badges_on_profile !== false && profile.user_badges && Array.isArray(profile.user_badges) && (() => {
+                        const specialBadges = (profile.user_badges as UserBadge[]).filter(
+                          (ub: any) => ub.badges?.category === 'special' || ['admin', 'staff', 'member', 'verified', 'bug_tester'].includes(ub.badges?.code || '')
+                        );
+                        if (specialBadges.length === 0) return null;
+                        return (
+                          <div className="relative inline-flex items-center gap-1.5 sm:gap-2">
+                            {specialBadges.map((ub: any, idx: number) => (
+                              <div
+                                key={ub.badges?.id || idx}
+                                className="relative group cursor-pointer"
+                                onMouseEnter={(e) => {
+                                  const tooltip = e.currentTarget.querySelector('.badge-tooltip') as HTMLElement;
+                                  if (tooltip) {
+                                    tooltip.style.opacity = '1';
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  const tooltip = e.currentTarget.querySelector('.badge-tooltip') as HTMLElement;
+                                  if (tooltip) {
+                                    tooltip.style.opacity = '0';
+                                  }
+                                }}
+                              >
+                                <BadgeIcon
+                                  code={ub.badges?.code || null}
+                                  category={ub.badges?.category || null}
+                                  rarity={(ub.badges?.rarity || 'common') as any}
+                                  size={32}
+                                  className="cursor-pointer"
+                                />
+                                {/* Badge name tooltip */}
+                                <div className="badge-tooltip absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900/95 backdrop-blur-sm rounded text-xs text-white whitespace-nowrap opacity-0 transition-opacity pointer-events-none z-50 border border-slate-700 shadow-lg">
+                                  {ub.badges?.name}
+                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px">
+                                    <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-slate-700 transform rotate-45"></div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
 
-              {/* Profile Details - Discord-like flow */}
-              <div className="pt-8 sm:pt-12 md:pt-16">
-                {/* Username and Badges - Inline horizontal flow */}
-                <div className="flex items-center justify-center gap-3 mb-2 flex-wrap">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
-                    @{profile.username}
-                  </h1>
-                  
-                  {/* Badges - Inline with username, properly aligned */}
-                  {profile.user_badges && Array.isArray(profile.user_badges) && profile.user_badges.length > 0 && (
-                    <div
-                      className="relative inline-flex items-center gap-2"
-                      onMouseEnter={() => setShowAllBadges(true)}
-                      onMouseLeave={() => setShowAllBadges(false)}
-                    >
-                      {(profile.user_badges as UserBadge[]).slice(0, 5).map((ub: any, idx: number) => (
-                        <motion.div
-                          key={idx}
-                          whileHover={{ scale: 1.15, y: -2 }}
-                          className="relative group"
-                        >
-                          <img
-                            src={ub.badges?.image_url || "/placeholder.svg"}
-                            alt={ub.badges?.name}
-                            title={ub.badges?.name}
-                            className="h-7 w-7 sm:h-8 sm:w-8 rounded-full cursor-pointer hover:scale-110 transition-transform border border-slate-600/50"
-                          />
-                          {/* Badge name tooltip */}
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900/95 backdrop-blur-sm rounded text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 border border-slate-700 shadow-lg">
-                            {ub.badges?.name}
-                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px">
-                              <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-slate-700 transform rotate-45"></div>
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                      {profile.user_badges.length > 5 && (
-                        <motion.div
-                          whileHover={{ scale: 1.15, y: -2 }}
-                          className="relative group"
-                        >
-                          <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-slate-700/50 border border-slate-600 flex items-center justify-center text-[10px] sm:text-xs text-slate-300 font-semibold cursor-pointer hover:bg-slate-700 transition-colors">
-                            +{profile.user_badges.length - 5}
-                          </div>
-                          {/* Badge count tooltip */}
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900/95 backdrop-blur-sm rounded text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 border border-slate-700 shadow-lg">
-                            {profile.user_badges.length - 5} more badge{profile.user_badges.length - 5 !== 1 ? 's' : ''}
-                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px">
-                              <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-slate-700 transform rotate-45"></div>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
+                    {/* Bio - Left aligned */}
+                    {profile.bio && (
+                      <p className="text-slate-300 text-sm sm:text-base mb-3 leading-relaxed">
+                        {profile.bio}
+                      </p>
+                    )}
 
-                      {/* Expanded badges modal */}
-                      {showAllBadges && profile.user_badges.length > 5 && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                          className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-slate-800/95 backdrop-blur-md rounded-xl p-4 z-50 min-w-[280px] shadow-2xl border border-slate-700"
-                        >
-                          <div className="flex items-center justify-between mb-3">
-                            <p className="text-sm font-semibold text-white">All Badges</p>
-                            <span className="text-xs text-slate-400">{profile.user_badges.length} total</span>
+                    {/* Stats - Compact horizontal flow like Discord */}
+                    <div className="flex items-center gap-4 sm:gap-5 mt-3 flex-wrap">
+                      <div className="flex items-center gap-1.5 text-slate-400 hover:text-slate-300 transition-colors cursor-default">
+                        <Calendar className="h-4 w-4" />
+                        <span className="text-sm">
+                          Joined {profile.created_at ? formatDate(profile.created_at) : "Unknown"}
+                        </span>
+                      </div>
+                      
+                      <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+                      
+                      <div 
+                        className="flex items-center gap-1.5 text-slate-400 hover:text-slate-300 transition-colors cursor-pointer"
+                        onClick={() => openFollowModal("followers")}
+                      >
+                        <Users className="h-4 w-4" />
+                        <span className="text-sm font-medium text-white">{followStats.followers}</span>
+                        <span className="text-sm">followers</span>
+                      </div>
+                      
+                      <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+                      
+                      <div 
+                        className="flex items-center gap-1.5 text-slate-400 hover:text-slate-300 transition-colors cursor-pointer"
+                        onClick={() => openFollowModal("following")}
+                      >
+                        <UserPlus className="h-4 w-4" />
+                        <span className="text-sm font-medium text-white">{followStats.following}</span>
+                        <span className="text-sm">following</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right side - Achievements */}
+                  {profile.show_badges_on_profile !== false && profile.user_badges && Array.isArray(profile.user_badges) && (() => {
+                    const achievementBadges = (profile.user_badges as UserBadge[]).filter(
+                      (ub: any) => ub.badges?.category !== 'special'
+                    );
+                    
+                    if (achievementBadges.length === 0) return null;
+                    
+                    return (
+                      <div className="md:w-64 lg:w-80 flex-shrink-0">
+                        <div className="bg-slate-800/60 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-slate-700/50 shadow-lg">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Trophy className="h-4 w-4 text-purple-400" />
+                            <h2 className="text-sm font-semibold text-white">Achievements</h2>
+                            <span className="ml-auto text-xs text-slate-400">
+                              {achievementBadges.length}
+                            </span>
                           </div>
-                          <div 
-                            className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto pr-2"
+                          
+                          <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1"
                             style={{
                               scrollbarWidth: 'thin',
                               scrollbarColor: 'rgba(139, 92, 246, 0.3) transparent'
                             }}
                           >
-                            {Array.isArray(profile.user_badges) && profile.user_badges.map((ub: any, idx: number) => (
-                              <motion.div
-                                key={idx}
-                                whileHover={{ scale: 1.1 }}
-                                className="text-center group"
-                              >
-                                <div className="relative mb-2">
-                                  <img
-                                    src={ub.badges?.image_url || "/placeholder.svg"}
-                                    alt={ub.badges?.name}
-                                    className="h-12 w-12 rounded-full border-2 border-purple-500/50 mx-auto shadow-lg group-hover:border-purple-400 transition-all"
+                            {achievementBadges.map((ub: any, idx: number) => {
+                              const badge = ub.badges;
+                              return (
+                                <div
+                                  key={badge?.id || idx}
+                                  className="relative group cursor-pointer"
+                                  onMouseEnter={(e) => {
+                                    const tooltip = e.currentTarget.querySelector('.badge-tooltip') as HTMLElement;
+                                    if (tooltip) {
+                                      tooltip.style.opacity = '1';
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    const tooltip = e.currentTarget.querySelector('.badge-tooltip') as HTMLElement;
+                                    if (tooltip) {
+                                      tooltip.style.opacity = '0';
+                                    }
+                                  }}
+                                >
+                                  <BadgeIcon
+                                    code={badge?.code || null}
+                                    category={badge?.category || null}
+                                    rarity={(badge?.rarity || 'common') as any}
+                                    size={32}
+                                    className="cursor-pointer"
                                   />
-                                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                  {/* Badge tooltip */}
+                                  <div className="badge-tooltip absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900/95 backdrop-blur-sm rounded text-xs text-white whitespace-nowrap opacity-0 transition-opacity pointer-events-none z-50 border border-slate-700 shadow-lg">
+                                    {badge?.name}
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px">
+                                      <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-slate-700 transform rotate-45"></div>
+                                    </div>
+                                  </div>
                                 </div>
-                                <p className="text-xs text-white truncate max-w-[60px] mx-auto font-medium">
-                                  {ub.badges?.name}
-                                </p>
-                              </motion.div>
-                            ))}
+                              );
+                            })}
                           </div>
-                        </motion.div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Bio - Centered, natural flow */}
-                {profile.bio && (
-                  <p className="text-slate-300 text-sm sm:text-base mb-3 max-w-2xl mx-auto leading-relaxed text-center">
-                    {profile.bio}
-                  </p>
-                )}
-
-                {/* Stats - Compact horizontal flow like Discord */}
-                <div className="flex items-center justify-center gap-4 sm:gap-5 mt-3 text-center">
-                  <div className="flex items-center gap-1.5 text-slate-400 hover:text-slate-300 transition-colors cursor-default">
-                    <Calendar className="h-4 w-4" />
-                    <span className="text-sm">
-                      Joined {profile.created_at ? formatDate(profile.created_at) : "Unknown"}
-                    </span>
-                  </div>
-                  
-                  <div className="w-1 h-1 rounded-full bg-slate-600"></div>
-                  
-                  <div 
-                    className="flex items-center gap-1.5 text-slate-400 hover:text-slate-300 transition-colors cursor-pointer"
-                    onClick={() => openFollowModal("followers")}
-                  >
-                    <Users className="h-4 w-4" />
-                    <span className="text-sm font-medium text-white">{followStats.followers}</span>
-                    <span className="text-sm">followers</span>
-                  </div>
-                  
-                  <div className="w-1 h-1 rounded-full bg-slate-600"></div>
-                  
-                  <div 
-                    className="flex items-center gap-1.5 text-slate-400 hover:text-slate-300 transition-colors cursor-pointer"
-                    onClick={() => openFollowModal("following")}
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    <span className="text-sm font-medium text-white">{followStats.following}</span>
-                    <span className="text-sm">following</span>
-                  </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

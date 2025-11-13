@@ -42,6 +42,7 @@ const AppealsFormSystem = lazy(() => import("./components/appeal/AppealsForm"))
 const AuthCallback = lazy(() => import("./components/AuthCallback"))
 const ReportDetailView = lazy(() => import("./components/moderation/views/ReportDetailView"))
 const HelpCenter = lazy(() => import("./components/help/HelpCenter"))
+const BadgeShowcase = lazy(() => import("./components/achievements/BadgeShowcase"))
 const ScrollToTop = lazy(() => import("./components/ScrollToTop"))
 
 import { useAuth } from "./context/authContext"
@@ -324,6 +325,7 @@ function App() {
               <Route path="/moderation/enhanced" element={<EnhancedModerationPage />} />
               <Route path="/moderation/reports/:reportId" element={<ReportDetailView />} />
               <Route path="/help" element={<HelpCenter />} />
+              <Route path="/badges" element={<BadgeShowcase />} />
               <Route path="/gallery/profiles" element={<ProfilesGallery />} />
               <Route path="/gallery/pfps" element={<PfpGallery />} />
               <Route path="/gallery/banners" element={<BannersGallery />} />

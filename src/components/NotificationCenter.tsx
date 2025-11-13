@@ -227,6 +227,8 @@ export default function NotificationCenter({
         return "💬"
       case "system":
         return "⚙️"
+      case "achievement":
+        return "🏆"
       case "success":
         return "✅"
       case "warning":
@@ -250,6 +252,8 @@ export default function NotificationCenter({
         return "bg-green-500/20 border-green-500/30"
       case "system":
         return "bg-purple-500/20 border-purple-500/30"
+      case "achievement":
+        return "bg-yellow-500/20 border-yellow-500/30"
       case "success":
         return "bg-green-500/20 border-green-500/30"
       case "warning":

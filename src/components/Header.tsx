@@ -18,6 +18,7 @@ import {
   Layout,
   Smile,
   Sticker,
+  Trophy
 } from "lucide-react"
 import { useAuth } from "../context/authContext"
 import { supabase } from "../lib/supabase"
@@ -367,77 +368,111 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                           initial={{ opacity: 0, y: -10, scale: 0.95 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                          transition={{ duration: 0.2 }}
-                          className="absolute right-0 mt-2 w-72 bg-slate-800/95 backdrop-blur-md rounded-xl shadow-2xl z-50 border border-slate-700/50 overflow-hidden"
+                          transition={{ duration: 0.15 }}
+                          className="absolute right-0 mt-2 w-80 bg-slate-800 rounded-xl shadow-2xl z-50 border border-slate-700/80 overflow-hidden backdrop-blur-xl"
                         >
-                          <div className="p-4 border-b border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-700/30">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-purple-500/30">
-                                {userProfile?.avatar_url ? (
-                                  <img
-                                    src={userProfile.avatar_url || "/placeholder.svg"}
-                                    alt="User avatar"
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-500 to-blue-500">
-                                    <UserIcon className="h-6 w-6 text-white" />
-                                  </div>
-                                )}
+                          {/* User Header Section */}
+                          <div className="p-5 bg-gradient-to-br from-slate-800 via-slate-800/95 to-slate-800 border-b border-slate-700/60">
+                            <div className="flex items-center space-x-4">
+                              <div className="relative">
+                                <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-purple-500/40 ring-offset-2 ring-offset-slate-800">
+                                  {userProfile?.avatar_url ? (
+                                    <img
+                                      src={userProfile.avatar_url || "/placeholder.svg"}
+                                      alt="User avatar"
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-500 to-blue-500">
+                                      <UserIcon className="h-7 w-7 text-white" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-800"></div>
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-white truncate">
+                                <p className="text-base font-semibold text-white truncate mb-0.5">
                                   {userProfile?.display_name || userProfile?.username || "User"}
                                 </p>
                                 <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                                {userProfile?.username && (
+                                  <p className="text-xs text-slate-500 mt-1">@{userProfile.username}</p>
+                                )}
                               </div>
                             </div>
                           </div>
 
+                          {/* Menu Items */}
                           <div className="py-2">
                             {(userProfile?.role === "admin" || userProfile?.role === "moderator" || userProfile?.role === "staff") && (
                               <Link
                                 to="/moderation"
-                                className="flex items-center px-4 py-2.5 text-sm text-white hover:bg-slate-700/50 transition-colors group"
+                                className="flex items-center px-5 py-3 text-sm text-slate-200 hover:text-white hover:bg-slate-700/40 transition-all group relative"
                                 onClick={() => setIsUserDropdownOpen(false)}
                               >
-                                <div className="p-1.5 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors mr-3">
+                                <div className="p-2 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 transition-all mr-3 group-hover:scale-110">
                                   <ShieldCheck className="w-4 h-4 text-purple-400" />
                                 </div>
-                                <span>Moderation Panel</span>
+                                <span className="font-medium">Moderation Panel</span>
+                                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <ChevronDown className="w-4 h-4 text-slate-400 rotate-[-90deg]" />
+                                </div>
                               </Link>
                             )}
                             {userProfile?.username && (
                               <Link
                                 to={`/user/${userProfile.username}`}
-                                className="flex items-center px-4 py-2.5 text-sm text-white hover:bg-slate-700/50 transition-colors group"
+                                className="flex items-center px-5 py-3 text-sm text-slate-200 hover:text-white hover:bg-slate-700/40 transition-all group relative"
                                 onClick={() => setIsUserDropdownOpen(false)}
                               >
-                                <div className="p-1.5 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors mr-3">
+                                <div className="p-2 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-all mr-3 group-hover:scale-110">
                                   <UserIcon className="w-4 h-4 text-blue-400" />
                                 </div>
-                                <span>View Profile</span>
+                                <span className="font-medium">View Profile</span>
+                                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <ChevronDown className="w-4 h-4 text-slate-400 rotate-[-90deg]" />
+                                </div>
                               </Link>
                             )}
                             <Link
                               to="/profile-settings"
-                              className="flex items-center px-4 py-2.5 text-sm text-white hover:bg-slate-700/50 transition-colors group"
+                              className="flex items-center px-5 py-3 text-sm text-slate-200 hover:text-white hover:bg-slate-700/40 transition-all group relative"
                               onClick={() => setIsUserDropdownOpen(false)}
                             >
-                              <div className="p-1.5 rounded-lg bg-slate-500/10 group-hover:bg-slate-500/20 transition-colors mr-3">
+                              <div className="p-2 rounded-lg bg-slate-500/10 group-hover:bg-slate-500/20 transition-all mr-3 group-hover:scale-110">
                                 <Settings className="w-4 h-4 text-slate-300" />
                               </div>
-                              <span>Settings</span>
+                              <span className="font-medium">Settings</span>
+                              <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                <ChevronDown className="w-4 h-4 text-slate-400 rotate-[-90deg]" />
+                              </div>
                             </Link>
-                            <div className="border-t border-slate-700/50 my-2"></div>
+                            <Link
+                              to="/badges"
+                              className="flex items-center px-5 py-3 text-sm text-slate-200 hover:text-white hover:bg-slate-700/40 transition-all group relative"
+                              onClick={() => setIsUserDropdownOpen(false)}
+                            >
+                              <div className="p-2 rounded-lg bg-yellow-500/10 group-hover:bg-yellow-500/20 transition-all mr-3 group-hover:scale-110">
+                                <Trophy className="w-4 h-4 text-yellow-400" />
+                              </div>
+                              <span className="font-medium">Badges</span>
+                              <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                <ChevronDown className="w-4 h-4 text-slate-400 rotate-[-90deg]" />
+                              </div>
+                            </Link>
+                            
+                            {/* Divider */}
+                            <div className="border-t border-slate-700/60 my-2 mx-3"></div>
+                            
+                            {/* Sign Out */}
                             <button
                               onClick={handleSignOut}
-                              className="flex items-center w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors group"
+                              className="flex items-center w-full text-left px-5 py-3 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all group relative"
                             >
-                              <div className="p-1.5 rounded-lg bg-red-500/10 group-hover:bg-red-500/20 transition-colors mr-3">
+                              <div className="p-2 rounded-lg bg-red-500/10 group-hover:bg-red-500/20 transition-all mr-3 group-hover:scale-110">
                                 <LogOut className="w-4 h-4 text-red-400" />
                               </div>
-                              <span>Sign Out</span>
+                              <span className="font-medium">Sign Out</span>
                             </button>
                           </div>
                         </motion.div>

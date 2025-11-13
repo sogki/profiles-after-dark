@@ -164,6 +164,36 @@ async function loadCommands() {
       console.log(`🆔 Bot ID: ${client.user.id}`);
       console.log(`📊 Connected to ${client.guilds.cache.size} server(s)`);
 
+      // Deploy commands on startup if GUILD_ID is set
+      if (config.GUILD_ID) {
+        try {
+          console.log(`🔄 Deploying commands to guild: ${config.GUILD_ID}...`);
+          const { REST, Routes } = await import('discord.js');
+          const rest = new REST({ version: '10' }).setToken(config.DISCORD_TOKEN);
+          
+          const commands = [];
+          for (const [name, command] of client.commands.entries()) {
+            if (command.data) {
+              commands.push(command.data.toJSON());
+            }
+          }
+
+          if (commands.length > 0) {
+            const data = await rest.put(
+              Routes.applicationGuildCommands(config.CLIENT_ID, config.GUILD_ID),
+              { body: commands }
+            );
+            console.log(`✅ Successfully deployed ${data.length} guild command(s).`);
+          }
+        } catch (error) {
+          console.error('❌ Failed to deploy commands on startup:', error.message);
+          console.error('💡 You may need to manually run: npm run deploy');
+        }
+      } else {
+        console.log('⚠️  GUILD_ID not set - commands will need to be deployed globally');
+        console.log('💡 Run: npm run deploy (this may take up to 1 hour for global commands)');
+      }
+
       client.user.setPresence({
         activities: [
           { name: "profilesafterdark.com", type: ActivityType.Watching },

@@ -1,5 +1,6 @@
 import express from 'express';
 import { getSupabase } from '../../../utils/supabase.js';
+import { createAccountLinkingNotification } from '../../../utils/notifications.js';
 import crypto from 'crypto';
 
 const router = express.Router();
@@ -236,6 +237,18 @@ router.post('/validate', async (req, res) => {
       .select('username, display_name')
       .eq('user_id', linkingCode.user_id)
       .single();
+
+    // Create notification for website user (only if it doesn't already exist)
+    try {
+      await createAccountLinkingNotification(
+        linkingCode.user_id,
+        discordId,
+        username
+      );
+    } catch (notifErr) {
+      console.error('Error creating notification:', notifErr);
+      // Continue even if notification fails
+    }
 
     res.json({
       success: true,

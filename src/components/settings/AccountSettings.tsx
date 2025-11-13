@@ -94,7 +94,10 @@ export default function AccountSettings({
         },
         (payload) => {
           const notification = payload.new as any
-          if (notification.type === 'account_linked') {
+          // Check if it's an account linking notification (by title or message content)
+          if (notification.type === 'success' && 
+              (notification.title?.includes('Discord Account Linked') || 
+               notification.message?.includes('Discord account'))) {
             toast.success('Discord account linked successfully!')
             checkLinkingStatus()
           }

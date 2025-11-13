@@ -69,29 +69,8 @@ export async function execute(interaction) {
             });
         }
 
-        // Success! Create notification
-        const db = await getSupabase();
-        const userId = result.data.user_id;
+        // Success! Notification is created by the API endpoint
         const websiteUsername = result.data.username;
-
-        // Create notification for website user
-        const { error: notifError } = await db
-            .from('notifications')
-            .insert({
-                user_id: userId,
-                type: 'account_linked',
-                title: 'Discord Account Linked',
-                description: `Your Discord account (${username}) has been successfully linked!`,
-                metadata: {
-                    discord_id: discordId,
-                    discord_username: username,
-                    linked_at: new Date().toISOString()
-                }
-            });
-
-        if (notifError) {
-            console.error('Error creating notification:', notifError);
-        }
 
         // Send success embed
         const successEmbed = new EmbedBuilder()
@@ -131,11 +110,11 @@ export async function execute(interaction) {
                 .setTitle('✅ Account Linked Successfully!')
                 .setDescription(`Your Discord account has been linked to your Profiles After Dark account (**${websiteUsername}**).`)
                 .setColor(0x00FF00)
-                .addFields({
-                    name: 'What\'s Next?',
-                    value: '• Your accounts are now synced\n• You can use Discord features on the website\n• Check your website notifications for more details',
-                    inline: false
-                })
+            .addFields({
+                name: 'What\'s Next?',
+                value: '• Your accounts are now synced\n• Check your website notifications for confirmation\n• Your Discord profile will be linked to your website account',
+                inline: false
+            })
                 .setTimestamp();
 
             await interaction.user.send({ embeds: [dmEmbed] }).catch(() => {

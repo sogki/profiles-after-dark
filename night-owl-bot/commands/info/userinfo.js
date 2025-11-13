@@ -14,8 +14,8 @@ export const data = new SlashCommandBuilder()
 export const category = 'Info'; // Command category
 
 export async function execute(interaction) {
-    // Defer reply immediately to avoid timeout
-    await interaction.deferReply();
+    // Defer reply immediately to avoid timeout (ephemeral)
+    await interaction.deferReply({ ephemeral: true });
     
     try {
         const config = await getConfig();
@@ -38,7 +38,10 @@ export async function execute(interaction) {
             console.log('Could not fetch web user:', error);
         }
 
-        const member = await interaction.guild.members.fetch(target.id).catch(() => null);
+        // Only fetch member if we're in a guild (not a DM)
+        const member = interaction.guild 
+            ? await interaction.guild.members.fetch(target.id).catch(() => null)
+            : null;
 
         const embed = new EmbedBuilder()
             .setTitle(`👤 ${target.tag}`)
@@ -51,7 +54,7 @@ export async function execute(interaction) {
             )
             .setTimestamp();
 
-        if (member) {
+        if (member && interaction.guild) {
             embed.addFields(
                 { name: '📥 Joined Server', value: `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>`, inline: true },
                 { name: '🎭 Roles', value: member.roles.cache.size > 1 

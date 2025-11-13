@@ -20,7 +20,8 @@ let PORT = 3000;
 
 // Trust proxy - required when behind reverse proxy (Railway, Heroku, etc.)
 // This allows Express to correctly identify client IPs from X-Forwarded-For headers
-app.set('trust proxy', true);
+// Use 1 instead of true to trust only the first proxy (more secure)
+app.set('trust proxy', 1);
 
 // CORS configuration
 const corsOptions = {
@@ -59,6 +60,8 @@ app.use((req, res, next) => {
 });
 
 // Rate limiting
+// Configure trust proxy properly for Railway/Heroku
+// Use a specific number instead of true to be more secure
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
@@ -68,6 +71,8 @@ const limiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  // Trust only the first proxy (Railway/Heroku)
+  trustProxy: 1,
 });
 
 // Metrics tracking middleware (before rate limiting to track all requests)

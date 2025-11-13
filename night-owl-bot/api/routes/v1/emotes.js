@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
     
     let query = db
       .from('emotes')
-      .select('*, user_profiles:user_id(username, display_name, avatar_url)')
+      .select('*')
       .or('status.is.null,status.eq.approved') // Only show approved content
       .order('created_at', { ascending: false })
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
@@ -27,10 +27,32 @@ router.get('/', async (req, res) => {
 
     if (error) throw error;
 
+    // Fetch user profiles separately and merge
+    if (data && data.length > 0) {
+      const userIds = [...new Set(data.map(item => item.user_id))];
+      const { data: userProfiles } = await db
+        .from('user_profiles')
+        .select('user_id, username, display_name, avatar_url')
+        .in('user_id', userIds);
+
+      // Create a map for quick lookup
+      const userMap = new Map();
+      if (userProfiles) {
+        userProfiles.forEach(user => {
+          userMap.set(user.user_id, user);
+        });
+      }
+
+      // Merge user profiles into data
+      data.forEach(item => {
+        item.user_profiles = userMap.get(item.user_id) || null;
+      });
+    }
+
     res.json({ 
       success: true, 
-      data, 
-      count: data.length,
+      data: data || [], 
+      count: data?.length || 0,
       limit: parseInt(limit),
       offset: parseInt(offset)
     });
@@ -52,7 +74,7 @@ router.get('/:id', async (req, res) => {
     
     const { data, error } = await db
       .from('emotes')
-      .select('*, user_profiles:user_id(username, display_name, avatar_url)')
+      .select('*')
       .eq('id', id)
       .or('status.is.null,status.eq.approved') // Only show approved content
       .single();
@@ -60,6 +82,17 @@ router.get('/:id', async (req, res) => {
     if (error) throw error;
     if (!data) {
       return res.status(404).json({ success: false, error: 'Emote not found' });
+    }
+
+    // Fetch user profile separately
+    if (data.user_id) {
+      const { data: userProfile } = await db
+        .from('user_profiles')
+        .select('user_id, username, display_name, avatar_url')
+        .eq('user_id', data.user_id)
+        .single();
+      
+      data.user_profiles = userProfile || null;
     }
 
     res.json({ success: true, data });

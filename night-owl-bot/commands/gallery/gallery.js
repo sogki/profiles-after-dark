@@ -267,8 +267,14 @@ export const data = new SlashCommandBuilder()
 export const category = 'Gallery';
 
 export async function execute(interaction) {
+    // Defer immediately to prevent timeout
+    if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply().catch(() => {
+            // Ignore errors if already responded
+        });
+    }
+    
     try {
-        await interaction.deferReply();
 
         const config = await loadConfig();
         const API_URL = config?.API_URL || config?.BACKEND_URL || process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:3000';

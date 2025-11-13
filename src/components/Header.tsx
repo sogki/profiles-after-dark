@@ -404,21 +404,29 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
 
                           {/* Menu Items */}
                           <div className="py-2">
-                            {(userProfile?.role === "admin" || userProfile?.role === "moderator" || userProfile?.role === "staff") && (
-                              <Link
-                                to="/moderation"
-                                className="flex items-center px-5 py-3 text-sm text-slate-200 hover:text-white hover:bg-slate-700/40 transition-all group relative"
-                                onClick={() => setIsUserDropdownOpen(false)}
-                              >
-                                <div className="p-2 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 transition-all mr-3 group-hover:scale-110">
-                                  <ShieldCheck className="w-4 h-4 text-purple-400" />
-                                </div>
-                                <span className="font-medium">Moderation Panel</span>
-                                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <ChevronDown className="w-4 h-4 text-slate-400 rotate-[-90deg]" />
-                                </div>
-                              </Link>
-                            )}
+                            {(() => {
+                              // Check if user has admin, staff, or moderator role (handles comma-separated roles)
+                              const userRole = userProfile?.role?.toLowerCase() || '';
+                              const hasAdminRole = userRole.includes('admin');
+                              const hasStaffRole = userRole.includes('staff') || userRole.includes('moderator');
+                              const isStaff = hasAdminRole || hasStaffRole;
+                              
+                              return isStaff && (
+                                <Link
+                                  to="/moderation"
+                                  className="flex items-center px-5 py-3 text-sm text-slate-200 hover:text-white hover:bg-slate-700/40 transition-all group relative"
+                                  onClick={() => setIsUserDropdownOpen(false)}
+                                >
+                                  <div className="p-2 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 transition-all mr-3 group-hover:scale-110">
+                                    <ShieldCheck className="w-4 h-4 text-purple-400" />
+                                  </div>
+                                  <span className="font-medium">Moderation Panel</span>
+                                  <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <ChevronDown className="w-4 h-4 text-slate-400 rotate-[-90deg]" />
+                                  </div>
+                                </Link>
+                              );
+                            })()}
                             {userProfile?.username && (
                               <Link
                                 to={`/user/${userProfile.username}`}
@@ -668,16 +676,24 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                         <span>Upload Content</span>
                       </button>
 
-                      {userProfile?.role === "admin" || userProfile?.role === "moderator" || userProfile?.role === "staff" ? (
-                        <Link
-                          to="/moderation"
-                          onClick={() => setIsMobileMenuOpen(false)}
-                          className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
-                        >
-                          <ShieldCheck className="h-4 w-4" />
-                          <span>Mod Panel 2.0</span>
-                        </Link>
-                      ) : null}
+                      {(() => {
+                        // Check if user has admin, staff, or moderator role (handles comma-separated roles)
+                        const userRole = userProfile?.role?.toLowerCase() || '';
+                        const hasAdminRole = userRole.includes('admin');
+                        const hasStaffRole = userRole.includes('staff') || userRole.includes('moderator');
+                        const isStaff = hasAdminRole || hasStaffRole;
+                        
+                        return isStaff ? (
+                          <Link
+                            to="/moderation"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
+                          >
+                            <ShieldCheck className="h-4 w-4" />
+                            <span>Mod Panel 2.0</span>
+                          </Link>
+                        ) : null;
+                      })()}
 
                       {userProfile?.username && (
                         <Link

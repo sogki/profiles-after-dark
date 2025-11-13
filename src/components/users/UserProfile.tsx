@@ -678,23 +678,54 @@ export default function UserProfile() {
                       
                       {/* Special Badges - Only show special category badges (admin, staff, member, verified, bug_tester) */}
                       {profile.show_badges_on_profile !== false && profile.user_badges && Array.isArray(profile.user_badges) && (() => {
-                        const specialBadges = (profile.user_badges as UserBadge[]).filter(
+                        // Get all special badges
+                        const allSpecialBadges = (profile.user_badges as UserBadge[]).filter(
                           (ub: any) => {
                             const badgeCode = ub.badges?.code || '';
                             const badgeCategory = ub.badges?.category || '';
-                            const isSpecial = badgeCategory === 'special' || ['admin', 'staff', 'member', 'verified', 'bug_tester'].includes(badgeCode);
-                            // Debug logging (remove in production)
-                            if (process.env.NODE_ENV === 'development' && ub.badges) {
-                              console.log('Badge check:', { code: badgeCode, category: badgeCategory, isSpecial, name: ub.badges?.name });
-                            }
-                            return isSpecial;
+                            return badgeCategory === 'special' || ['admin', 'staff', 'member', 'verified', 'bug_tester'].includes(badgeCode);
                           }
                         );
-                        // Debug logging
-                        if (process.env.NODE_ENV === 'development') {
-                          console.log('Special badges found:', specialBadges.length, 'out of', profile.user_badges.length, 'total badges');
+                        
+                        if (allSpecialBadges.length === 0) return null;
+                        
+                        // Role badge hierarchy (highest to lowest)
+                        const roleBadgeOrder: Record<string, number> = {
+                          'admin': 3,
+                          'staff': 2,
+                          'member': 1
+                        };
+                        
+                        // Separate role badges from independent special badges
+                        const roleBadges = allSpecialBadges.filter((ub: any) => {
+                          const badgeCode = ub.badges?.code || '';
+                          return ['admin', 'staff', 'member'].includes(badgeCode);
+                        });
+                        
+                        const independentBadges = allSpecialBadges.filter((ub: any) => {
+                          const badgeCode = ub.badges?.code || '';
+                          return ['verified', 'bug_tester'].includes(badgeCode);
+                        });
+                        
+                        // Get only the highest role badge
+                        let highestRoleBadge: any = null;
+                        if (roleBadges.length > 0) {
+                          highestRoleBadge = roleBadges.reduce((highest: any, current: any) => {
+                            const currentCode = current.badges?.code || '';
+                            const highestCode = highest?.badges?.code || '';
+                            const currentOrder = roleBadgeOrder[currentCode] || 0;
+                            const highestOrder = roleBadgeOrder[highestCode] || 0;
+                            return currentOrder > highestOrder ? current : highest;
+                          });
                         }
+                        
+                        // Combine highest role badge with independent badges
+                        const specialBadges = highestRoleBadge 
+                          ? [highestRoleBadge, ...independentBadges]
+                          : independentBadges;
+                        
                         if (specialBadges.length === 0) return null;
+                        
                         return (
                           <div className="relative inline-flex items-center gap-1.5 sm:gap-2">
                             {specialBadges.map((ub: any, idx: number) => (
@@ -828,7 +859,7 @@ export default function UserProfile() {
                   {/* Right side - Achievements */}
                   {profile.show_badges_on_profile !== false && profile.user_badges && Array.isArray(profile.user_badges) && (() => {
                     // Filter out special badges from the display (they show next to username)
-                    const achievementBadges = (profile.user_badges as UserBadge[]).filter(
+                    const allAchievementBadges = (profile.user_badges as UserBadge[]).filter(
                       (ub: any) => {
                         const badgeCode = ub.badges?.code || '';
                         const badgeCategory = ub.badges?.category || '';
@@ -836,7 +867,44 @@ export default function UserProfile() {
                       }
                     );
                     
-                    // Total badge count including special badges
+                    // Milestone badge order (lowest to highest)
+                    const milestoneOrder: Record<string, number> = {
+                      'week_old': 1,
+                      'month_old': 2,
+                      'seasoned_member': 3,
+                      'veteran': 4,
+                      'one_year_club': 5
+                    };
+                    
+                    // Separate milestone badges from other badges
+                    const milestoneBadges = allAchievementBadges.filter((ub: any) => {
+                      const badgeCategory = ub.badges?.category || '';
+                      return badgeCategory === 'milestone';
+                    });
+                    
+                    const nonMilestoneBadges = allAchievementBadges.filter((ub: any) => {
+                      const badgeCategory = ub.badges?.category || '';
+                      return badgeCategory !== 'milestone';
+                    });
+                    
+                    // Get only the highest milestone badge
+                    let highestMilestoneBadge: any = null;
+                    if (milestoneBadges.length > 0) {
+                      highestMilestoneBadge = milestoneBadges.reduce((highest: any, current: any) => {
+                        const currentCode = current.badges?.code || '';
+                        const highestCode = highest?.badges?.code || '';
+                        const currentOrder = milestoneOrder[currentCode] || 0;
+                        const highestOrder = milestoneOrder[highestCode] || 0;
+                        return currentOrder > highestOrder ? current : highest;
+                      });
+                    }
+                    
+                    // Combine non-milestone badges with only the highest milestone badge
+                    const achievementBadges = highestMilestoneBadge 
+                      ? [...nonMilestoneBadges, highestMilestoneBadge]
+                      : nonMilestoneBadges;
+                    
+                    // Total badge count including special badges (but only highest milestone for display)
                     const totalBadgeCount = (profile.user_badges as UserBadge[]).length;
                     
                     if (achievementBadges.length === 0 && totalBadgeCount === 0) return null;

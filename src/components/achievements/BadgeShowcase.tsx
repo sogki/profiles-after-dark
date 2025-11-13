@@ -35,6 +35,64 @@ export default function BadgeShowcase() {
     return userBadges.some(ub => ub.badge_id === badgeId);
   };
 
+  // For milestone badges, check if user has earned this badge or any higher milestone
+  // This ensures that if a user has "seasoned_member" (3 months), they also show as having "week_old" and "month_old" ticked
+  const hasMilestoneBadge = (badgeCode: string | null | undefined, badgeId: string): boolean => {
+    if (!badgeCode || !user) return false;
+    
+    // First check if user directly has this badge
+    if (hasBadge(badgeId)) return true;
+    
+    // Milestone badge order (lowest to highest)
+    const milestoneOrder: Record<string, number> = {
+      'week_old': 1,
+      'month_old': 2,
+      'seasoned_member': 3,
+      'veteran': 4,
+      'one_year_club': 5
+    };
+    
+    const targetOrder = milestoneOrder[badgeCode] || 0;
+    if (targetOrder === 0) return false; // Not a milestone badge, use regular check
+    
+    // Check if user has any higher milestone badge
+    // If they have a higher milestone, they've automatically earned all previous ones
+    const userMilestoneCodes = userBadges
+      .map(ub => ub.badges?.code)
+      .filter((code): code is string => !!code && milestoneOrder[code] !== undefined);
+    
+    // If user has any milestone badge with order >= targetOrder, they've earned this one
+    return userMilestoneCodes.some(code => milestoneOrder[code] >= targetOrder);
+  };
+
+  // For special role badges, check if user has earned this badge or any higher role badge
+  // This ensures that if a user has "admin", they also show as having "staff" and "member" ticked
+  const hasSpecialRoleBadge = (badgeCode: string | null | undefined, badgeId: string): boolean => {
+    if (!badgeCode || !user) return false;
+    
+    // First check if user directly has this badge
+    if (hasBadge(badgeId)) return true;
+    
+    // Role badge hierarchy (highest to lowest)
+    const roleBadgeOrder: Record<string, number> = {
+      'admin': 3,
+      'staff': 2,
+      'member': 1
+    };
+    
+    const targetOrder = roleBadgeOrder[badgeCode] || 0;
+    if (targetOrder === 0) return false; // Not a role badge (might be verified or bug_tester), use regular check
+    
+    // Check if user has any higher role badge
+    // If they have a higher role badge, they've automatically earned all lower ones
+    const userRoleCodes = userBadges
+      .map(ub => ub.badges?.code)
+      .filter((code): code is string => !!code && roleBadgeOrder[code] !== undefined);
+    
+    // If user has any role badge with order >= targetOrder, they've earned this one
+    return userRoleCodes.some(code => roleBadgeOrder[code] >= targetOrder);
+  };
+
   const getUnlockedCount = (): number => {
     return userBadges.length;
   };
@@ -180,7 +238,17 @@ export default function BadgeShowcase() {
                 {/* Badges Grid for this Category */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   {badges.map((badge, index) => {
-                    const unlocked = hasBadge(badge.id);
+                    // For milestone badges, check if user has earned this or any previous milestone
+                    // For special role badges (admin, staff, member), check if user has earned this or any higher role
+                    // For other badges, use regular check
+                    let unlocked = false;
+                    if (badge.category === 'milestone') {
+                      unlocked = hasMilestoneBadge(badge.code, badge.id);
+                    } else if (badge.category === 'special' && badge.code && ['admin', 'staff', 'member'].includes(badge.code)) {
+                      unlocked = hasSpecialRoleBadge(badge.code, badge.id);
+                    } else {
+                      unlocked = hasBadge(badge.id);
+                    }
                     const rarity = badge.rarity || 'common';
                     
                     return (

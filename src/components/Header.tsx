@@ -405,10 +405,17 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                           {/* Menu Items */}
                           <div className="py-2">
                             {(() => {
-                              // Check if user has admin, staff, or moderator role (handles comma-separated roles)
+                              // Check if user has staff-related roles only (admin, staff, moderator)
+                              // Verified users should NOT see the mod panel
                               const userRole = userProfile?.role?.toLowerCase() || '';
-                              const hasAdminRole = userRole.includes('admin');
-                              const hasStaffRole = userRole.includes('staff') || userRole.includes('moderator');
+                              if (!userRole) return null;
+                              
+                              // Parse comma-separated roles
+                              const roles = userRole.split(',').map(r => r.trim());
+                              
+                              // Only allow staff-related roles
+                              const hasAdminRole = roles.includes('admin');
+                              const hasStaffRole = roles.includes('staff') || roles.includes('moderator');
                               const isStaff = hasAdminRole || hasStaffRole;
                               
                               return isStaff && (
@@ -677,10 +684,17 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                       </button>
 
                       {(() => {
-                        // Check if user has admin, staff, or moderator role (handles comma-separated roles)
+                        // Check if user has staff-related roles only (admin, staff, moderator)
+                        // Verified users should NOT see the mod panel
                         const userRole = userProfile?.role?.toLowerCase() || '';
-                        const hasAdminRole = userRole.includes('admin');
-                        const hasStaffRole = userRole.includes('staff') || userRole.includes('moderator');
+                        if (!userRole) return null;
+                        
+                        // Parse comma-separated roles
+                        const roles = userRole.split(',').map(r => r.trim());
+                        
+                        // Only allow staff-related roles
+                        const hasAdminRole = roles.includes('admin');
+                        const hasStaffRole = roles.includes('staff') || roles.includes('moderator');
                         const isStaff = hasAdminRole || hasStaffRole;
                         
                         return isStaff ? (

@@ -138,24 +138,28 @@ app.use((err, req, res, next) => {
     console.log('📋 Loading configuration...');
     config = await loadConfig();
     
-    PORT = config.PORT || process.env.PORT || 3000;
+    PORT = config.PORT || 3000;
     
-    // Get API_URL from database config, with fallbacks
-    let API_URL = config.API_URL || process.env.API_URL;
+    // Get API_URL from database config (priority), with fallbacks
+    let API_URL = config.API_URL || config.BACKEND_URL;
     
-    // If API_URL is not in database or env, try Railway environment variables
+    // If API_URL is not in database, try Railway environment variables
     if (!API_URL) {
-      if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+      if (config.RAILWAY_PUBLIC_DOMAIN) {
         // Railway provides the public domain
+        API_URL = `https://${config.RAILWAY_PUBLIC_DOMAIN}`;
+        console.log(`🔗 Using Railway public domain from config: ${API_URL}`);
+      } else if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+        // Fallback to env var if not in database
         API_URL = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
-        console.log(`🔗 Using Railway public domain: ${API_URL}`);
+        console.log(`🔗 Using Railway public domain from env: ${API_URL}`);
       } else {
         // Fallback to localhost
         API_URL = `http://localhost:${PORT}`;
-        console.log(`⚠️  API_URL not set, using localhost fallback`);
+        console.log(`⚠️  API_URL not set in database, using localhost fallback`);
       }
     } else {
-      console.log(`✅ API_URL loaded from ${config.API_URL ? 'database' : 'environment'}: ${API_URL}`);
+      console.log(`✅ API_URL loaded from database: ${API_URL}`);
     }
 
     // Log all loaded config keys (without secrets)

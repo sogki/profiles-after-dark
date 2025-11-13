@@ -1,9 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import fetch from 'node-fetch';
-import dotenv from 'dotenv';
-dotenv.config();
-
-const API_URL = process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:3000';
+import { getConfig } from '../../utils/config.js';
 
 export const data = new SlashCommandBuilder()
     .setName('userinfo')
@@ -18,12 +15,16 @@ export const category = 'Info'; // Command category
 
 export async function execute(interaction) {
     try {
+        const config = await getConfig();
+        const API_URL = config.API_URL || config.BACKEND_URL || 'http://localhost:3000';
+        const WEB_URL = config.WEB_URL || 'https://profilesafterdark.com';
+
         const target = interaction.options.getUser('target') || interaction.user;
 
         // Try to fetch Discord user from API
         let webUser = null;
         try {
-            const response = await fetch(`${API_URL}/api/discord/users/${target.id}`);
+            const response = await fetch(`${API_URL}/api/v1/discord/users/${target.id}`);
             if (response.ok) {
                 const result = await response.json();
                 if (result.success && result.data && result.data.web_user_id) {
@@ -67,7 +68,7 @@ export async function execute(interaction) {
         if (webUser) {
             embed.addFields({
                 name: '🌐 Web Profile',
-                value: `[View Profile](${process.env.WEB_URL || 'https://profilesafterdark.com'}/users/${webUser.username || webUser.id})`,
+                value: `[View Profile](${WEB_URL}/users/${webUser.username || webUser.id})`,
                 inline: true
             });
             embed.setFooter({ text: 'Linked to web account' });

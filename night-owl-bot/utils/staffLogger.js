@@ -1,6 +1,5 @@
 import { ChannelType, EmbedBuilder } from 'discord.js';
-import dotenv from 'dotenv';
-dotenv.config();
+import { getConfig } from './config.js';
 
 /**
  * Logs a staff action to the configured STAFF_LOG_CHANNEL_ID with an embed.
@@ -9,7 +8,8 @@ dotenv.config();
  * @param {User} user - The user who performed the action
  */
 export async function logStaffAction(client, message, user) {
-    const channelId = process.env.STAFF_LOG_CHANNEL_ID;
+    const config = await getConfig();
+    const channelId = config.STAFF_LOG_CHANNEL_ID;
     if (!channelId) return;
 
     try {

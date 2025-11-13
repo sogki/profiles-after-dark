@@ -10,6 +10,7 @@
     "deploy": "node deploy-commands.js",
     "verify": "node verify-commands.js",
     "setup:config": "node setup-config.js",
+    "check": "node check-bot.js",
     "dev": "node index.js",
     "dev:api": "node api/server.js"
   },

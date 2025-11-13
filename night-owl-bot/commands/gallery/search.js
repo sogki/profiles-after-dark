@@ -142,7 +142,7 @@ export async function execute(interaction) {
         const query = interaction.options.getString('query');
         const type = interaction.options.getString('type') || 'all';
         const config = await getConfig();
-        const API_URL = config.API_URL || config.BACKEND_URL || process.env.API_URL || 'http://localhost:3000';
+        const API_URL = config.API_URL || config.BACKEND_URL || 'http://localhost:3000';
 
         // Fetch search results (get more than we need for pagination)
         const params = new URLSearchParams();

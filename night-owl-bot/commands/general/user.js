@@ -1,7 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import fetch from 'node-fetch';
-import dotenv from 'dotenv';
-dotenv.config();
+import { getConfig } from '../../utils/config.js';
 
 export const data = new SlashCommandBuilder()
     .setName('user')
@@ -16,7 +15,9 @@ export const category = 'General'; // Command category
 export async function execute(interaction) {
     const username = interaction.options.getString('username');
     try {
-        const res = await fetch(`${process.env.BACKEND_URL}/api/user/${username}`);
+        const config = await getConfig();
+        const API_URL = config.API_URL || config.BACKEND_URL || 'http://localhost:3000';
+        const res = await fetch(`${API_URL}/api/v1/users/${username}`);
         const data = await res.json();
         const embed = new EmbedBuilder()
             .setTitle(`🦉 User Info: ${username}`)

@@ -130,6 +130,23 @@ async function loadCommands() {
     console.log('✅ Configuration loaded successfully');
     await loadCommands();
 
+    // Add error handlers before login
+    client.on('error', (error) => {
+      console.error('❌ Discord client error:', error);
+    });
+
+    client.on('warn', (warning) => {
+      console.warn('⚠️ Discord client warning:', warning);
+    });
+
+    client.on('disconnect', () => {
+      console.warn('⚠️ Bot disconnected from Discord');
+    });
+
+    client.on('reconnecting', () => {
+      console.log('🔄 Bot reconnecting to Discord...');
+    });
+
     client.once("ready", async () => {
       console.log(`NightOwl is online as ${client.user.tag}`);
 
@@ -267,18 +284,46 @@ async function loadCommands() {
       }
     });
 
-    const token = config.DISCORD_TOKEN || process.env.DISCORD_TOKEN;
+    // Use config from database (already loaded, no fallback needed)
+    const token = config.DISCORD_TOKEN;
     if (!token) {
       console.error('❌ DISCORD_TOKEN is required to start the bot');
-      console.error('💡 Set it in .env file or in the database bot_config table');
+      console.error('💡 Set it in the database bot_config table or run: npm run setup:config');
       process.exit(1);
     }
     
     console.log('🚀 Starting bot...');
-    await client.login(token);
+    console.log(`🔑 Token length: ${token ? token.length : 0} characters`);
+    console.log(`🔑 Token starts with: ${token ? token.substring(0, 10) + '...' : 'N/A'}`);
+    
+    try {
+      await client.login(token);
+      console.log('✅ Login attempt completed');
+    } catch (loginError) {
+      console.error('❌ Login failed:', loginError);
+      console.error('Error details:', {
+        message: loginError.message,
+        code: loginError.code,
+        stack: loginError.stack
+      });
+      process.exit(1);
+    }
   } catch (error) {
     console.error("❌ Error during client setup:", error);
-    console.error(error.stack);
+    console.error("Error stack:", error.stack);
     process.exit(1);
   }
 })();
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (error) => {
+  console.error('❌ Unhandled promise rejection:', error);
+  console.error('Error stack:', error.stack);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught exception:', error);
+  console.error('Error stack:', error.stack);
+  process.exit(1);
+});

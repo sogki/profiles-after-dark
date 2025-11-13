@@ -126,8 +126,8 @@ router.get('/health', async (req, res) => {
     const db = await getSupabase();
     
     // Get API URL from config
-    const API_URL = config.API_URL || process.env.API_URL || 'https://dev.profilesafterdark.com';
-    const WEB_URL = config.WEB_URL || process.env.WEB_URL || 'https://profilesafterdark.com';
+    const API_URL = config.API_URL || config.BACKEND_URL || 'https://dev.profilesafterdark.com';
+    const WEB_URL = config.WEB_URL || 'https://profilesafterdark.com';
     
     // Check database connection
     const dbStartTime = Date.now();

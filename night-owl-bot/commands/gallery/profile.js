@@ -1,9 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import fetch from 'node-fetch';
-import dotenv from 'dotenv';
-dotenv.config();
-
-const API_URL = process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:3000';
+import { getConfig } from '../../utils/config.js';
 
 export const data = new SlashCommandBuilder()
     .setName('profile')
@@ -20,9 +17,13 @@ export async function execute(interaction) {
     try {
         await interaction.deferReply();
 
+        const config = await getConfig();
+        const API_URL = config.API_URL || config.BACKEND_URL || 'http://localhost:3000';
+        const WEB_URL = config.WEB_URL || 'https://profilesafterdark.com';
+
         const profileId = interaction.options.getString('id');
 
-        const response = await fetch(`${API_URL}/api/profiles/${profileId}`);
+        const response = await fetch(`${API_URL}/api/v1/profiles/${profileId}`);
         
         if (!response.ok) {
             if (response.status === 404) {
@@ -65,7 +66,7 @@ export async function execute(interaction) {
 
         embed.addFields({
             name: '🔗 View on Web',
-            value: `[View Profile](${process.env.WEB_URL || 'https://profilesafterdark.com'}/gallery/profiles/${profileId})`,
+            value: `[View Profile](${WEB_URL}/gallery/profiles/${profileId})`,
             inline: true
         });
 

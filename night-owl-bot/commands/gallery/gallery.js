@@ -1,9 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import fetch from 'node-fetch';
-import dotenv from 'dotenv';
-dotenv.config();
-
-const API_URL = process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:3000';
+import { getConfig } from '../../utils/config.js';
 
 export const data = new SlashCommandBuilder()
     .setName('gallery')
@@ -37,15 +34,19 @@ export async function execute(interaction) {
     try {
         await interaction.deferReply();
 
+        const config = await getConfig();
+        const API_URL = config.API_URL || config.BACKEND_URL || 'http://localhost:3000';
+        const WEB_URL = config.WEB_URL || 'https://profilesafterdark.com';
+
         const type = interaction.options.getString('type') || 'profiles';
         const category = interaction.options.getString('category');
         const limit = interaction.options.getInteger('limit') || 5;
 
         const endpoint = type === 'profiles' 
-            ? `${API_URL}/api/profiles`
+            ? `${API_URL}/api/v1/profiles`
             : type === 'emotes'
-            ? `${API_URL}/api/emotes`
-            : `${API_URL}/api/wallpapers`;
+            ? `${API_URL}/api/v1/emotes`
+            : `${API_URL}/api/v1/wallpapers`;
 
         const params = new URLSearchParams();
         if (category) params.append('category', category);
@@ -90,7 +91,7 @@ export async function execute(interaction) {
             .addComponents(
                 new ButtonBuilder()
                     .setLabel('View on Web')
-                    .setURL(`${process.env.WEB_URL || 'https://profilesafterdark.com'}/gallery/${type}`)
+                    .setURL(`${WEB_URL}/gallery/${type}`)
                     .setStyle(ButtonStyle.Link),
                 new ButtonBuilder()
                     .setLabel('More Info')

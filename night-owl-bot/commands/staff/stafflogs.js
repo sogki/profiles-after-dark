@@ -1,6 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, ChannelType } from 'discord.js';
-import dotenv from 'dotenv';
-dotenv.config();
+import { getConfig } from '../../utils/config.js';
 
 export const data = new SlashCommandBuilder()
     .setName('stafflogs')
@@ -18,7 +17,8 @@ export const category = 'Moderation'; // Command category
 
 export async function execute(interaction) {
     const amount = interaction.options.getInteger('amount') || 5;
-    const channelId = process.env.STAFF_LOG_CHANNEL_ID;
+    const config = await getConfig();
+    const channelId = config.STAFF_LOG_CHANNEL_ID;
 
     if (!channelId) {
         return await interaction.reply({

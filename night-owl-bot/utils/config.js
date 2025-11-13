@@ -100,23 +100,55 @@ export async function loadConfig() {
         console.warn('⚠️  Failed to load config from database:', error.message);
         console.warn('⚠️  Falling back to environment variables');
       } else if (data && data.length > 0) {
-        // Build config object from database
+        // Build config object from database - PRIORITY SOURCE
         data.forEach(item => {
           config[item.key] = item.value;
+        });
+        
+        // Only fill in missing keys from environment variables
+        const knownKeys = [
+          'DISCORD_TOKEN',
+          'CLIENT_ID',
+          'GUILD_ID',
+          'SUPABASE_URL',
+          'SUPABASE_SERVICE_ROLE_KEY',
+          'API_URL',
+          'BACKEND_URL',
+          'WEB_URL',
+          'STAFF_LOG_CHANNEL_ID',
+          'PORT',
+          'NODE_ENV',
+          'RAILWAY_PUBLIC_DOMAIN',
+          'RAILWAY_ENVIRONMENT'
+        ];
+
+        // Add missing keys from environment (only if not in database)
+        knownKeys.forEach(key => {
+          if (!config[key]) {
+            const envValue = getConfigFromEnv(key);
+            if (envValue) {
+              config[key] = envValue;
+              console.log(`   📝 ${key} not in database, using environment variable`);
+            }
+          }
         });
         
         configCache = config;
         lastCacheUpdate = Date.now();
         
-        // Log which keys were loaded (without values for secrets)
-        const loadedKeys = data.map(item => item.key).join(', ');
+        // Log which keys were loaded from database
+        const dbKeys = data.map(item => item.key);
+        const envKeys = knownKeys.filter(key => config[key] && !dbKeys.includes(key));
         console.log(`✅ Loaded ${data.length} configuration value(s) from database`);
-        console.log(`   Keys: ${loadedKeys}`);
+        console.log(`   Database keys: ${dbKeys.join(', ')}`);
+        if (envKeys.length > 0) {
+          console.log(`   Environment keys (fallback): ${envKeys.join(', ')}`);
+        }
         
         return config;
       } else {
         console.warn('⚠️  No configuration found in database');
-        console.warn('⚠️  Using environment variables');
+        console.warn('⚠️  Using environment variables as fallback');
       }
     } else {
       console.warn('⚠️  Supabase not configured, using environment variables');

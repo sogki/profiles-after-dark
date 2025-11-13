@@ -1,9 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import fetch from 'node-fetch';
-import dotenv from 'dotenv';
-dotenv.config();
-
-const API_URL = process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:3000';
+import { getConfig } from '../../utils/config.js';
 
 export const data = new SlashCommandBuilder()
     .setName('stats')
@@ -15,7 +12,11 @@ export async function execute(interaction) {
     try {
         await interaction.deferReply();
 
-        const response = await fetch(`${API_URL}/api/stats`);
+        const config = await getConfig();
+        const API_URL = config.API_URL || config.BACKEND_URL || 'http://localhost:3000';
+        const WEB_URL = config.WEB_URL || 'https://profilesafterdark.com';
+
+        const response = await fetch(`${API_URL}/api/v1/stats`);
         
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
@@ -38,7 +39,7 @@ export async function execute(interaction) {
                 { name: '😀 Emotes', value: stats.emotes?.toLocaleString() || '0', inline: true },
                 { name: '🖼️ Wallpapers', value: stats.wallpapers?.toLocaleString() || '0', inline: true },
                 { name: '👥 Discord Users', value: stats.discordUsers?.toLocaleString() || '0', inline: true },
-                { name: '🌐 Website', value: `[Visit Site](${process.env.WEB_URL || 'https://profilesafterdark.com'})`, inline: true }
+                { name: '🌐 Website', value: `[Visit Site](${WEB_URL})`, inline: true }
             )
             .setTimestamp()
             .setFooter({ text: 'Profiles After Dark' });

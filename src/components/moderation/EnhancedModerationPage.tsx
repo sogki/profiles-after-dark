@@ -468,7 +468,13 @@ export default function EnhancedModerationPage() {
   }, [sidebarOpen]);
   
   // Now check access after all hooks are called
-  const hasModerationAccess = userProfile?.role === 'admin' || userProfile?.role === 'moderator' || userProfile?.role === 'staff';
+  // Check if user has any staff-related role (admin, staff, moderator)
+  // Users with verified role alone should NOT see the mod panel
+  // But users with admin/staff/moderator + verified should still see it
+  const userRole = userProfile?.role?.toLowerCase() || '';
+  const roles = userRole ? userRole.split(',').map(r => r.trim().toLowerCase()).filter(r => r) : [];
+  const staffRoles = ['admin', 'staff', 'moderator'];
+  const hasModerationAccess = roles.some(role => staffRoles.includes(role));
   
   // Redirect if no access - but hooks must be called first
   if (!user) {

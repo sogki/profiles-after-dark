@@ -236,7 +236,11 @@ export default function ModerationAnalytics({ isOpen, onClose }: ModerationAnaly
   const [selectedView, setSelectedView] = useState<'overview' | 'trends' | 'moderators' | 'insights'>('overview');
   const [refreshing, setRefreshing] = useState(false);
 
-  const hasModerationAccess = userProfile?.role === 'admin' || userProfile?.role === 'moderator' || userProfile?.role === 'staff';
+  // Check if user has any staff-related role (admin, staff, moderator)
+  const userRole = userProfile?.role?.toLowerCase() || '';
+  const roles = userRole ? userRole.split(',').map(r => r.trim().toLowerCase()).filter(r => r) : [];
+  const staffRoles = ['admin', 'staff', 'moderator'];
+  const hasModerationAccess = roles.some(role => staffRoles.includes(role));
 
   useEffect(() => {
     if (!hasModerationAccess) return;

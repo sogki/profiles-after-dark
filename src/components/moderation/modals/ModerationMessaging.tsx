@@ -96,7 +96,11 @@ export default function ModerationMessaging({ isOpen, onClose }: ModerationMessa
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const hasModerationAccess = userProfile?.role === 'admin' || userProfile?.role === 'moderator' || userProfile?.role === 'staff';
+  // Check if user has any staff-related role (admin, staff, moderator)
+  const userRole = userProfile?.role?.toLowerCase() || '';
+  const roles = userRole ? userRole.split(',').map(r => r.trim().toLowerCase()).filter(r => r) : [];
+  const staffRoles = ['admin', 'staff', 'moderator'];
+  const hasModerationAccess = roles.some(role => staffRoles.includes(role));
 
   useEffect(() => {
     if (!hasModerationAccess) return;

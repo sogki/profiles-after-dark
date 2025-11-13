@@ -70,19 +70,35 @@ export default function SecuritySettings({
   }
 
   const handleDeleteAccount = async () => {
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
+    if (!currentUser) {
+      toast.error("No user logged in.")
+      return
+    }
+
+    // Log account deletion started
+    await supabase.from('moderation_logs').insert({
+      moderator_id: currentUser.id,
+      target_user_id: currentUser.id,
+      action: 'account_deletion_started',
+      title: 'Account Deletion Started',
+      description: 'User initiated account deletion process'
+    }).catch(err => console.warn('Failed to log deletion start:', err))
+
     if (!confirm("Are you absolutely sure you want to delete your account? This action cannot be undone.")) {
+      // Log account deletion cancelled
+      await supabase.from('moderation_logs').insert({
+        moderator_id: currentUser.id,
+        target_user_id: currentUser.id,
+        action: 'account_deletion_cancelled',
+        title: 'Account Deletion Cancelled',
+        description: 'User cancelled account deletion process'
+      }).catch(err => console.warn('Failed to log deletion cancel:', err))
       return
     }
 
     setIsDeleting(true)
     try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
-      if (!currentUser) {
-        toast.error("No user logged in.")
-        setIsDeleting(false)
-        return
-      }
-
       const { error } = await supabase.rpc("delete_user_account", {
         uid: currentUser.id,
       })
@@ -92,6 +108,15 @@ export default function SecuritySettings({
         setIsDeleting(false)
         return
       }
+
+      // Log account deleted (this might not execute if account is deleted, but try anyway)
+      await supabase.from('moderation_logs').insert({
+        moderator_id: currentUser.id,
+        target_user_id: currentUser.id,
+        action: 'account_deleted',
+        title: 'Account Deleted',
+        description: 'User account was successfully deleted'
+      }).catch(err => console.warn('Failed to log deletion:', err))
 
       toast.success("Your account has been deleted successfully.")
       await supabase.auth.signOut()

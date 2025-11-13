@@ -405,20 +405,21 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                           {/* Menu Items */}
                           <div className="py-2">
                             {(() => {
-                              // Check if user has staff-related roles only (admin, staff, moderator)
-                              // Verified users should NOT see the mod panel
+                              // Check if user has any staff-related role (admin, staff, moderator)
+                              // Users with verified role alone should NOT see the mod panel
+                              // But users with admin/staff/moderator + verified should still see it
                               const userRole = userProfile?.role?.toLowerCase() || '';
                               if (!userRole) return null;
                               
-                              // Parse comma-separated roles
-                              const roles = userRole.split(',').map(r => r.trim());
+                              // Parse comma-separated roles and normalize
+                              const roles = userRole.split(',').map(r => r.trim().toLowerCase()).filter(r => r);
                               
-                              // Only allow staff-related roles
-                              const hasAdminRole = roles.includes('admin');
-                              const hasStaffRole = roles.includes('staff') || roles.includes('moderator');
-                              const isStaff = hasAdminRole || hasStaffRole;
+                              // Check if user has ANY staff-related role (admin, staff, or moderator)
+                              // Having verified alone doesn't grant access, but having it with staff roles is fine
+                              const staffRoles = ['admin', 'staff', 'moderator'];
+                              const hasStaffRole = roles.some(role => staffRoles.includes(role));
                               
-                              return isStaff && (
+                              return hasStaffRole && (
                                 <Link
                                   to="/moderation"
                                   className="flex items-center px-5 py-3 text-sm text-slate-200 hover:text-white hover:bg-slate-700/40 transition-all group relative"
@@ -684,20 +685,21 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                       </button>
 
                       {(() => {
-                        // Check if user has staff-related roles only (admin, staff, moderator)
-                        // Verified users should NOT see the mod panel
+                        // Check if user has any staff-related role (admin, staff, moderator)
+                        // Users with verified role alone should NOT see the mod panel
+                        // But users with admin/staff/moderator + verified should still see it
                         const userRole = userProfile?.role?.toLowerCase() || '';
                         if (!userRole) return null;
                         
-                        // Parse comma-separated roles
-                        const roles = userRole.split(',').map(r => r.trim());
+                        // Parse comma-separated roles and normalize
+                        const roles = userRole.split(',').map(r => r.trim().toLowerCase()).filter(r => r);
                         
-                        // Only allow staff-related roles
-                        const hasAdminRole = roles.includes('admin');
-                        const hasStaffRole = roles.includes('staff') || roles.includes('moderator');
-                        const isStaff = hasAdminRole || hasStaffRole;
+                        // Check if user has ANY staff-related role (admin, staff, or moderator)
+                        // Having verified alone doesn't grant access, but having it with staff roles is fine
+                        const staffRoles = ['admin', 'staff', 'moderator'];
+                        const hasStaffRole = roles.some(role => staffRoles.includes(role));
                         
-                        return isStaff ? (
+                        return hasStaffRole ? (
                           <Link
                             to="/moderation"
                             onClick={() => setIsMobileMenuOpen(false)}

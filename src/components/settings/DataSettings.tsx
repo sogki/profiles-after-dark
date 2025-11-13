@@ -236,6 +236,15 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
 
+      // Log backup downloaded
+      await supabase.from('moderation_logs').insert({
+        moderator_id: user.id,
+        target_user_id: user.id,
+        action: 'backup_downloaded',
+        title: 'Account Backup Downloaded',
+        description: 'User downloaded account backup file'
+      }).catch(err => console.warn('Failed to log backup download:', err))
+
       toast.success("Account backup created and saved successfully!")
     } catch (error) {
       console.error("Backup error:", error)
@@ -263,6 +272,26 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
       if (backupData.settings.privacy) {
         localStorage.setItem("privacy_settings", backupData.settings.privacy)
       }
+
+      // Update restored_at in account_backups if we can find the backup
+      if (backupData.user?.id) {
+        await supabase
+          .from('account_backups')
+          .update({ restored_at: new Date().toISOString() })
+          .eq('user_id', backupData.user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .catch(err => console.warn('Failed to update backup restored_at:', err))
+      }
+
+      // Log backup restored
+      await supabase.from('moderation_logs').insert({
+        moderator_id: user.id,
+        target_user_id: user.id,
+        action: 'backup_restored',
+        title: 'Account Backup Restored',
+        description: 'User restored account from backup file'
+      }).catch(err => console.warn('Failed to log backup restore:', err))
 
       toast.success("Account backup restored successfully! Please refresh the page to see changes.")
       setBackupFile(null)

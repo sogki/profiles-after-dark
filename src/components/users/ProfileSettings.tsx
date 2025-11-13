@@ -308,14 +308,55 @@ export default function ProfileSettings() {
     if (!user) return
 
     setLoading(true)
-    const { error } = await supabase.from("user_profiles").update(profile).eq("user_id", user.id)
+    try {
+      // Get previous values before updating
+      const { data: previousProfile } = await supabase
+        .from("user_profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single()
 
-    if (error) {
+      const { error } = await supabase.from("user_profiles").update(profile).eq("user_id", user.id)
+
+      if (error) {
+        toast.error("Failed to update profile.")
+      } else {
+        // Log the account update with before/after values
+        const changes: Record<string, { before: any; after: any }> = {}
+        if (previousProfile) {
+          Object.keys(profile).forEach(key => {
+            const beforeValue = previousProfile[key as keyof typeof previousProfile]
+            const afterValue = profile[key as keyof typeof profile]
+            if (beforeValue !== afterValue) {
+              changes[key] = { before: beforeValue, after: afterValue }
+            }
+          })
+        }
+
+        // Log to moderation_logs if there are changes
+        if (Object.keys(changes).length > 0) {
+          await supabase.from('moderation_logs').insert({
+            moderator_id: user.id,
+            target_user_id: user.id,
+            action: 'account_updated',
+            title: 'Account Updated',
+            description: `Account profile updated: ${Object.keys(changes).join(', ')}`,
+            metadata: {
+              changes: changes,
+              previous_profile: previousProfile,
+              new_profile: profile
+            }
+          }).catch(err => console.warn('Failed to log account update:', err))
+        }
+
+        toast.success("Profile updated successfully.")
+      }
+    } catch (error) {
+      console.error("Update error:", error)
       toast.error("Failed to update profile.")
-    } else {
-      toast.success("Profile updated successfully.")
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const updateEmailPassword = async () => {

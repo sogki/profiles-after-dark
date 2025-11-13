@@ -4,7 +4,8 @@ import {
     ActionRowBuilder, 
     ButtonBuilder, 
     ButtonStyle,
-    StringSelectMenuBuilder
+    StringSelectMenuBuilder,
+    ComponentType
 } from 'discord.js';
 import fetch from 'node-fetch';
 import { loadConfig } from '../../utils/config.js';
@@ -49,16 +50,17 @@ function createGalleryEmbed(items, type, page, totalPages, category = null) {
                 const num = startIndex + idx + 1;
                 const uploader = item.user_profiles?.username || item.user_profiles?.display_name || 'Unknown';
                 const downloads = item.download_count || 0;
-                const category = item.category || (item.combo_text ? 'Emoji Combo' : 'N/A');
+                const itemCategory = item.category || (item.combo_text ? 'Emoji Combo' : 'N/A');
                 const title = item.title || item.name || 'Untitled';
+                const truncatedTitle = title.length > 50 ? title.substring(0, 47) + '...' : title;
                 
-                return `**${num}.** ${title}\n` +
-                       `   👤 ${uploader} • 📥 ${downloads} downloads${category !== 'N/A' ? ` • 📁 ${category}` : ''}`;
+                return `**${num}.** ${truncatedTitle}\n` +
+                       `   👤 ${uploader} • 📥 ${downloads} downloads${itemCategory !== 'N/A' ? ` • 📁 ${itemCategory}` : ''}`;
             }).join('\n\n')
         )
         .setColor(info.color)
         .setFooter({ 
-            text: `Showing ${startIndex + 1}-${endIndex} of ${items.length} items • Page ${page + 1} of ${totalPages}` 
+            text: `Showing ${startIndex + 1}-${endIndex} of ${items.length} items • Page ${page + 1} of ${totalPages}${category ? ` • Filtered: ${category}` : ''}` 
         })
         .setTimestamp();
 
@@ -79,7 +81,7 @@ function createGalleryEmbed(items, type, page, totalPages, category = null) {
     return embed;
 }
 
-async function createGalleryButtons(items, type, page, totalPages, sessionId, category = null) {
+async function createGalleryButtons(items, type, page, totalPages, sessionId, category = null, searchQuery = null) {
     const info = contentTypeInfo[type] || contentTypeInfo['profiles'];
     const startIndex = page * ITEMS_PER_PAGE;
     const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, items.length);
@@ -88,10 +90,20 @@ async function createGalleryButtons(items, type, page, totalPages, sessionId, ca
     const config = await loadConfig();
     const WEB_URL = config?.WEB_URL || 'https://profilesafterdark.com';
 
-    const buttons = new ActionRowBuilder();
+    // First row: Navigation buttons
+    const navButtons = new ActionRowBuilder();
+
+    // First page button
+    navButtons.addComponents(
+        new ButtonBuilder()
+            .setCustomId(`gallery-first-${sessionId}`)
+            .setLabel('⏮ First')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(page === 0 || totalPages <= 1)
+    );
 
     // Previous button
-    buttons.addComponents(
+    navButtons.addComponents(
         new ButtonBuilder()
             .setCustomId(`gallery-prev-${sessionId}`)
             .setLabel('◀ Previous')
@@ -100,7 +112,7 @@ async function createGalleryButtons(items, type, page, totalPages, sessionId, ca
     );
 
     // Page indicator
-    buttons.addComponents(
+    navButtons.addComponents(
         new ButtonBuilder()
             .setCustomId(`gallery-page-${sessionId}`)
             .setLabel(`${page + 1} / ${totalPages}`)
@@ -109,7 +121,7 @@ async function createGalleryButtons(items, type, page, totalPages, sessionId, ca
     );
 
     // Next button
-    buttons.addComponents(
+    navButtons.addComponents(
         new ButtonBuilder()
             .setCustomId(`gallery-next-${sessionId}`)
             .setLabel('Next ▶')
@@ -117,36 +129,77 @@ async function createGalleryButtons(items, type, page, totalPages, sessionId, ca
             .setDisabled(page >= totalPages - 1)
     );
 
-    // View on Web button
-    buttons.addComponents(
+    // Last page button
+    navButtons.addComponents(
         new ButtonBuilder()
-            .setLabel('View on Web')
-            .setURL(`${WEB_URL}/gallery/${info.path}`)
-            .setStyle(ButtonStyle.Link)
+            .setCustomId(`gallery-last-${sessionId}`)
+            .setLabel('Last ⏭')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(page >= totalPages - 1 || totalPages <= 1)
     );
 
-    // Type selector button
-    buttons.addComponents(
+    // Second row: Action buttons
+    const actionButtons = new ActionRowBuilder();
+
+    // Refresh button
+    actionButtons.addComponents(
         new ButtonBuilder()
-            .setCustomId(`gallery-type-${sessionId}`)
-            .setLabel('Change Type')
+            .setCustomId(`gallery-refresh-${sessionId}`)
+            .setLabel('🔄 Refresh')
             .setStyle(ButtonStyle.Primary)
     );
 
-    // Second row for item view buttons
+    // Type selector button
+    actionButtons.addComponents(
+        new ButtonBuilder()
+            .setCustomId(`gallery-type-${sessionId}`)
+            .setLabel('📋 Change Type')
+            .setStyle(ButtonStyle.Primary)
+    );
+
+    // Category filter button (if applicable)
+    if (type === 'profiles' || type === 'emotes' || type === 'wallpapers') {
+        actionButtons.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`gallery-category-${sessionId}`)
+                .setLabel('📁 Filter Category')
+                .setStyle(ButtonStyle.Secondary)
+        );
+    }
+
+    // View on Web button
+    actionButtons.addComponents(
+        new ButtonBuilder()
+            .setLabel('🌐 View on Web')
+            .setURL(`${WEB_URL}/gallery/${info.path}${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`)
+            .setStyle(ButtonStyle.Link)
+    );
+
+    // Random item button
+    if (items.length > 0) {
+        actionButtons.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`gallery-random-${sessionId}`)
+                .setLabel('🎲 Random')
+                .setStyle(ButtonStyle.Success)
+        );
+    }
+
+    // Third row: Item view buttons
+    // Use :: as separator since item.id might be a UUID with dashes
     const itemButtons = new ActionRowBuilder();
     pageItems.forEach((item, idx) => {
         if (idx < 5) { // Discord limit is 5 buttons per row
             itemButtons.addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`gallery-view-${sessionId}-${item.id}`)
-                    .setLabel(`View #${startIndex + idx + 1}`)
+                    .setCustomId(`gallery-view-${sessionId}::${item.id}`)
+                    .setLabel(`#${startIndex + idx + 1}`)
                     .setStyle(ButtonStyle.Success)
             );
         }
     });
 
-    return [buttons, itemButtons];
+    return [navButtons, actionButtons, itemButtons];
 }
 
 function createTypeSelectMenu(selectedType, sessionId) {
@@ -163,6 +216,19 @@ function createTypeSelectMenu(selectedType, sessionId) {
             .setCustomId(`gallery-type-select-${sessionId}`)
             .setPlaceholder(`Selected: ${contentTypeInfo[selectedType]?.name || 'Profiles'}`)
             .addOptions(options)
+    );
+}
+
+function createCategorySelectMenu(sessionId, currentCategory = null) {
+    // This will be populated dynamically based on the type
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(`gallery-category-select-${sessionId}`)
+            .setPlaceholder(currentCategory ? `Current: ${currentCategory}` : 'Select a category...')
+            .addOptions([
+                { label: 'All Categories', value: 'all', description: 'Show all categories', default: !currentCategory },
+                { label: 'Loading...', value: 'loading', description: 'Please wait', disabled: true }
+            ])
     );
 }
 
@@ -308,9 +374,20 @@ export async function execute(interaction) {
             
             if (result.success && result.data) {
                 items = result.data[type] || [];
+                console.log(`Found ${items.length} items for type "${type}" in search results`);
             } else if (result[type]) {
                 // Fallback: check if response has type directly
                 items = result[type] || [];
+                console.log(`Found ${items.length} items for type "${type}" (fallback)`);
+            } else {
+                console.warn('Unexpected search API response format:', result);
+                items = [];
+            }
+            
+            // Log if no items found
+            if (items.length === 0) {
+                console.log(`No items found for search query "${searchQuery}" and type "${type}"`);
+                console.log('Available types in response:', result.data ? Object.keys(result.data) : 'none');
             }
         } else {
             // Regular gallery browse
@@ -370,7 +447,7 @@ export async function execute(interaction) {
         });
 
         const embed = createGalleryEmbed(items, type, 0, totalPages, category);
-        const buttons = await createGalleryButtons(items, type, 0, totalPages, sessionId, category);
+        const buttons = await createGalleryButtons(items, type, 0, totalPages, sessionId, category, searchQuery);
 
         await interaction.editReply({
             embeds: [embed],
@@ -386,22 +463,31 @@ export async function execute(interaction) {
 
 // Handle button and select menu interactions
 export async function handleGalleryInteraction(interaction) {
-    const customId = interaction.customId;
-    
-    if (!customId.startsWith('gallery-')) return false;
+    try {
+        const customId = interaction.customId;
+        
+        if (!customId.startsWith('gallery-')) return false;
 
-    const parts = customId.split('-');
-    const action = parts[1]; // 'prev', 'next', 'page', 'type', 'view'
-    
-    // For 'view' action, we create a new message, so deferReply
-    // For other actions, we update the original message, so deferUpdate
-    if (!interaction.deferred && !interaction.replied) {
-        if (action === 'view') {
-            await interaction.deferReply({ ephemeral: true }).catch(() => {});
-        } else {
-            await interaction.deferUpdate().catch(() => {});
+        const parts = customId.split('-');
+        const action = parts[1]; // 'prev', 'next', 'page', 'type', 'view'
+        
+        // For 'view' action, we create a new message, so deferReply
+        // For other actions, we update the original message, so deferUpdate
+        if (!interaction.deferred && !interaction.replied) {
+            if (action === 'view') {
+                await interaction.deferReply({ ephemeral: true }).catch(err => {
+                    console.error('Error deferring reply for view:', err);
+                });
+            } else {
+                await interaction.deferUpdate().catch(err => {
+                    console.error('Error deferring update:', err);
+                    // If deferUpdate fails (e.g., ephemeral message), try deferReply
+                    if (!interaction.replied) {
+                        await interaction.deferReply({ ephemeral: true }).catch(() => {});
+                    }
+                });
+            }
         }
-    }
 
     // Handle type selector button
     if (action === 'type' && parts.length === 3) {
@@ -491,21 +577,49 @@ export async function handleGalleryInteraction(interaction) {
 
         const totalPages = Math.ceil(session.items.length / ITEMS_PER_PAGE);
         const embed = createGalleryEmbed(session.items, newType, 0, totalPages, session.category);
-        const buttons = await createGalleryButtons(session.items, newType, 0, totalPages, actualSessionId, session.category);
+        const buttons = await createGalleryButtons(session.items, newType, 0, totalPages, actualSessionId, session.category, session.searchQuery);
 
-        await interaction.update({
-            embeds: [embed],
-            components: buttons
-        });
+        // Use editReply if deferred, otherwise update
+        if (interaction.deferred) {
+            await interaction.editReply({
+                embeds: [embed],
+                components: buttons
+            }).catch(err => {
+                console.error('Error editing reply for type change:', err);
+            });
+        } else {
+            await interaction.update({
+                embeds: [embed],
+                components: buttons
+            }).catch(err => {
+                console.error('Error updating interaction for type change:', err);
+            });
+        }
         return true;
     }
 
     // Handle view item button
     if (action === 'view') {
-        // For view buttons: gallery-view-${sessionId}-${itemId}
-        // sessionId is everything between 'view' and the last part (itemId)
-        const itemId = parts[parts.length - 1];
-        const sessionId = parts.slice(2, -1).join('-');
+        // For view buttons: gallery-view-${sessionId}::${itemId}
+        // Use :: as separator since item.id might be a UUID with dashes
+        const customIdParts = customId.split('::');
+        if (customIdParts.length !== 2) {
+            console.error('Invalid view button customId format:', customId);
+            if (interaction.deferred) {
+                await interaction.editReply({
+                    content: '❌ Invalid button format. Please run `/gallery` again.',
+                }).catch(() => {});
+            } else {
+                await interaction.reply({
+                    content: '❌ Invalid button format. Please run `/gallery` again.',
+                    ephemeral: true
+                }).catch(() => {});
+            }
+            return true;
+        }
+        
+        const sessionId = customIdParts[0].replace('gallery-view-', '');
+        const itemId = customIdParts[1];
         
         // Try to find session by ID first
         let session = gallerySessions.get(sessionId);
@@ -530,15 +644,20 @@ export async function handleGalleryInteraction(interaction) {
             return true;
         }
 
-        const item = session.items.find(i => i.id === itemId || i.id.toString() === itemId);
+        const item = session.items.find(i => {
+            const id = i.id?.toString() || i.id;
+            return id === itemId || id === itemId.toString();
+        });
+        
         if (!item) {
+            console.error('Item not found in session:', { itemId, sessionId, availableIds: session.items.map(i => i.id) });
             if (interaction.deferred) {
                 await interaction.editReply({
-                    content: '❌ Item not found.',
+                    content: `❌ Item not found. (ID: ${itemId})`,
                 }).catch(() => {});
             } else {
                 await interaction.reply({
-                    content: '❌ Item not found.',
+                    content: `❌ Item not found. (ID: ${itemId})`,
                     ephemeral: true
                 }).catch(() => {});
             }
@@ -587,13 +706,181 @@ export async function handleGalleryInteraction(interaction) {
             });
         }
 
+        const viewButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setLabel('🌐 View on Website')
+                .setURL(`${WEB_URL}/gallery/${info.path}/${item.id}`)
+                .setStyle(ButtonStyle.Link),
+            new ButtonBuilder()
+                .setCustomId(`gallery-back-${sessionId}`)
+                .setLabel('← Back to Gallery')
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+        if (interaction.deferred) {
+            await interaction.editReply({
+                embeds: [embed],
+                components: [viewButtons],
+            }).catch(() => {});
+        } else {
+            await interaction.reply({
+                embeds: [embed],
+                components: [viewButtons],
+                ephemeral: true
+            }).catch(() => {});
+        }
+        return true;
+    }
+
+    // Handle refresh button
+    if (action === 'refresh') {
+        const sessionId = parts.slice(2).join('-');
+        let session = gallerySessions.get(sessionId);
+        
+        if (!session || session.userId !== interaction.user.id) {
+            const fallbackSession = Array.from(gallerySessions.entries())
+                .find(([_, s]) => s.userId === interaction.user.id);
+            if (!fallbackSession) {
+                if (interaction.deferred) {
+                    await interaction.editReply({
+                        content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                    }).catch(() => {});
+                } else {
+                    await interaction.reply({
+                        content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                        ephemeral: true
+                    }).catch(() => {});
+                }
+                return true;
+            }
+            session = fallbackSession[1];
+            sessionId = fallbackSession[0];
+        }
+        
+        // Re-fetch data
+        const config = await loadConfig();
+        const API_URL = config?.API_URL || config?.BACKEND_URL || process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:3000';
+        let endpoint = `${API_URL}/api/v1/${contentTypeInfo[session.type]?.endpoint || 'profiles'}`;
+        
+        if (session.searchQuery) {
+            const params = new URLSearchParams();
+            params.append('q', session.searchQuery);
+            params.append('type', session.type);
+            params.append('limit', '50');
+            const response = await fetch(`${API_URL}/api/v1/search?${params}`);
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && result.data) {
+                    session.items = result.data[session.type] || [];
+                }
+            }
+        } else {
+            const params = new URLSearchParams();
+            if (session.category) params.append('category', session.category);
+            params.append('limit', '50');
+            params.append('offset', '0');
+            const response = await fetch(`${endpoint}?${params}`);
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && result.data) {
+                    session.items = Array.isArray(result.data) ? result.data : [];
+                } else if (Array.isArray(result)) {
+                    session.items = result;
+                } else if (result.data && Array.isArray(result.data)) {
+                    session.items = result.data;
+                }
+            }
+        }
+        
+        const totalPages = Math.ceil(session.items.length / ITEMS_PER_PAGE);
+        const currentPage = Math.min(parseInt(interaction.message.embeds[0]?.footer?.text?.match(/Page (\d+)/)?.[1] || '1') - 1, totalPages - 1);
+        const embed = createGalleryEmbed(session.items, session.type, currentPage, totalPages, session.category);
+        const buttons = await createGalleryButtons(session.items, session.type, currentPage, totalPages, sessionId, session.category, session.searchQuery);
+        
+        if (interaction.deferred) {
+            await interaction.editReply({
+                embeds: [embed],
+                components: buttons
+            }).catch(() => {});
+        } else {
+            await interaction.update({
+                embeds: [embed],
+                components: buttons
+            }).catch(() => {});
+        }
+        return true;
+    }
+
+    // Handle random button
+    if (action === 'random') {
+        const sessionId = parts.slice(2).join('-');
+        let session = gallerySessions.get(sessionId);
+        
+        if (!session || session.userId !== interaction.user.id) {
+            session = Array.from(gallerySessions.entries())
+                .find(([_, s]) => s.userId === interaction.user.id)?.[1];
+        }
+        
+        if (!session || session.userId !== interaction.user.id || session.items.length === 0) {
+            if (interaction.deferred) {
+                await interaction.editReply({
+                    content: '⏱️ This gallery session has expired or has no items. Please run `/gallery` again.',
+                }).catch(() => {});
+            } else {
+                await interaction.reply({
+                    content: '⏱️ This gallery session has expired or has no items. Please run `/gallery` again.',
+                    ephemeral: true
+                }).catch(() => {});
+            }
+            return true;
+        }
+        
+        // Show random item
+        const randomItem = session.items[Math.floor(Math.random() * session.items.length)];
+        const itemId = randomItem.id?.toString() || randomItem.id;
+        
+        // Reuse view item logic
+        const config = await loadConfig();
+        const WEB_URL = config?.WEB_URL || process.env.WEB_URL || 'https://profilesafterdark.com';
+        const info = contentTypeInfo[session.type] || contentTypeInfo['profiles'];
+        
+        const title = randomItem.title || randomItem.name || 'Untitled';
+        const description = randomItem.description || randomItem.combo_text || 'No description';
+        const imageUrl = randomItem.image_url || null;
+        
+        const embed = new EmbedBuilder()
+            .setTitle(`🎲 ${info.icon} Random ${info.name}: ${title}`)
+            .setDescription(description)
+            .setColor(info.color)
+            .addFields(
+                { name: 'Category', value: randomItem.category || (randomItem.combo_text ? 'Emoji Combo' : 'N/A'), inline: true },
+                { name: 'Downloads', value: (randomItem.download_count || 0).toString(), inline: true },
+                { name: 'Type', value: randomItem.type || 'N/A', inline: true }
+            )
+            .setTimestamp(randomItem.created_at);
+        
+        if (imageUrl) {
+            embed.setImage(imageUrl);
+        }
+        
+        if (randomItem.user_profiles) {
+            embed.setFooter({
+                text: `Uploaded by ${randomItem.user_profiles.username || randomItem.user_profiles.display_name || 'Unknown'}`,
+                iconURL: randomItem.user_profiles.avatar_url || undefined
+            });
+        }
+        
         const viewButton = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setLabel('View on Website')
-                .setURL(`${WEB_URL}/gallery/${info.path}/${item.id}`)
-                .setStyle(ButtonStyle.Link)
+                .setURL(`${WEB_URL}/gallery/${info.path}/${randomItem.id}`)
+                .setStyle(ButtonStyle.Link),
+            new ButtonBuilder()
+                .setCustomId(`gallery-random-${sessionId}`)
+                .setLabel('🎲 Another Random')
+                .setStyle(ButtonStyle.Success)
         );
-
+        
         if (interaction.deferred) {
             await interaction.editReply({
                 embeds: [embed],
@@ -609,10 +896,186 @@ export async function handleGalleryInteraction(interaction) {
         return true;
     }
 
-    // Handle pagination
+    // Handle category filter button
+    if (action === 'category') {
+        const sessionId = parts.slice(2).join('-');
+        const session = gallerySessions.get(sessionId);
+        
+        if (!session || session.userId !== interaction.user.id) {
+            const fallbackSession = Array.from(gallerySessions.entries())
+                .find(([_, s]) => s.userId === interaction.user.id);
+            if (!fallbackSession) {
+                if (interaction.deferred) {
+                    await interaction.editReply({
+                        content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                    }).catch(() => {});
+                } else {
+                    await interaction.reply({
+                        content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                        ephemeral: true
+                    }).catch(() => {});
+                }
+                return true;
+            }
+            // Fetch categories for this type
+            const db = await getSupabase();
+            let categories = [];
+            const tableName = fallbackSession[1].type;
+            const { data } = await db
+                .from(tableName)
+                .select('category')
+                .or('status.is.null,status.eq.approved')
+                .limit(1000);
+            
+            if (data) {
+                categories = [...new Set(data.map(item => item.category).filter(Boolean))];
+            }
+            
+            const categoryMenu = new ActionRowBuilder().addComponents(
+                new StringSelectMenuBuilder()
+                    .setCustomId(`gallery-category-select-${fallbackSession[0]}`)
+                    .setPlaceholder(fallbackSession[1].category ? `Current: ${fallbackSession[1].category}` : 'Select a category...')
+                    .addOptions([
+                        { label: 'All Categories', value: 'all', description: 'Show all categories', default: !fallbackSession[1].category },
+                        ...categories.slice(0, 24).map(cat => ({
+                            label: cat,
+                            value: cat,
+                            default: cat === fallbackSession[1].category
+                        }))
+                    ])
+            );
+            
+            if (interaction.deferred) {
+                await interaction.editReply({
+                    content: 'Select a category to filter:',
+                    components: [categoryMenu],
+                }).catch(() => {});
+            } else {
+                await interaction.reply({
+                    content: 'Select a category to filter:',
+                    components: [categoryMenu],
+                    ephemeral: true
+                }).catch(() => {});
+            }
+            return true;
+        }
+    }
+
+    // Handle category select menu
+    if (action === 'category' && parts[2] === 'select') {
+        if (!interaction.deferred && !interaction.replied) {
+            await interaction.deferUpdate().catch(() => {});
+        }
+        
+        const actualSessionId = parts.slice(3).join('-');
+        const session = gallerySessions.get(actualSessionId);
+        
+        if (!session || session.userId !== interaction.user.id) {
+            if (interaction.deferred) {
+                await interaction.editReply({
+                    content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                }).catch(() => {});
+            } else {
+                await interaction.reply({
+                    content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                    ephemeral: true
+                }).catch(() => {});
+            }
+            return true;
+        }
+        
+        const selectedCategory = interaction.values[0] === 'all' ? null : interaction.values[0];
+        session.category = selectedCategory;
+        session.items = [];
+        
+        // Re-fetch data with new category
+        const config = await loadConfig();
+        const API_URL = config?.API_URL || config?.BACKEND_URL || process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:3000';
+        const endpoint = `${API_URL}/api/v1/${contentTypeInfo[session.type]?.endpoint || 'profiles'}`;
+        
+        const params = new URLSearchParams();
+        if (selectedCategory) params.append('category', selectedCategory);
+        params.append('limit', '50');
+        params.append('offset', '0');
+        
+        const response = await fetch(`${endpoint}?${params}`);
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.data) {
+                session.items = Array.isArray(result.data) ? result.data : [];
+            } else if (Array.isArray(result)) {
+                session.items = result;
+            } else if (result.data && Array.isArray(result.data)) {
+                session.items = result.data;
+            }
+        }
+        
+        const totalPages = Math.ceil(session.items.length / ITEMS_PER_PAGE);
+        const embed = createGalleryEmbed(session.items, session.type, 0, totalPages, selectedCategory);
+        const buttons = await createGalleryButtons(session.items, session.type, 0, totalPages, actualSessionId, selectedCategory, session.searchQuery);
+        
+        if (interaction.deferred) {
+            await interaction.editReply({
+                embeds: [embed],
+                components: buttons
+            }).catch(() => {});
+        } else {
+            await interaction.update({
+                embeds: [embed],
+                components: buttons
+            }).catch(() => {});
+        }
+        return true;
+    }
+
+    // Handle back button
+    if (action === 'back') {
+        const sessionId = parts.slice(2).join('-');
+        let session = gallerySessions.get(sessionId);
+        
+        if (!session || session.userId !== interaction.user.id) {
+            const fallbackSession = Array.from(gallerySessions.entries())
+                .find(([_, s]) => s.userId === interaction.user.id);
+            if (!fallbackSession) {
+                if (interaction.deferred) {
+                    await interaction.editReply({
+                        content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                    }).catch(() => {});
+                } else {
+                    await interaction.reply({
+                        content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                        ephemeral: true
+                    }).catch(() => {});
+                }
+                return true;
+            }
+            session = fallbackSession[1];
+            sessionId = fallbackSession[0];
+        }
+        
+        const totalPages = Math.ceil(session.items.length / ITEMS_PER_PAGE);
+        const currentPage = 0; // Go back to first page
+        const embed = createGalleryEmbed(session.items, session.type, currentPage, totalPages, session.category);
+        const buttons = await createGalleryButtons(session.items, session.type, currentPage, totalPages, sessionId, session.category, session.searchQuery);
+        
+        if (interaction.deferred) {
+            await interaction.editReply({
+                embeds: [embed],
+                components: buttons
+            }).catch(() => {});
+        } else {
+            await interaction.update({
+                embeds: [embed],
+                components: buttons
+            }).catch(() => {});
+        }
+        return true;
+    }
+
+    // Handle pagination (prev, next, first, last, page)
     // Extract sessionId based on action type
     let sessionId;
-    if (action === 'prev' || action === 'next' || action === 'page') {
+    if (action === 'prev' || action === 'next' || action === 'page' || action === 'first' || action === 'last' || action === 'back') {
         sessionId = parts.slice(2).join('-');
     } else {
         // For other actions, try to find session by user
@@ -669,19 +1132,63 @@ export async function handleGalleryInteraction(interaction) {
     
     let newPage = currentPage;
     
-    if (action === 'prev' && currentPage > 0) {
+    if (action === 'first') {
+        newPage = 0;
+    } else if (action === 'prev' && currentPage > 0) {
         newPage = currentPage - 1;
     } else if (action === 'next' && currentPage < totalPages - 1) {
         newPage = currentPage + 1;
+    } else if (action === 'last') {
+        newPage = totalPages - 1;
     }
 
     const embed = createGalleryEmbed(session.items, session.type, newPage, totalPages, session.category);
-    const buttons = await createGalleryButtons(session.items, session.type, newPage, totalPages, sessionId, session.category);
+    const buttons = await createGalleryButtons(session.items, session.type, newPage, totalPages, sessionId, session.category, session.searchQuery);
 
-    await interaction.update({
-        embeds: [embed],
-        components: buttons
-    });
+    // Use editReply if deferred, otherwise update
+    if (interaction.deferred) {
+        await interaction.editReply({
+            embeds: [embed],
+            components: buttons
+        }).catch(err => {
+            console.error('Error editing reply for pagination:', err);
+        });
+    } else {
+        await interaction.update({
+            embeds: [embed],
+            components: buttons
+        }).catch(err => {
+            console.error('Error updating interaction for pagination:', err);
+            // Fallback to reply if update fails
+            if (!interaction.replied) {
+                interaction.reply({
+                    content: '⚠️ There was an error updating the page. Please try again.',
+                    ephemeral: true
+                }).catch(() => {});
+            }
+        });
+    }
 
     return true;
+    } catch (error) {
+        console.error('Error in handleGalleryInteraction:', error);
+        console.error('Interaction details:', {
+            customId: interaction.customId,
+            user: interaction.user?.id,
+            deferred: interaction.deferred,
+            replied: interaction.replied
+        });
+        
+        if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+                content: '⚠️ There was an error processing this interaction. Please try again.',
+                ephemeral: true
+            }).catch(() => {});
+        } else if (interaction.deferred) {
+            await interaction.editReply({
+                content: '⚠️ There was an error processing this interaction. Please try again.',
+            }).catch(() => {});
+        }
+        return true;
+    }
 }

@@ -10,6 +10,7 @@ import searchRouter from './search.js';
 import monitoringRouter from './monitoring.js';
 import configRouter from './config.js';
 import usersRouter from './users.js';
+import accountLinkingRouter from './account-linking.js';
 
 const router = express.Router();
 
@@ -25,6 +26,7 @@ router.use('/search', searchRouter);
 router.use('/monitoring', monitoringRouter);
 router.use('/config', configRouter);
 router.use('/users', usersRouter);
+router.use('/account-linking', accountLinkingRouter);
 
 /**
  * @route   GET /api/v1

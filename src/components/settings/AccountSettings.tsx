@@ -1,6 +1,7 @@
-import { useRef, useState } from "react"
+import { useRef, useState, useEffect } from "react"
 import { supabase } from "../../lib/supabase"
-import { Loader2, Save, Camera, Upload, User } from "lucide-react"
+import { getConfig } from "../../lib/config"
+import { Loader2, Save, Camera, Upload, User, Link2, Copy, Check } from "lucide-react"
 import toast from "react-hot-toast"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 
@@ -32,6 +33,170 @@ export default function AccountSettings({
   const usernameInputRef = useRef<HTMLInputElement>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [uploadingBanner, setUploadingBanner] = useState(false)
+  const [linkingCode, setLinkingCode] = useState<string | null>(null)
+  const [codeExpiresAt, setCodeExpiresAt] = useState<string | null>(null)
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false)
+  const [isLinked, setIsLinked] = useState(false)
+  const [discordAccount, setDiscordAccount] = useState<any>(null)
+  const [copied, setCopied] = useState(false)
+
+  // Check linking status on mount
+  useEffect(() => {
+    if (user) {
+      checkLinkingStatus()
+    }
+  }, [user])
+
+  // Set up real-time subscription for account linking
+  useEffect(() => {
+    if (!user) return
+
+    // Subscribe to discord_users table updates and inserts
+    const discordChannel = supabase
+      .channel(`account-linking-discord-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'discord_users',
+          filter: `web_user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Account linking update:', payload)
+          if (payload.new.web_user_id === user.id && payload.new.discord_id) {
+            setIsLinked(true)
+            setDiscordAccount({
+              discord_id: payload.new.discord_id,
+              username: payload.new.username,
+              avatar_url: payload.new.avatar_url
+            })
+            setLinkingCode(null)
+            setCodeExpiresAt(null)
+            toast.success('Discord account linked successfully!')
+            // Refresh status to get latest data
+            checkLinkingStatus()
+          }
+        }
+      )
+      .subscribe()
+
+    // Subscribe to notifications for account_linked type
+    const notificationChannel = supabase
+      .channel(`account-linking-notifications-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          const notification = payload.new as any
+          if (notification.type === 'account_linked') {
+            toast.success('Discord account linked successfully!')
+            checkLinkingStatus()
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(discordChannel)
+      supabase.removeChannel(notificationChannel)
+    }
+  }, [user])
+
+  const checkLinkingStatus = async () => {
+    if (!user) return
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const config = await getConfig()
+      const API_URL = config.API_URL || config.VITE_API_URL || 'http://localhost:3000'
+      const apiBaseUrl = API_URL.replace('/api/v1', '').replace('/api', '')
+
+      const response = await fetch(`${apiBaseUrl}/api/v1/account-linking/status`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          setIsLinked(result.data.is_linked)
+          setDiscordAccount(result.data.discord_account)
+          if (result.data.has_active_code) {
+            setLinkingCode(result.data.active_code.code)
+            setCodeExpiresAt(result.data.active_code.expires_at)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking linking status:', error)
+    }
+  }
+
+  const generateLinkingCode = async () => {
+    if (!user) {
+      toast.error('You must be logged in to generate a linking code.')
+      return
+    }
+
+    setIsGeneratingCode(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        toast.error('Session expired. Please log in again.')
+        return
+      }
+
+      const config = await getConfig()
+      const API_URL = config.API_URL || config.VITE_API_URL || 'http://localhost:3000'
+      const apiBaseUrl = API_URL.replace('/api/v1', '').replace('/api', '')
+
+      const response = await fetch(`${apiBaseUrl}/api/v1/account-linking/generate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
+        setLinkingCode(result.data.code)
+        setCodeExpiresAt(result.data.expires_at)
+        toast.success('Linking code generated! Use /sync in Discord to link your account.')
+      } else {
+        toast.error(result.error || 'Failed to generate linking code.')
+      }
+    } catch (error) {
+      console.error('Error generating linking code:', error)
+      toast.error('Failed to generate linking code. Please try again.')
+    } finally {
+      setIsGeneratingCode(false)
+    }
+  }
+
+  const copyCode = () => {
+    if (linkingCode) {
+      navigator.clipboard.writeText(linkingCode)
+      setCopied(true)
+      toast.success('Code copied to clipboard!')
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const isCodeExpired = () => {
+    if (!codeExpiresAt) return false
+    return new Date(codeExpiresAt) < new Date()
+  }
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: "avatar_url" | "banner_url") => {
     const file = e.target.files?.[0]
@@ -261,6 +426,101 @@ export default function AccountSettings({
           {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
           Save Profile
         </button>
+
+        {/* Discord Account Linking Section */}
+        <div className="mt-8 pt-8 border-t border-slate-700/50">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Link2 className="h-5 w-5" />
+            Discord Account Linking
+          </h3>
+
+          {isLinked ? (
+            <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-400 font-medium mb-1">✅ Account Linked</p>
+                  <p className="text-slate-300 text-sm">
+                    Your Discord account <span className="font-mono text-white">{discordAccount?.username || 'Unknown'}</span> is linked to this account.
+                  </p>
+                </div>
+                {discordAccount?.avatar_url && (
+                  <img 
+                    src={discordAccount.avatar_url} 
+                    alt="Discord Avatar" 
+                    className="w-12 h-12 rounded-full"
+                  />
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {linkingCode && !isCodeExpired() ? (
+                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
+                  <p className="text-sm text-slate-300 mb-3">
+                    Use this code in Discord with <span className="font-mono bg-slate-800 px-2 py-1 rounded">/sync {linkingCode}</span>
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-lg p-3">
+                      <p className="text-xs text-slate-400 mb-1">Your Linking Code</p>
+                      <p className="text-2xl font-mono font-bold text-white tracking-wider">{linkingCode}</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Expires: {new Date(codeExpiresAt!).toLocaleString()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={copyCode}
+                      className="px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors text-white"
+                      title="Copy code"
+                    >
+                      {copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-3">
+                    ⏱️ This code expires in 15 minutes and can only be used once.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
+                  <p className="text-slate-300 text-sm mb-4">
+                    Link your Discord account to unlock additional features and sync your data across platforms.
+                  </p>
+                  <button
+                    onClick={generateLinkingCode}
+                    disabled={isGeneratingCode}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-medium transition-colors text-white"
+                  >
+                    {isGeneratingCode ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Generating Code...
+                      </>
+                    ) : (
+                      <>
+                        <Link2 className="h-5 w-5" />
+                        Generate Linking Code
+                      </>
+                    )}
+                  </button>
+                  {linkingCode && isCodeExpired() && (
+                    <p className="text-xs text-red-400 mt-2">
+                      ⚠️ Your previous code has expired. Generate a new one to continue.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="bg-slate-800/30 border border-slate-700/30 rounded-lg p-4">
+                <p className="text-xs text-slate-400 mb-2 font-semibold">How to link:</p>
+                <ol className="text-xs text-slate-400 space-y-1 list-decimal list-inside">
+                  <li>Click "Generate Linking Code" above</li>
+                  <li>Copy the 8-character code</li>
+                  <li>Open Discord and run <span className="font-mono text-white">/sync [code]</span></li>
+                  <li>You'll receive a confirmation notification when linked!</li>
+                </ol>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

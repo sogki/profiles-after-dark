@@ -1,12 +1,7 @@
--- Fix user profile creation trigger to handle duplicate usernames
--- This migration updates the create_user_profile function to generate unique usernames
--- when there's a conflict with existing usernames
+-- Set default role 'user,member' when new users are created
+-- This migration updates the create_user_profile function to set the default role
 
--- Drop the existing trigger and function
-DROP TRIGGER IF EXISTS create_user_profile_trigger ON auth.users;
-DROP FUNCTION IF EXISTS create_user_profile();
-
--- Create improved function that handles duplicate usernames
+-- Update the create_user_profile function to include default role
 CREATE OR REPLACE FUNCTION create_user_profile()
   RETURNS TRIGGER AS $$
 DECLARE
@@ -43,15 +38,29 @@ BEGIN
   END LOOP;
   
   -- Insert user profile with default role 'user,member'
-  INSERT INTO public.user_profiles (user_id, username, display_name, email, role)
-  VALUES (
-    NEW.id,
-    final_username,
-    COALESCE(NEW.raw_user_meta_data->>'display_name', final_username),
-    NEW.email,
-    'user,member'
-  )
-  ON CONFLICT (user_id) DO NOTHING; -- Handle case where profile already exists
+  -- Handle case where email column might not exist
+  BEGIN
+    INSERT INTO public.user_profiles (user_id, username, display_name, email, role)
+    VALUES (
+      NEW.id,
+      final_username,
+      COALESCE(NEW.raw_user_meta_data->>'display_name', final_username),
+      NEW.email,
+      'user,member'
+    )
+    ON CONFLICT (user_id) DO NOTHING; -- Handle case where profile already exists
+  EXCEPTION
+    WHEN undefined_column THEN
+      -- If email column doesn't exist, insert without it
+      INSERT INTO public.user_profiles (user_id, username, display_name, role)
+      VALUES (
+        NEW.id,
+        final_username,
+        COALESCE(NEW.raw_user_meta_data->>'display_name', final_username),
+        'user,member'
+      )
+      ON CONFLICT (user_id) DO NOTHING;
+  END;
   
   RETURN NEW;
 EXCEPTION
@@ -62,9 +71,6 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Recreate the trigger
-CREATE TRIGGER create_user_profile_trigger
-  AFTER INSERT ON auth.users
-  FOR EACH ROW
-  EXECUTE FUNCTION create_user_profile();
+-- Add comment explaining the default role
+COMMENT ON FUNCTION create_user_profile IS 'Creates a user profile when a new user signs up. Sets default role to "user,member" which grants the member badge.';
 

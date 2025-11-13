@@ -100,7 +100,8 @@ export default function CommunityPage() {
         supabase
           .from("profiles")
           .select("user_id")
-          .in("user_id", userIds),
+          .in("user_id", userIds)
+          .or("status.is.null,status.neq.rejected"),
         supabase
           .from("follows")
           .select("following_id")

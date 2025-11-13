@@ -15,6 +15,7 @@ export default function useRetrieveProfileEmojiCombos() {
         .from("emoji_combos")
         .select("id, user_id, name, combo_text, description, tags, created_at")
         .eq("user_id", profileData?.user_id ?? "")
+        .or("status.is.null,status.neq.rejected")
         .order("created_at", { ascending: false });
 
       if (emojiCombosError) {

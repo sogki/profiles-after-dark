@@ -15,6 +15,7 @@ export default function useRetrieveProfileEmotes() {
         .from("emotes")
         .select("id, title, image_url, tags, category, created_at")
         .eq("user_id", profileData?.user_id ?? "")
+        .or("status.is.null,status.neq.rejected")
         .order("created_at", { ascending: false });
 
       if (emotesError) {

@@ -715,19 +715,27 @@ DECLARE
   v_account_age_days INTEGER;
   v_user_created_at TIMESTAMPTZ;
 BEGIN
-  -- Get account creation date
+  -- Get account creation date - try auth.users first (most accurate), fallback to user_profiles
   SELECT created_at INTO v_user_created_at
-  FROM user_profiles
-  WHERE user_id = p_user_id;
+  FROM auth.users
+  WHERE id = p_user_id;
+  
+  -- If not found in auth.users, try user_profiles
+  IF v_user_created_at IS NULL THEN
+    SELECT created_at INTO v_user_created_at
+    FROM user_profiles
+    WHERE user_id = p_user_id;
+  END IF;
   
   IF v_user_created_at IS NULL THEN
     RETURN;
   END IF;
   
-  -- Calculate account age in days
-  v_account_age_days := EXTRACT(EPOCH FROM (NOW() - v_user_created_at)) / 86400;
+  -- Calculate account age in days (using FLOOR to get whole days)
+  v_account_age_days := FLOOR(EXTRACT(EPOCH FROM (NOW() - v_user_created_at)) / 86400);
   
-  -- Award account age milestones
+  -- Award account age milestones (check all milestones up to current age)
+  -- This ensures users get all badges they qualify for, not just the highest one
   IF v_account_age_days >= 7 THEN
     PERFORM award_badge(p_user_id, 'week_old', jsonb_build_object('days', v_account_age_days));
   END IF;
@@ -751,6 +759,7 @@ END;
 $$;
 
 -- Function to check and award special/role-based achievements
+-- Supports comma-separated roles like "admin,verified" or "staff,verified"
 CREATE OR REPLACE FUNCTION check_special_achievements(p_user_id UUID)
 RETURNS void
 LANGUAGE plpgsql
@@ -762,6 +771,15 @@ DECLARE
   v_admin_badge_id UUID;
   v_staff_badge_id UUID;
   v_member_badge_id UUID;
+  v_verified_badge_id UUID;
+  v_bug_tester_badge_id UUID;
+  v_role_array TEXT[];
+  v_role TEXT;
+  v_has_admin BOOLEAN := false;
+  v_has_staff BOOLEAN := false;
+  v_has_moderator BOOLEAN := false;
+  v_has_verified BOOLEAN := false;
+  v_has_bug_tester BOOLEAN := false;
 BEGIN
   -- Get user role and active status from user_profiles
   SELECT role, COALESCE(is_active, true) INTO v_user_role, v_is_active
@@ -776,44 +794,71 @@ BEGIN
   SELECT id INTO v_admin_badge_id FROM badges WHERE code = 'admin' AND is_active = true;
   SELECT id INTO v_staff_badge_id FROM badges WHERE code = 'staff' AND is_active = true;
   SELECT id INTO v_member_badge_id FROM badges WHERE code = 'member' AND is_active = true;
+  SELECT id INTO v_verified_badge_id FROM badges WHERE code = 'verified' AND is_active = true;
+  SELECT id INTO v_bug_tester_badge_id FROM badges WHERE code = 'bug_tester' AND is_active = true;
+  
+  -- Parse comma-separated roles (trim whitespace and convert to lowercase for comparison)
+  v_role_array := string_to_array(trim(v_user_role), ',');
+  
+  -- Check which roles are present
+  FOREACH v_role IN ARRAY v_role_array
+  LOOP
+    v_role := trim(lower(v_role));
+    IF v_role = 'admin' THEN
+      v_has_admin := true;
+    ELSIF v_role = 'staff' THEN
+      v_has_staff := true;
+    ELSIF v_role = 'moderator' THEN
+      v_has_moderator := true;
+    ELSIF v_role = 'verified' THEN
+      v_has_verified := true;
+    ELSIF v_role = 'bug_tester' OR v_role = 'bugtester' THEN
+      v_has_bug_tester := true;
+    END IF;
+    -- Note: 'member' and 'user' roles are handled in the ELSE clause below
+  END LOOP;
   
   -- Award role-based badges (only for active users)
   IF v_is_active THEN
-    IF v_user_role = 'admin' THEN
-      -- Admins only get admin badge, remove staff and member badges if they exist
+    -- Award admin badge if admin role is present
+    IF v_has_admin THEN
+      PERFORM award_badge(p_user_id, 'admin', jsonb_build_object('role', v_user_role));
+      -- Remove staff and member badges if admin has them
       IF v_staff_badge_id IS NOT NULL THEN
         DELETE FROM user_badges WHERE user_id = p_user_id AND badge_id = v_staff_badge_id;
       END IF;
       IF v_member_badge_id IS NOT NULL THEN
         DELETE FROM user_badges WHERE user_id = p_user_id AND badge_id = v_member_badge_id;
       END IF;
-      PERFORM award_badge(p_user_id, 'admin', jsonb_build_object('role', v_user_role));
-    ELSIF v_user_role = 'staff' THEN
-      -- Staff get staff badge, remove member badge if it exists
+    -- Award staff badge if staff or moderator role is present (and not admin)
+    ELSIF v_has_staff OR v_has_moderator THEN
+      PERFORM award_badge(p_user_id, 'staff', jsonb_build_object('role', v_user_role));
+      -- Remove member badge if staff has it
       IF v_member_badge_id IS NOT NULL THEN
         DELETE FROM user_badges WHERE user_id = p_user_id AND badge_id = v_member_badge_id;
       END IF;
-      PERFORM award_badge(p_user_id, 'staff', jsonb_build_object('role', v_user_role));
-    ELSIF v_user_role = 'moderator' THEN
-      -- Moderators also get staff badge, remove member badge if it exists
-      IF v_member_badge_id IS NOT NULL THEN
-        DELETE FROM user_badges WHERE user_id = p_user_id AND badge_id = v_member_badge_id;
-      END IF;
-      PERFORM award_badge(p_user_id, 'staff', jsonb_build_object('role', v_user_role));
+    -- Regular users (member, user, or no role) get member badge
     ELSE
-      -- Regular users get member badge, remove admin and staff badges if they exist
+      PERFORM award_badge(p_user_id, 'member', jsonb_build_object('member', true));
+      -- Remove admin and staff badges if regular user has them
       IF v_admin_badge_id IS NOT NULL THEN
         DELETE FROM user_badges WHERE user_id = p_user_id AND badge_id = v_admin_badge_id;
       END IF;
       IF v_staff_badge_id IS NOT NULL THEN
         DELETE FROM user_badges WHERE user_id = p_user_id AND badge_id = v_staff_badge_id;
       END IF;
-      PERFORM award_badge(p_user_id, 'member', jsonb_build_object('member', true));
+    END IF;
+    
+    -- Award verified badge if verified role is present
+    IF v_has_verified AND v_verified_badge_id IS NOT NULL THEN
+      PERFORM award_badge(p_user_id, 'verified', jsonb_build_object('role', v_user_role));
+    END IF;
+    
+    -- Award bug_tester badge if bug_tester role is present
+    IF v_has_bug_tester AND v_bug_tester_badge_id IS NOT NULL THEN
+      PERFORM award_badge(p_user_id, 'bug_tester', jsonb_build_object('role', v_user_role));
     END IF;
   END IF;
-  
-  -- Note: Verified and bug_tester badges should be manually awarded by staff
-  -- They are not automatically assigned based on role
 END;
 $$;
 
@@ -824,10 +869,11 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
+  -- Check all achievement types
   PERFORM check_content_achievements(p_user_id);
   PERFORM check_social_achievements(p_user_id);
   PERFORM check_engagement_achievements(p_user_id);
-  PERFORM check_milestone_achievements(p_user_id);
+  PERFORM check_milestone_achievements(p_user_id);  -- Now included in all checks
   PERFORM check_special_achievements(p_user_id);
 END;
 $$;
@@ -1056,6 +1102,31 @@ CREATE TRIGGER check_achievements_on_profile_update
   AFTER UPDATE ON user_profiles
   FOR EACH ROW
   EXECUTE FUNCTION trigger_check_special_achievements();
+
+-- Trigger function to check milestone and special achievements when user profile is updated (e.g., on login)
+CREATE OR REPLACE FUNCTION trigger_check_milestone_achievements()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Check milestone achievements whenever user profile is updated
+  -- This ensures users get milestone badges when they log in or their profile is updated
+  PERFORM check_milestone_achievements(NEW.user_id);
+  
+  -- Also check special achievements (member, admin, staff badges) to ensure they're awarded
+  PERFORM check_special_achievements(NEW.user_id);
+  
+  RETURN NEW;
+END;
+$$;
+
+-- Trigger for user_profiles updates to check milestone and special achievements
+DROP TRIGGER IF EXISTS check_milestone_achievements_on_profile_update ON user_profiles;
+CREATE TRIGGER check_milestone_achievements_on_profile_update
+  AFTER UPDATE ON user_profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION trigger_check_milestone_achievements();
 
 -- Insert default badges (using image_url, and icon if column exists)
 -- First, check if icon column exists and insert accordingly

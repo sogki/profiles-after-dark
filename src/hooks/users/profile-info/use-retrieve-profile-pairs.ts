@@ -17,6 +17,7 @@ export default function useRetrieveProfilePairs() {
           "id, user_id, pfp_url, banner_url, title, category, tags, created_at"
         )
         .eq("user_id", profileData?.user_id ?? "")
+        .or("status.is.null,status.neq.rejected")
         .order("created_at", { ascending: false });
 
       if (pairsError) {

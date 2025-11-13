@@ -137,6 +137,8 @@
     -webkit-text-size-adjust: 100%;
     /* Improve touch scrolling */
     -webkit-overflow-scrolling: touch;
+    /* Prevent horizontal scrollbar */
+    overflow-x: hidden;
   }
 
   body {
@@ -144,6 +146,10 @@
     overscroll-behavior-y: contain;
     /* Improve touch interactions */
     touch-action: manipulation;
+    /* Prevent horizontal scrollbar */
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
   }
 }
 

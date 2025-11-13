@@ -15,6 +15,7 @@ export default function useRetrieveProfileUploads() {
         .from("profiles")
         .select("id, title, image_url, tags, category, type, created_at")
         .eq("user_id", profileData?.user_id ?? "")
+        .or("status.is.null,status.neq.rejected")
         .order("created_at", { ascending: false });
 
       if (uploadsError) {

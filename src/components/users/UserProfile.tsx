@@ -679,8 +679,21 @@ export default function UserProfile() {
                       {/* Special Badges - Only show special category badges (admin, staff, member, verified, bug_tester) */}
                       {profile.show_badges_on_profile !== false && profile.user_badges && Array.isArray(profile.user_badges) && (() => {
                         const specialBadges = (profile.user_badges as UserBadge[]).filter(
-                          (ub: any) => ub.badges?.category === 'special' || ['admin', 'staff', 'member', 'verified', 'bug_tester'].includes(ub.badges?.code || '')
+                          (ub: any) => {
+                            const badgeCode = ub.badges?.code || '';
+                            const badgeCategory = ub.badges?.category || '';
+                            const isSpecial = badgeCategory === 'special' || ['admin', 'staff', 'member', 'verified', 'bug_tester'].includes(badgeCode);
+                            // Debug logging (remove in production)
+                            if (process.env.NODE_ENV === 'development' && ub.badges) {
+                              console.log('Badge check:', { code: badgeCode, category: badgeCategory, isSpecial, name: ub.badges?.name });
+                            }
+                            return isSpecial;
+                          }
                         );
+                        // Debug logging
+                        if (process.env.NODE_ENV === 'development') {
+                          console.log('Special badges found:', specialBadges.length, 'out of', profile.user_badges.length, 'total badges');
+                        }
                         if (specialBadges.length === 0) return null;
                         return (
                           <div className="relative inline-flex items-center gap-1.5 sm:gap-2">
@@ -691,6 +704,44 @@ export default function UserProfile() {
                                 onMouseEnter={(e) => {
                                   const tooltip = e.currentTarget.querySelector('.badge-tooltip') as HTMLElement;
                                   if (tooltip) {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    
+                                    // Temporarily make tooltip visible off-screen to measure it
+                                    tooltip.style.visibility = 'visible';
+                                    tooltip.style.opacity = '0';
+                                    tooltip.style.display = 'block';
+                                    tooltip.style.top = '0px';
+                                    tooltip.style.left = '0px';
+                                    
+                                    // Force a reflow to get accurate dimensions
+                                    void tooltip.offsetHeight;
+                                    
+                                    const tooltipRect = tooltip.getBoundingClientRect();
+                                    const tooltipHeight = tooltipRect.height || 32;
+                                    const tooltipWidth = tooltipRect.width || 100;
+                                    const spacing = 8;
+                                    const viewportWidth = window.innerWidth;
+                                    const padding = 8;
+                                    
+                                    // Calculate position
+                                    let leftPos = rect.left + rect.width / 2;
+                                    let transformX = -50; // Center by default
+                                    
+                                    // Constrain to viewport - adjust if tooltip would overflow
+                                    if (leftPos - tooltipWidth / 2 < padding) {
+                                      // Too far left, align to left edge
+                                      leftPos = padding + tooltipWidth / 2;
+                                      transformX = -50;
+                                    } else if (leftPos + tooltipWidth / 2 > viewportWidth - padding) {
+                                      // Too far right, align to right edge
+                                      leftPos = viewportWidth - padding - tooltipWidth / 2;
+                                      transformX = -50;
+                                    }
+                                    
+                                    // Position tooltip above the badge
+                                    tooltip.style.top = `${rect.top - tooltipHeight - spacing}px`;
+                                    tooltip.style.left = `${leftPos}px`;
+                                    tooltip.style.transform = `translate(${transformX}%, 0)`;
                                     tooltip.style.opacity = '1';
                                   }
                                 }}
@@ -698,6 +749,7 @@ export default function UserProfile() {
                                   const tooltip = e.currentTarget.querySelector('.badge-tooltip') as HTMLElement;
                                   if (tooltip) {
                                     tooltip.style.opacity = '0';
+                                    tooltip.style.visibility = 'hidden';
                                   }
                                 }}
                               >
@@ -709,11 +761,22 @@ export default function UserProfile() {
                                   className="cursor-pointer"
                                 />
                                 {/* Badge name tooltip */}
-                                <div className="badge-tooltip absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900/95 backdrop-blur-sm rounded text-xs text-white whitespace-nowrap opacity-0 transition-opacity pointer-events-none z-50 border border-slate-700 shadow-lg">
+                                <div className="badge-tooltip fixed px-2 py-1 bg-slate-900/95 backdrop-blur-sm rounded text-xs text-white whitespace-nowrap opacity-0 transition-opacity pointer-events-none z-[99999] border border-slate-700 shadow-lg"
+                                  style={{
+                                    visibility: 'hidden',
+                                    top: '-9999px',
+                                    left: '-9999px'
+                                  }}
+                                >
                                   {ub.badges?.name}
-                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px">
-                                    <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-slate-700 transform rotate-45"></div>
-                                  </div>
+                                  {/* Arrow pointing down to the badge */}
+                                  <div className="badge-tooltip-arrow absolute w-2 h-2 bg-slate-900 border-r border-b border-slate-700"
+                                    style={{
+                                      bottom: '-4px',
+                                      left: '50%',
+                                      transform: 'translateX(-50%) rotate(45deg)'
+                                    }}
+                                  ></div>
                                 </div>
                               </div>
                             ))}
@@ -764,11 +827,19 @@ export default function UserProfile() {
 
                   {/* Right side - Achievements */}
                   {profile.show_badges_on_profile !== false && profile.user_badges && Array.isArray(profile.user_badges) && (() => {
+                    // Filter out special badges from the display (they show next to username)
                     const achievementBadges = (profile.user_badges as UserBadge[]).filter(
-                      (ub: any) => ub.badges?.category !== 'special'
+                      (ub: any) => {
+                        const badgeCode = ub.badges?.code || '';
+                        const badgeCategory = ub.badges?.category || '';
+                        return badgeCategory !== 'special' && !['admin', 'staff', 'member', 'verified', 'bug_tester'].includes(badgeCode);
+                      }
                     );
                     
-                    if (achievementBadges.length === 0) return null;
+                    // Total badge count including special badges
+                    const totalBadgeCount = (profile.user_badges as UserBadge[]).length;
+                    
+                    if (achievementBadges.length === 0 && totalBadgeCount === 0) return null;
                     
                     return (
                       <div className="md:w-64 lg:w-80 flex-shrink-0">
@@ -777,52 +848,104 @@ export default function UserProfile() {
                             <Trophy className="h-4 w-4 text-purple-400" />
                             <h2 className="text-sm font-semibold text-white">Achievements</h2>
                             <span className="ml-auto text-xs text-slate-400">
-                              {achievementBadges.length}
+                              {totalBadgeCount}
                             </span>
                           </div>
                           
-                          <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1"
-                            style={{
-                              scrollbarWidth: 'thin',
-                              scrollbarColor: 'rgba(139, 92, 246, 0.3) transparent'
-                            }}
-                          >
-                            {achievementBadges.map((ub: any, idx: number) => {
-                              const badge = ub.badges;
-                              return (
-                                <div
-                                  key={badge?.id || idx}
-                                  className="relative group cursor-pointer"
-                                  onMouseEnter={(e) => {
-                                    const tooltip = e.currentTarget.querySelector('.badge-tooltip') as HTMLElement;
-                                    if (tooltip) {
-                                      tooltip.style.opacity = '1';
-                                    }
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    const tooltip = e.currentTarget.querySelector('.badge-tooltip') as HTMLElement;
-                                    if (tooltip) {
-                                      tooltip.style.opacity = '0';
-                                    }
-                                  }}
-                                >
-                                  <BadgeIcon
-                                    code={badge?.code || null}
-                                    category={badge?.category || null}
-                                    rarity={(badge?.rarity || 'common') as any}
-                                    size={32}
-                                    className="cursor-pointer"
-                                  />
-                                  {/* Badge tooltip */}
-                                  <div className="badge-tooltip absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900/95 backdrop-blur-sm rounded text-xs text-white whitespace-nowrap opacity-0 transition-opacity pointer-events-none z-50 border border-slate-700 shadow-lg">
-                                    {badge?.name}
-                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px">
-                                      <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-slate-700 transform rotate-45"></div>
+                          <div className="relative">
+                            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1"
+                              style={{
+                                scrollbarWidth: 'thin',
+                                scrollbarColor: 'rgba(139, 92, 246, 0.3) transparent'
+                              }}
+                            >
+                              {achievementBadges.map((ub: any, idx: number) => {
+                                const badge = ub.badges;
+                                return (
+                                  <div
+                                    key={badge?.id || idx}
+                                    className="relative group cursor-pointer"
+                                    onMouseEnter={(e) => {
+                                      const tooltip = e.currentTarget.querySelector('.badge-tooltip') as HTMLElement;
+                                      if (tooltip) {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        
+                                        // Temporarily make tooltip visible off-screen to measure it
+                                        tooltip.style.visibility = 'visible';
+                                        tooltip.style.opacity = '0';
+                                        tooltip.style.display = 'block';
+                                        tooltip.style.top = '0px';
+                                        tooltip.style.left = '0px';
+                                        
+                                        // Force a reflow to get accurate dimensions
+                                        void tooltip.offsetHeight;
+                                        
+                                        const tooltipRect = tooltip.getBoundingClientRect();
+                                        const tooltipHeight = tooltipRect.height || 32;
+                                        const tooltipWidth = tooltipRect.width || 100;
+                                        const spacing = 8;
+                                        const viewportWidth = window.innerWidth;
+                                        const padding = 8;
+                                        
+                                        // Calculate position
+                                        let leftPos = rect.left + rect.width / 2;
+                                        let transformX = -50; // Center by default
+                                        
+                                        // Constrain to viewport - adjust if tooltip would overflow
+                                        if (leftPos - tooltipWidth / 2 < padding) {
+                                          // Too far left, align to left edge
+                                          leftPos = padding + tooltipWidth / 2;
+                                          transformX = -50;
+                                        } else if (leftPos + tooltipWidth / 2 > viewportWidth - padding) {
+                                          // Too far right, align to right edge
+                                          leftPos = viewportWidth - padding - tooltipWidth / 2;
+                                          transformX = -50;
+                                        }
+                                        
+                                        // Position tooltip above the badge
+                                        tooltip.style.top = `${rect.top - tooltipHeight - spacing}px`;
+                                        tooltip.style.left = `${leftPos}px`;
+                                        tooltip.style.transform = `translate(${transformX}%, 0)`;
+                                        tooltip.style.opacity = '1';
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      const tooltip = e.currentTarget.querySelector('.badge-tooltip') as HTMLElement;
+                                      if (tooltip) {
+                                        tooltip.style.opacity = '0';
+                                        tooltip.style.visibility = 'hidden';
+                                      }
+                                    }}
+                                  >
+                                    <BadgeIcon
+                                      code={badge?.code || null}
+                                      category={badge?.category || null}
+                                      rarity={(badge?.rarity || 'common') as any}
+                                      size={32}
+                                      className="cursor-pointer"
+                                    />
+                                    {/* Badge tooltip - positioned fixed to escape overflow container */}
+                                    <div className="badge-tooltip fixed px-2 py-1 bg-slate-900/95 backdrop-blur-sm rounded text-xs text-white whitespace-nowrap opacity-0 transition-opacity pointer-events-none z-[99999] border border-slate-700 shadow-lg"
+                                      style={{
+                                        visibility: 'hidden',
+                                        top: '-9999px',
+                                        left: '-9999px'
+                                      }}
+                                    >
+                                      {badge?.name}
+                                      {/* Arrow pointing down to the badge */}
+                                      <div className="badge-tooltip-arrow absolute w-2 h-2 bg-slate-900 border-r border-b border-slate-700"
+                                        style={{
+                                          bottom: '-4px',
+                                          left: '50%',
+                                          transform: 'translateX(-50%) rotate(45deg)'
+                                        }}
+                                      ></div>
                                     </div>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                       </div>

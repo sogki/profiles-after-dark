@@ -13,7 +13,12 @@ import { loadConfig, getConfig } from "./utils/config.js";
 import { cacheDeletedMessage } from "./commands/staff/modlogs.js";
 import { syncDiscordUser } from "./utils/webhooks.js";
 
+// Load dotenv first
 dotenv.config();
+
+// Log that bot is starting
+console.log('🤖 Discord Bot Worker Process Starting...');
+console.log(`📅 Started at: ${new Date().toISOString()}`);
 
 // Load configuration from database (falls back to env vars)
 let config = {};
@@ -97,6 +102,13 @@ async function loadCommands() {
 
 (async () => {
   try {
+    console.log('🤖 ========================================');
+    console.log('🤖 Discord Bot Worker Process Starting...');
+    console.log('🤖 ========================================');
+    console.log(`📅 Started at: ${new Date().toISOString()}`);
+    console.log(`🔧 Node version: ${process.version}`);
+    console.log(`📁 Working directory: ${process.cwd()}`);
+    
     // Load configuration from database
     console.log('📋 Loading configuration...');
     config = await loadConfig();
@@ -148,7 +160,9 @@ async function loadCommands() {
     });
 
     client.once("ready", async () => {
-      console.log(`NightOwl is online as ${client.user.tag}`);
+      console.log(`✅ NightOwl is online as ${client.user.tag}`);
+      console.log(`🆔 Bot ID: ${client.user.id}`);
+      console.log(`📊 Connected to ${client.guilds.cache.size} server(s)`);
 
       client.user.setPresence({
         activities: [

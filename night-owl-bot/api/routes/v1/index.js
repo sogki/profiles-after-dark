@@ -8,6 +8,7 @@ import statsRouter from './stats.js';
 import searchRouter from './search.js';
 import monitoringRouter from './monitoring.js';
 import configRouter from './config.js';
+import usersRouter from './users.js';
 
 const router = express.Router();
 
@@ -21,6 +22,7 @@ router.use('/stats', statsRouter);
 router.use('/search', searchRouter);
 router.use('/monitoring', monitoringRouter);
 router.use('/config', configRouter);
+router.use('/users', usersRouter);
 
 /**
  * @route   GET /api/v1
@@ -40,7 +42,8 @@ router.get('/', (req, res) => {
       moderation: '/api/v1/moderation',
       stats: '/api/v1/stats',
       search: '/api/v1/search',
-      monitoring: '/api/v1/monitoring'
+      monitoring: '/api/v1/monitoring',
+      users: '/api/v1/users'
     },
     documentation: 'https://dev.profilesafterdark.com/api/v1'
   });

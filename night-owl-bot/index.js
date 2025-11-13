@@ -217,6 +217,34 @@ async function loadCommands() {
     });
 
     client.on("interactionCreate", async (interaction) => {
+      // Handle button interactions (for pagination, etc.)
+      if (interaction.isButton()) {
+        try {
+          // Try to handle button interaction in search command
+          const searchCommand = client.commands.get('search');
+          if (searchCommand && searchCommand.handleButtonInteraction) {
+            const handled = await searchCommand.handleButtonInteraction(interaction);
+            if (handled) return;
+          }
+
+          // Add more button handlers here as needed
+        } catch (error) {
+          console.error('Error handling button interaction:', error);
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+              content: "⚠️ There was an error processing this interaction.",
+              ephemeral: true,
+            });
+          } else if (interaction.deferred) {
+            await interaction.editReply({
+              content: "⚠️ There was an error processing this interaction.",
+            });
+          }
+        }
+        return;
+      }
+
+      // Handle slash commands
       if (!interaction.isChatInputCommand()) return;
 
       const command = client.commands.get(interaction.commandName);

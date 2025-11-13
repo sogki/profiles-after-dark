@@ -18,6 +18,10 @@ let PORT = 3000;
 // MIDDLEWARE
 // ==========================================
 
+// Trust proxy - required when behind reverse proxy (Railway, Heroku, etc.)
+// This allows Express to correctly identify client IPs from X-Forwarded-For headers
+app.set('trust proxy', true);
+
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {

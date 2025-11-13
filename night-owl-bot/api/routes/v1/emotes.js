@@ -17,6 +17,7 @@ router.get('/', async (req, res) => {
     let query = db
       .from('emotes')
       .select('*, user_profiles:user_id(username, display_name, avatar_url)')
+      .or('status.is.null,status.eq.approved') // Only show approved content
       .order('created_at', { ascending: false })
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
 
@@ -53,6 +54,7 @@ router.get('/:id', async (req, res) => {
       .from('emotes')
       .select('*, user_profiles:user_id(username, display_name, avatar_url)')
       .eq('id', id)
+      .or('status.is.null,status.eq.approved') // Only show approved content
       .single();
 
     if (error) throw error;

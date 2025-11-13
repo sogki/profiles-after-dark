@@ -1,10 +1,8 @@
-web: node api/server.js
-worker: node index.js
+web: node start-both.js
 
 # For Railway deployment:
-# - 'web' process runs the API server (port 3000)
-# - 'worker' process runs the Discord bot
-# Railway will automatically route traffic to the 'web' process
-# IMPORTANT: Make sure Railway is configured to run BOTH processes
+# - 'web' process runs both API server and Discord bot together
+# - This ensures both services start even if Railway doesn't run worker processes
+# - Railway will automatically route traffic to the 'web' process
 
 

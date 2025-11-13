@@ -28,55 +28,67 @@ router.get('/', async (req, res) => {
     const searchTerm = `%${q}%`;
     
     if (type === 'all' || type === 'profiles') {
+      // Get more results to account for status filtering
       const { data, error } = await db
         .from('profiles')
         .select('*, user_profiles:user_id(username, display_name, avatar_url)')
-        .or(`title.ilike.${searchTerm},tags.cs.{${q}}`)
-        .or('status.is.null,status.eq.approved')
-        .limit(parseInt(limit));
+        .or(`title.ilike.${searchTerm},tags.cs.{${q}},description.ilike.${searchTerm}`)
+        .limit(parseInt(limit) * 2); // Get more to filter by status
       
-      if (!error) {
-        results.profiles = data || [];
+      if (!error && data) {
+        // Filter to only include approved or null status items that match search
+        results.profiles = data
+          .filter(item => (!item.status || item.status === 'approved'))
+          .slice(0, parseInt(limit));
       }
     }
 
     if (type === 'all' || type === 'emotes') {
+      // Get more results to account for status filtering
       const { data, error } = await db
         .from('emotes')
         .select('*, user_profiles:user_id(username, display_name, avatar_url)')
-        .or(`title.ilike.${searchTerm},tags.cs.{${q}}`)
-        .or('status.is.null,status.eq.approved')
-        .limit(parseInt(limit));
+        .or(`title.ilike.${searchTerm},tags.cs.{${q}},description.ilike.${searchTerm}`)
+        .limit(parseInt(limit) * 2); // Get more to filter by status
       
-      if (!error) {
-        results.emotes = data || [];
+      if (!error && data) {
+        // Filter to only include approved or null status items that match search
+        results.emotes = data
+          .filter(item => (!item.status || item.status === 'approved'))
+          .slice(0, parseInt(limit));
       }
     }
 
     if (type === 'all' || type === 'wallpapers') {
+      // Get more results to account for status filtering
       const { data, error } = await db
         .from('wallpapers')
         .select('*, user_profiles:user_id(username, display_name, avatar_url)')
-        .or(`title.ilike.${searchTerm},tags.cs.{${q}}`)
-        .or('status.is.null,status.eq.approved')
-        .limit(parseInt(limit));
+        .or(`title.ilike.${searchTerm},tags.cs.{${q}},description.ilike.${searchTerm}`)
+        .limit(parseInt(limit) * 2); // Get more to filter by status
       
-      if (!error) {
-        results.wallpapers = data || [];
+      if (!error && data) {
+        // Filter to only include approved or null status items that match search
+        results.wallpapers = data
+          .filter(item => (!item.status || item.status === 'approved'))
+          .slice(0, parseInt(limit));
       }
     }
 
     if (type === 'all' || type === 'emoji_combos') {
       try {
+        // Get more results to account for status filtering
         const { data, error } = await db
           .from('emoji_combos')
           .select('*, user_profiles:user_id(username, display_name, avatar_url)')
-          .or(`title.ilike.${searchTerm},tags.cs.{${q}}`)
-          .or('status.is.null,status.eq.approved')
-          .limit(parseInt(limit));
+          .or(`title.ilike.${searchTerm},tags.cs.{${q}},combo_text.ilike.${searchTerm},description.ilike.${searchTerm}`)
+          .limit(parseInt(limit) * 2); // Get more to filter by status
         
-        if (!error) {
-          results.emoji_combos = data || [];
+        if (!error && data) {
+          // Filter to only include approved or null status items that match search
+          results.emoji_combos = data
+            .filter(item => (!item.status || item.status === 'approved'))
+            .slice(0, parseInt(limit));
         }
       } catch (err) {
         // Table might not exist, ignore

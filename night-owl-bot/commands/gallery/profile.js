@@ -15,7 +15,7 @@ export const category = 'Gallery'; // Command category
 
 export async function execute(interaction) {
     try {
-        await interaction.deferReply();
+        await interaction.deferReply({ ephemeral: true });
 
         const config = await getConfig();
         const API_URL = config.API_URL || config.BACKEND_URL || 'http://localhost:3000';

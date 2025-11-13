@@ -34,6 +34,7 @@ export const data = new SlashCommandBuilder()
 export const category = 'Gallery';
 
 // Store active pagination sessions
+// Sessions persist until replaced by a new command from the same user
 const paginationSessions = new Map();
 
 function createSearchEmbed(results, query, type, page = 0) {
@@ -137,7 +138,7 @@ async function createPaginationButtons(page, totalPages, sessionId) {
 
 export async function execute(interaction) {
     try {
-        await interaction.deferReply();
+        await interaction.deferReply({ ephemeral: true });
 
         const query = interaction.options.getString('query');
         const type = interaction.options.getString('type') || 'all';
@@ -177,7 +178,14 @@ export async function execute(interaction) {
             });
         }
 
-        // Create session for pagination
+        // Create session for pagination - replace any existing session for this user
+        // Remove old sessions for this user first
+        for (const [id, session] of paginationSessions.entries()) {
+            if (session.userId === interaction.user.id) {
+                paginationSessions.delete(id);
+            }
+        }
+        
         const sessionId = `${interaction.user.id}_${Date.now()}`;
         const totalPages = Math.ceil(allResults.length / ITEMS_PER_PAGE);
         
@@ -188,13 +196,6 @@ export async function execute(interaction) {
             userId: interaction.user.id,
             createdAt: Date.now()
         });
-
-        // Clean up old sessions (older than 10 minutes)
-        for (const [id, session] of paginationSessions.entries()) {
-            if (Date.now() - session.createdAt > 10 * 60 * 1000) {
-                paginationSessions.delete(id);
-            }
-        }
 
         const embed = createSearchEmbed(results, query, type, 0);
         const buttons = await createPaginationButtons(0, totalPages, sessionId);
@@ -217,6 +218,11 @@ export async function handleButtonInteraction(interaction) {
     
     if (!customId.startsWith('search_')) return false;
 
+    // Defer immediately to prevent timeout (for pagination, we update the original message)
+    if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferUpdate().catch(() => {});
+    }
+
     const parts = customId.split('_');
     const action = parts[1]; // 'prev', 'next', or 'page'
     const sessionId = parts.slice(2).join('_');
@@ -224,19 +230,31 @@ export async function handleButtonInteraction(interaction) {
     const session = paginationSessions.get(sessionId);
     
     if (!session) {
-        await interaction.reply({
-            content: '⏱️ This search session has expired. Please run the search command again.',
-            ephemeral: true
-        });
+        if (interaction.deferred) {
+            await interaction.editReply({
+                content: '⏱️ This search session has expired. Please run the search command again.',
+            }).catch(() => {});
+        } else {
+            await interaction.reply({
+                content: '⏱️ This search session has expired. Please run the search command again.',
+                ephemeral: true
+            }).catch(() => {});
+        }
         return true;
     }
 
     // Check if user owns this session
     if (session.userId !== interaction.user.id) {
-        await interaction.reply({
-            content: '❌ You can only navigate your own search results.',
-            ephemeral: true
-        });
+        if (interaction.deferred) {
+            await interaction.editReply({
+                content: '❌ You can only navigate your own search results.',
+            }).catch(() => {});
+        } else {
+            await interaction.reply({
+                content: '❌ You can only navigate your own search results.',
+                ephemeral: true
+            }).catch(() => {});
+        }
         return true;
     }
 

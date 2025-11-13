@@ -13,8 +13,8 @@ import { getSupabase } from '../../utils/supabase.js';
 const ITEMS_PER_PAGE = 5;
 
 // Store active gallery sessions
+// Sessions persist until replaced by a new command from the same user
 const gallerySessions = new Map();
-const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
 // Content type info
 const contentTypeInfo = {
@@ -267,9 +267,9 @@ export const data = new SlashCommandBuilder()
 export const category = 'Gallery';
 
 export async function execute(interaction) {
-    // Defer immediately to prevent timeout
+    // Defer immediately to prevent timeout (ephemeral)
     if (!interaction.deferred && !interaction.replied) {
-        await interaction.deferReply().catch(() => {
+        await interaction.deferReply({ ephemeral: true }).catch(() => {
             // Ignore errors if already responded
         });
     }
@@ -349,7 +349,14 @@ export async function execute(interaction) {
             });
         }
 
-        // Create session
+        // Create session - replace any existing session for this user
+        // Remove old sessions for this user first
+        for (const [id, session] of gallerySessions.entries()) {
+            if (session.userId === interaction.user.id) {
+                gallerySessions.delete(id);
+            }
+        }
+        
         const sessionId = `${interaction.user.id}_${Date.now()}`;
         const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
         
@@ -361,13 +368,6 @@ export async function execute(interaction) {
             userId: interaction.user.id,
             createdAt: Date.now()
         });
-
-        // Clean up old sessions
-        for (const [id, session] of gallerySessions.entries()) {
-            if (Date.now() - session.createdAt > SESSION_TIMEOUT) {
-                gallerySessions.delete(id);
-            }
-        }
 
         const embed = createGalleryEmbed(items, type, 0, totalPages, category);
         const buttons = await createGalleryButtons(items, type, 0, totalPages, sessionId, category);
@@ -392,40 +392,73 @@ export async function handleGalleryInteraction(interaction) {
 
     const parts = customId.split('-');
     const action = parts[1]; // 'prev', 'next', 'page', 'type', 'view'
-    const sessionId = parts.slice(2).join('-');
+    
+    // For 'view' action, we create a new message, so deferReply
+    // For other actions, we update the original message, so deferUpdate
+    if (!interaction.deferred && !interaction.replied) {
+        if (action === 'view') {
+            await interaction.deferReply({ ephemeral: true }).catch(() => {});
+        } else {
+            await interaction.deferUpdate().catch(() => {});
+        }
+    }
 
     // Handle type selector button
     if (action === 'type' && parts.length === 3) {
         const session = Array.from(gallerySessions.entries())
-            .find(([_, s]) => s.userId === interaction.user.id && Date.now() - s.createdAt < SESSION_TIMEOUT);
+            .find(([_, s]) => s.userId === interaction.user.id);
 
         if (!session) {
-            await interaction.reply({
-                content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
-                ephemeral: true
-            });
+            if (interaction.deferred) {
+                await interaction.editReply({
+                    content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                }).catch(() => {});
+            } else {
+                await interaction.reply({
+                    content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                    ephemeral: true
+                }).catch(() => {});
+            }
             return true;
         }
 
         const typeMenu = createTypeSelectMenu(session[1].type, session[0]);
-        await interaction.reply({
-            content: 'Select a content type:',
-            components: [typeMenu],
-            ephemeral: true
-        });
+        if (interaction.deferred) {
+            await interaction.editReply({
+                content: 'Select a content type:',
+                components: [typeMenu],
+            }).catch(() => {});
+        } else {
+            await interaction.reply({
+                content: 'Select a content type:',
+                components: [typeMenu],
+                ephemeral: true
+            }).catch(() => {});
+        }
         return true;
     }
 
     // Handle type select menu
     if (action === 'type' && parts[2] === 'select') {
+        // Defer if not already deferred
+        if (!interaction.deferred && !interaction.replied) {
+            await interaction.deferUpdate().catch(() => {});
+        }
+        
         const actualSessionId = parts.slice(3).join('-');
         const session = gallerySessions.get(actualSessionId);
 
         if (!session || session.userId !== interaction.user.id) {
-            await interaction.reply({
-                content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
-                ephemeral: true
-            });
+            if (interaction.deferred) {
+                await interaction.editReply({
+                    content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                }).catch(() => {});
+            } else {
+                await interaction.reply({
+                    content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                    ephemeral: true
+                }).catch(() => {});
+            }
             return true;
         }
 
@@ -469,23 +502,46 @@ export async function handleGalleryInteraction(interaction) {
 
     // Handle view item button
     if (action === 'view') {
+        // For view buttons: gallery-view-${sessionId}-${itemId}
+        // sessionId is everything between 'view' and the last part (itemId)
         const itemId = parts[parts.length - 1];
-        const session = gallerySessions.get(sessionId);
+        const sessionId = parts.slice(2, -1).join('-');
+        
+        // Try to find session by ID first
+        let session = gallerySessions.get(sessionId);
+        
+        // If not found, search by user ID (fallback for edge cases)
+        if (!session || session.userId !== interaction.user.id) {
+            session = Array.from(gallerySessions.entries())
+                .find(([_, s]) => s.userId === interaction.user.id)?.[1];
+        }
 
         if (!session || session.userId !== interaction.user.id) {
-            await interaction.reply({
-                content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
-                ephemeral: true
-            });
+            if (interaction.deferred) {
+                await interaction.editReply({
+                    content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                }).catch(() => {});
+            } else {
+                await interaction.reply({
+                    content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                    ephemeral: true
+                }).catch(() => {});
+            }
             return true;
         }
 
-        const item = session.items.find(i => i.id === itemId);
+        const item = session.items.find(i => i.id === itemId || i.id.toString() === itemId);
         if (!item) {
-            await interaction.reply({
-                content: '❌ Item not found.',
-                ephemeral: true
-            });
+            if (interaction.deferred) {
+                await interaction.editReply({
+                    content: '❌ Item not found.',
+                }).catch(() => {});
+            } else {
+                await interaction.reply({
+                    content: '❌ Item not found.',
+                    ephemeral: true
+                }).catch(() => {});
+            }
             return true;
         }
 
@@ -538,30 +594,73 @@ export async function handleGalleryInteraction(interaction) {
                 .setStyle(ButtonStyle.Link)
         );
 
-        await interaction.reply({
-            embeds: [embed],
-            components: [viewButton],
-            ephemeral: true
-        });
+        if (interaction.deferred) {
+            await interaction.editReply({
+                embeds: [embed],
+                components: [viewButton],
+            }).catch(() => {});
+        } else {
+            await interaction.reply({
+                embeds: [embed],
+                components: [viewButton],
+                ephemeral: true
+            }).catch(() => {});
+        }
         return true;
     }
 
     // Handle pagination
+    // Extract sessionId based on action type
+    let sessionId;
+    if (action === 'prev' || action === 'next' || action === 'page') {
+        sessionId = parts.slice(2).join('-');
+    } else {
+        // For other actions, try to find session by user
+        const session = Array.from(gallerySessions.entries())
+            .find(([_, s]) => s.userId === interaction.user.id);
+        if (!session) {
+            if (interaction.deferred) {
+                await interaction.editReply({
+                    content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                }).catch(() => {});
+            } else {
+                await interaction.reply({
+                    content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                    ephemeral: true
+                }).catch(() => {});
+            }
+            return true;
+        }
+        sessionId = session[0];
+    }
+    
     const session = gallerySessions.get(sessionId);
     
     if (!session) {
-        await interaction.reply({
-            content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
-            ephemeral: true
-        });
+        if (interaction.deferred) {
+            await interaction.editReply({
+                content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+            }).catch(() => {});
+        } else {
+            await interaction.reply({
+                content: '⏱️ This gallery session has expired. Please run `/gallery` again.',
+                ephemeral: true
+            }).catch(() => {});
+        }
         return true;
     }
 
     if (session.userId !== interaction.user.id) {
-        await interaction.reply({
-            content: '❌ You can only navigate your own gallery session.',
-            ephemeral: true
-        });
+        if (interaction.deferred) {
+            await interaction.editReply({
+                content: '❌ You can only navigate your own gallery session.',
+            }).catch(() => {});
+        } else {
+            await interaction.reply({
+                content: '❌ You can only navigate your own gallery session.',
+                ephemeral: true
+            }).catch(() => {});
+        }
         return true;
     }
 

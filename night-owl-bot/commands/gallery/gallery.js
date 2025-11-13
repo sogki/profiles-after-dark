@@ -7,7 +7,7 @@ import {
     StringSelectMenuBuilder
 } from 'discord.js';
 import fetch from 'node-fetch';
-import { getConfig } from '../../utils/config.js';
+import { loadConfig } from '../../utils/config.js';
 import { getSupabase } from '../../utils/supabase.js';
 
 const ITEMS_PER_PAGE = 5;
@@ -85,8 +85,8 @@ async function createGalleryButtons(items, type, page, totalPages, sessionId, ca
     const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, items.length);
     const pageItems = items.slice(startIndex, endIndex);
 
-    const config = await getConfig();
-    const WEB_URL = config.WEB_URL || 'https://profilesafterdark.com';
+    const config = await loadConfig();
+    const WEB_URL = config?.WEB_URL || 'https://profilesafterdark.com';
 
     const buttons = new ActionRowBuilder();
 
@@ -270,9 +270,9 @@ export async function execute(interaction) {
     try {
         await interaction.deferReply();
 
-        const config = await getConfig();
-        const API_URL = config.API_URL || config.BACKEND_URL || 'http://localhost:3000';
-        const WEB_URL = config.WEB_URL || 'https://profilesafterdark.com';
+        const config = await loadConfig();
+        const API_URL = config?.API_URL || config?.BACKEND_URL || process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:3000';
+        const WEB_URL = config?.WEB_URL || process.env.WEB_URL || 'https://profilesafterdark.com';
 
         const type = interaction.options.getString('type') || 'profiles';
         const category = interaction.options.getString('category');
@@ -429,8 +429,8 @@ export async function handleGalleryInteraction(interaction) {
         session.page = 0;
 
         // Fetch new type data
-        const config = await getConfig();
-        const API_URL = config.API_URL || config.BACKEND_URL || 'http://localhost:3000';
+        const config = await loadConfig();
+        const API_URL = config?.API_URL || config?.BACKEND_URL || process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:3000';
         const endpoint = `${API_URL}/api/v1/${contentTypeInfo[newType]?.endpoint || 'profiles'}`;
 
         const params = new URLSearchParams();
@@ -484,8 +484,8 @@ export async function handleGalleryInteraction(interaction) {
         }
 
         // Show item details
-        const config = await getConfig();
-        const WEB_URL = config.WEB_URL || 'https://profilesafterdark.com';
+        const config = await loadConfig();
+        const WEB_URL = config?.WEB_URL || process.env.WEB_URL || 'https://profilesafterdark.com';
         const info = contentTypeInfo[session.type] || contentTypeInfo['profiles'];
 
         const title = item.title || item.name || 'Untitled';

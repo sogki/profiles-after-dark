@@ -7,9 +7,10 @@ interface BadgeIconProps {
   rarity?: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | null;
   size?: number;
   className?: string;
+  borderColor?: string;
 }
 
-export default function BadgeIcon({ code, category, rarity, size = 128, className = '' }: BadgeIconProps) {
+export default function BadgeIcon({ code, category, rarity, size = 128, className = '', borderColor }: BadgeIconProps) {
   // Fallback values if missing
   const badgeCode = code || 'unknown';
   const badgeCategory = category || 'content';
@@ -24,10 +25,11 @@ export default function BadgeIcon({ code, category, rarity, size = 128, classNam
     >
       {/* Simple purple border circle */}
       <div
-        className="absolute inset-0 rounded-full border-2 border-purple-500"
+        className="absolute inset-0 rounded-full border-2"
         style={{ 
           width: size, 
           height: size,
+          borderColor: borderColor || '#a855f7',
         }}
       />
       

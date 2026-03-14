@@ -25,7 +25,7 @@ interface AnnouncementBannerProps {
 const typeConfig = {
   info: {
     icon: Info,
-    bgGradient: 'bg-gradient-to-r from-slate-800/95 via-blue-900/30 to-slate-800/95',
+    bgGradient: 'bg-slate-800/95',
     borderColor: 'border-blue-500/50',
     textColor: 'text-slate-100',
     iconColor: 'text-blue-400',
@@ -35,7 +35,7 @@ const typeConfig = {
   },
   warning: {
     icon: AlertTriangle,
-    bgGradient: 'bg-gradient-to-r from-slate-800/95 via-yellow-900/30 to-slate-800/95',
+    bgGradient: 'bg-slate-800/95',
     borderColor: 'border-yellow-500/50',
     textColor: 'text-slate-100',
     iconColor: 'text-yellow-400',
@@ -45,7 +45,7 @@ const typeConfig = {
   },
   success: {
     icon: CheckCircle,
-    bgGradient: 'bg-gradient-to-r from-slate-800/95 via-green-900/30 to-slate-800/95',
+    bgGradient: 'bg-slate-800/95',
     borderColor: 'border-green-500/50',
     textColor: 'text-slate-100',
     iconColor: 'text-green-400',
@@ -55,7 +55,7 @@ const typeConfig = {
   },
   error: {
     icon: AlertCircle,
-    bgGradient: 'bg-gradient-to-r from-slate-800/95 via-red-900/30 to-slate-800/95',
+    bgGradient: 'bg-slate-800/95',
     borderColor: 'border-red-500/50',
     textColor: 'text-slate-100',
     iconColor: 'text-red-400',
@@ -65,7 +65,7 @@ const typeConfig = {
   },
   system: {
     icon: Megaphone,
-    bgGradient: 'bg-gradient-to-r from-slate-800/95 via-purple-900/30 to-slate-800/95',
+    bgGradient: 'bg-slate-800/95',
     borderColor: 'border-purple-500/50',
     textColor: 'text-slate-100',
     iconColor: 'text-purple-400',
@@ -139,7 +139,7 @@ export default function AnnouncementBanner({ announcement, onDismiss }: Announce
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.3 }}
-        className={`${config.bgGradient} ${config.borderColor} border-b backdrop-blur-sm shadow-xl`}
+        className={`${config.bgGradient} ${config.borderColor} border-b shadow-md`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-center gap-4 relative">
@@ -163,7 +163,7 @@ export default function AnnouncementBanner({ announcement, onDismiss }: Announce
               {announcement.action_url && (
                 <button
                   onClick={handleAction}
-                  className={`${config.buttonBg} ${config.buttonBorder} ${config.textColor} px-4 py-2 rounded-lg border backdrop-blur-sm text-sm font-medium transition-all duration-200 flex items-center gap-1.5 hover:shadow-lg mt-2`}
+                  className={`${config.buttonBg} ${config.buttonBorder} ${config.textColor} px-4 py-2 rounded-lg border text-sm font-medium transition-colors duration-200 flex items-center gap-1.5 mt-2`}
                 >
                   {announcement.action_text || 'Learn More'}
                   <ExternalLink className="w-3.5 h-3.5" />

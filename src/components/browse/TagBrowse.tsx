@@ -7,6 +7,8 @@ import { Dialog, Transition } from "@headlessui/react";
 import { Hash, ImageIcon, Sticker, Layout, Download, Heart, User, X } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/authContext";
+import FlairNameText from "@/components/flair/FlairNameText";
+import { useDiscoveryFlairNames } from "@/hooks/flair/useDiscoveryFlairNames";
 
 interface UserProfile {
   username: string | null;
@@ -41,6 +43,25 @@ export default function TagBrowse() {
   const [sortBy, setSortBy] = useState<"newest" | "popular" | "title">("newest");
   const [previewItem, setPreviewItem] = useState<TaggedItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const flairNameMap = useDiscoveryFlairNames(
+    useMemo(() => [...new Set(items.map((item) => item.user_id).filter(Boolean))], [items])
+  );
+
+  const renderDiscoveryName = (userId: string, username?: string | null, displayName?: string | null, className = "") => {
+    const flairData = flairNameMap[userId];
+    const fallbackName = username || displayName || "Unknown User";
+    if (flairData?.isPremium) {
+      return (
+        <FlairNameText
+          name={flairData.customDisplayName || fallbackName}
+          animation={flairData.animation}
+          gradientJson={flairData.gradient}
+          className={className}
+        />
+      );
+    }
+    return <span className={className}>{fallbackName}</span>;
+  };
 
   // Load favorites from database
   useEffect(() => {
@@ -712,7 +733,12 @@ export default function TagBrowse() {
                           </div>
                         )}
                         <span className="truncate font-medium">
-                          by {item.user_profiles?.username || item.user_profiles?.display_name || "Unknown User"}
+                          by{" "}
+                          {renderDiscoveryName(
+                            item.user_id,
+                            item.user_profiles?.username,
+                            item.user_profiles?.display_name
+                          )}
                         </span>
                       </Link>
                     </div>
@@ -811,7 +837,13 @@ export default function TagBrowse() {
                               <User className="h-4 w-4 text-white" />
                             </div>
                           )}
-                          <span>{previewItem.user_profiles.username || previewItem.user_profiles.display_name || "Unknown User"}</span>
+                          <span>
+                            {renderDiscoveryName(
+                              previewItem.user_id,
+                              previewItem.user_profiles.username,
+                              previewItem.user_profiles.display_name
+                            )}
+                          </span>
                         </Link>
                       )}
                     </div>

@@ -116,6 +116,11 @@ export async function loadConfig() {
           'BACKEND_URL',
           'WEB_URL',
           'STAFF_LOG_CHANNEL_ID',
+          'STRIPE_PUBLISHABLE_KEY',
+          'STRIPE_SECRET_KEY',
+          'STRIPE_WEBHOOK_SECRET',
+          'FLAIR_PREMIUM_PRICE_GBP',
+          'FLAIR_PREMIUM_PRICE_USD',
           'PORT',
           'NODE_ENV',
           'RAILWAY_PUBLIC_DOMAIN',
@@ -172,6 +177,11 @@ export async function loadConfig() {
     'BACKEND_URL',
     'WEB_URL',
     'STAFF_LOG_CHANNEL_ID',
+    'STRIPE_PUBLISHABLE_KEY',
+    'STRIPE_SECRET_KEY',
+    'STRIPE_WEBHOOK_SECRET',
+    'FLAIR_PREMIUM_PRICE_GBP',
+    'FLAIR_PREMIUM_PRICE_USD',
     'PORT',
     'NODE_ENV',
     'RAILWAY_PUBLIC_DOMAIN',
@@ -338,6 +348,36 @@ export async function initializeConfigFromEnv() {
       key: 'STAFF_LOG_CHANNEL_ID',
       description: 'Discord channel ID for staff logs',
       category: 'discord',
+      isSecret: false
+    },
+    {
+      key: 'STRIPE_PUBLISHABLE_KEY',
+      description: 'Stripe publishable key for frontend checkout',
+      category: 'external',
+      isSecret: false
+    },
+    {
+      key: 'STRIPE_SECRET_KEY',
+      description: 'Stripe secret key for backend billing operations',
+      category: 'external',
+      isSecret: true
+    },
+    {
+      key: 'STRIPE_WEBHOOK_SECRET',
+      description: 'Stripe webhook signing secret',
+      category: 'external',
+      isSecret: true
+    },
+    {
+      key: 'FLAIR_PREMIUM_PRICE_GBP',
+      description: 'Monthly Flair Premium price in GBP',
+      category: 'external',
+      isSecret: false
+    },
+    {
+      key: 'FLAIR_PREMIUM_PRICE_USD',
+      description: 'Monthly Flair Premium price in USD',
+      category: 'external',
       isSecret: false
     }
   ];

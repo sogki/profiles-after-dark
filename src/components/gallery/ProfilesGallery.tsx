@@ -6,26 +6,11 @@ import { motion } from "framer-motion"
 import { useAuth } from "../../context/authContext"
 import { supabase } from "../../lib/supabase"
 import ReportContentButton from "../shared/ReportContentButton"
+import FlairNameText from "@/components/flair/FlairNameText"
+import { useDiscoveryFlairNames } from "@/hooks/flair/useDiscoveryFlairNames"
 
 import Footer from "../Footer"
-
-interface ProfilePair {
-  id: string
-  user_id?: string
-  title: string
-  category?: string
-  tags?: string[]
-  pfp_url: string
-  banner_url: string
-  download_count?: number
-  created_at?: string
-  updated_at?: string
-  color?: string
-  user_profiles?: {
-    username: string | null
-    avatar_url: string | null
-  }
-}
+import type { GalleryProfilePair as ProfilePair } from "./shared/types"
 
 const FAVORITES_STORAGE_KEY = "profile_favorites"
 
@@ -214,6 +199,26 @@ export default function ProfilesGallery() {
     return filteredProfiles.slice(start, start + ITEMS_PER_PAGE)
   }, [filteredProfiles, page])
 
+  const flairNameMap = useDiscoveryFlairNames(
+    useMemo(() => [...new Set(profiles.map((profile) => profile.user_id).filter(Boolean))], [profiles])
+  )
+
+  const renderDiscoveryName = (userId: string, username?: string | null, displayName?: string | null, className = "") => {
+    const flairData = flairNameMap[userId]
+    const fallbackName = username || displayName || "Unknown User"
+    if (flairData?.isPremium) {
+      return (
+        <FlairNameText
+          name={flairData.customDisplayName || fallbackName}
+          animation={flairData.animation}
+          gradientJson={flairData.gradient}
+          className={className}
+        />
+      )
+    }
+    return <span className={className}>{fallbackName}</span>
+  }
+
   useEffect(() => {
     setPage(1)
   }, [searchQuery, selectedTags, selectedColor])
@@ -389,7 +394,7 @@ export default function ProfilesGallery() {
       </div>
 
       {/* Enhanced Filters */}
-      <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-slate-600/50 shadow-2xl">
+      <div className="surface-elevated rounded-2xl p-8 mb-8">
         {/* Search Bar */}
         <div className="mb-6">
           <div className="relative">
@@ -399,7 +404,7 @@ export default function ProfilesGallery() {
               placeholder="Search titles, categories, or tags..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-6 py-4 rounded-xl bg-slate-700/50 text-white placeholder-slate-400 border border-slate-600/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200 text-lg backdrop-blur-sm"
+              className="w-full pl-12 pr-6 py-4 rounded-xl bg-slate-700/70 text-white placeholder-slate-400 border border-slate-600/60 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors duration-200 text-lg"
               aria-label="Search profile combos" />
             {searchQuery && (
               <button
@@ -699,16 +704,16 @@ export default function ProfilesGallery() {
                           )}
                         </div>
                       )}
-                      {profile.user_profiles?.username && (
+                      {(profile.user_profiles?.username || profile.user_profiles?.display_name) && (
                         <Link
-                          to={`/user/${profile.user_profiles.username}`}
+                          to={`/user/${profile.user_profiles.username || profile.user_id}`}
                           onClick={(e) => e.stopPropagation()}
                           className="flex items-center gap-2 text-xs text-slate-400 hover:text-purple-400 transition-colors group"
                         >
                           {profile.user_profiles.avatar_url ? (
                             <img
                               src={profile.user_profiles.avatar_url}
-                              alt={profile.user_profiles.username}
+                              alt={profile.user_profiles.username || "User"}
                               className="w-6 h-6 rounded-full ring-2 ring-slate-700 group-hover:ring-purple-500 transition-all"
                             />
                           ) : (
@@ -717,7 +722,11 @@ export default function ProfilesGallery() {
                             </div>
                           )}
                           <span className="truncate font-medium">
-                            {profile.user_profiles.username || profile.user_profiles.display_name || "Unknown User"}
+                            {renderDiscoveryName(
+                              profile.user_id,
+                              profile.user_profiles.username,
+                              profile.user_profiles.display_name
+                            )}
                           </span>
                         </Link>
                       )}
@@ -784,16 +793,16 @@ export default function ProfilesGallery() {
                           <span>Download</span>
                         </button>
                       </div>
-                      {profile.user_profiles?.username && (
+                      {(profile.user_profiles?.username || profile.user_profiles?.display_name) && (
                         <Link
-                          to={`/user/${profile.user_profiles.username}`}
+                          to={`/user/${profile.user_profiles.username || profile.user_id}`}
                           onClick={(e) => e.stopPropagation()}
                           className="flex items-center gap-2 text-sm text-slate-400 hover:text-purple-400 transition-colors group"
                         >
                           {profile.user_profiles.avatar_url ? (
                             <img
                               src={profile.user_profiles.avatar_url}
-                              alt={profile.user_profiles.username}
+                              alt={profile.user_profiles.username || "User"}
                               className="w-7 h-7 rounded-full ring-2 ring-slate-700 group-hover:ring-purple-500 transition-all"
                             />
                           ) : (
@@ -802,7 +811,12 @@ export default function ProfilesGallery() {
                             </div>
                           )}
                           <span className="truncate font-medium">
-                            by {profile.user_profiles.username || profile.user_profiles.display_name || "Unknown User"}
+                            by{" "}
+                            {renderDiscoveryName(
+                              profile.user_id,
+                              profile.user_profiles.username,
+                              profile.user_profiles.display_name
+                            )}
                           </span>
                         </Link>
                       )}
@@ -874,8 +888,8 @@ export default function ProfilesGallery() {
 
       {/* Enhanced Preview Modal */}
       <Transition appear show={isModalOpen} as={Fragment}>
-        <Dialog as="div" className="fixed inset-0 z-50 overflow-y-auto" onClose={closePreview}>
-          <div className="min-h-screen px-4 text-center bg-black bg-opacity-80 backdrop-blur-sm">
+        <Dialog as="div" className="fixed inset-0 z-50" onClose={closePreview}>
+          <div className="min-h-screen px-4 text-center modal-backdrop-light flex items-center justify-center py-8">
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
@@ -885,7 +899,7 @@ export default function ProfilesGallery() {
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="inline-block w-full max-w-6xl my-20 overflow-hidden text-left align-middle transition-all transform bg-slate-900 shadow-2xl rounded-2xl border border-slate-700">
+              <Dialog.Panel className="inline-block w-full max-w-5xl my-0 max-h-[90vh] overflow-y-auto text-left align-middle transition-all transform modal-popup-shell">
                 <div className="relative">
                   {previewProfile?.banner_url && (
                     <img
@@ -906,7 +920,7 @@ export default function ProfilesGallery() {
                   {/* Close Button */}
                   <button
                     onClick={closePreview}
-                    className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors"
+                    className="absolute top-4 right-4 p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

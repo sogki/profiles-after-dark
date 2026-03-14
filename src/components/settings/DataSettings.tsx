@@ -157,18 +157,6 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
           .eq("user_id", user.id)
       ])
 
-      // Try to get single_uploads if table exists
-      let singleUploadsData = null
-      try {
-        const { data } = await supabase
-          .from("single_uploads")
-          .select("*")
-          .eq("user_id", user.id)
-        singleUploadsData = data
-      } catch (e) {
-        // Table might not exist, ignore
-      }
-
       const backupData = {
         version: "2.0",
         createdAt: new Date().toISOString(),
@@ -187,7 +175,8 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
           emotes: emotesData?.data || [],
           wallpapers: wallpapersData?.data || [],
           emojiCombos: emojiCombosData?.data || [],
-          singleUploads: singleUploadsData || [],
+          // Legacy field retained for backward compatibility with older backup readers.
+          singleUploads: [],
         },
         social: {
           favorites: favoritesData?.data || [],
@@ -203,8 +192,7 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
                        (profilePairsData?.data?.length || 0) +
                        (emotesData?.data?.length || 0) +
                        (wallpapersData?.data?.length || 0) +
-                       (emojiCombosData?.data?.length || 0) +
-                       (singleUploadsData?.length || 0),
+                       (emojiCombosData?.data?.length || 0),
           totalFavorites: favoritesData?.data?.length || 0,
           totalFollows: followsData?.data?.length || 0,
           totalFollowers: followersData?.data?.length || 0,

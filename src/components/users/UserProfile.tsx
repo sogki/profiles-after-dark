@@ -14,13 +14,17 @@ import {
   Users,
   Check,
   Copy,
+  Globe,
   Image,
   ImageIcon,
+  Instagram,
+  MessageCircle,
   Smile,
   Monitor,
   ChevronLeft,
   ChevronRight,
   Trophy,
+  FolderKanban,
 } from "lucide-react";
 import { Fragment, useState, useEffect, useMemo } from "react";
 import { BsFillEmojiHeartEyesFill } from "react-icons/bs";
@@ -33,6 +37,7 @@ import { useShare } from "../../hooks/useShare";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/authContext";
 import { useIsUserOnline } from "../../hooks/useOnlineStatus";
+import FlairNameText from "@/components/flair/FlairNameText";
 
 import useRetrieveProfileFavorites from "@/hooks/users/profile-info/use-retrieve-profile-favorites";
 import useRetrieveProfilePairs from "@/hooks/users/profile-info/use-retrieve-profile-pairs";
@@ -40,9 +45,30 @@ import useRetrieveProfileUploads from "@/hooks/users/profile-info/use-retrieve-p
 import useRetrieveProfileEmojiCombos from "@/hooks/users/profile-info/use-retrieve-profile-emoji-combos";
 import useRetrieveProfileEmotes from "@/hooks/users/profile-info/use-retrieve-profile-emotes";
 import useRetrieveProfileWallpapers from "@/hooks/users/profile-info/use-retrieve-profile-wallpapers";
+import useRetrieveProfileCollections from "@/hooks/users/profile-info/use-retrieve-profile-collections";
 import useRetrieveUserProfile from "@/hooks/users/profile-info/use-retrieve-user-profile";
+import useRetrieveProfileLayout from "@/hooks/users/profile-info/use-retrieve-profile-layout";
 import Footer from "../Footer";
 import BadgeIcon from "../achievements/BadgeIcon";
+import ProfilePagination from "./profile/ProfilePagination";
+import ProfilePreviewModal from "./profile/ProfilePreviewModal";
+import FollowListModal from "./profile/FollowListModal";
+import {
+  getAccentGradient,
+  getAdaptiveContainerColors,
+  hexToRgba,
+  normalizeDragOffset,
+  normalizeHeaderBlockOrder,
+  normalizeStatsItemOrder,
+  normalizeSocialOrder,
+  normalizeTabOrder,
+  normalizeWebsiteUrl,
+  type HeaderBlockId,
+  type ProfileDragBlockId,
+  type ProfileSocialId,
+  type ProfileStatsItemId,
+  type ProfileTabId,
+} from "./profile/layoutPrimitives";
 
 interface Badge {
   id: string;
@@ -61,9 +87,13 @@ interface UserProfile {
   id: string;
   user_id: string;
   username: string;
+  display_name?: string | null;
   avatar_url: string | null;
   banner_url: string | null;
   bio: string | null;
+  discord?: string | null;
+  instagram?: string | null;
+  website?: string | null;
   user_badges?: UserBadge[];
   show_badges_on_profile?: boolean;
   created_at?: string;
@@ -90,6 +120,57 @@ interface ProfilePair {
   created_at?: string;
 }
 
+interface FlairProfileNameData {
+  custom_display_name: string | null;
+  display_name_animation: string | null;
+  display_name_gradient: string | null;
+}
+
+interface FlairLayoutSection {
+  id?: string;
+  type?: string;
+  enabled?: boolean;
+  order?: number;
+}
+
+interface FlairLayoutJson {
+  schemaVersion?: number;
+  theme?: {
+    mode?: string;
+    accent?: string;
+    surface?: string;
+    tabs?: {
+      stripStart?: string;
+      stripEnd?: string;
+      activeStart?: string;
+      activeEnd?: string;
+    };
+  };
+  sections?: FlairLayoutSection[];
+  header?: {
+    blockOrder?: HeaderBlockId[];
+    avatar?: {
+      x?: number;
+      y?: number;
+      size?: number;
+    };
+    stats?: {
+      variant?: "compact" | "normal";
+      order?: ProfileStatsItemId[];
+    };
+    socials?: {
+      order?: ProfileSocialId[];
+    };
+  };
+  tabs?: {
+    order?: ProfileTabId[];
+  };
+  drag?: {
+    grid?: number;
+    blocks?: Partial<Record<ProfileDragBlockId, { x?: number; y?: number }>>;
+  };
+}
+
 export default function UserProfile() {
   const {
     data: profile,
@@ -114,9 +195,13 @@ export default function UserProfile() {
 
   const { data: wallpapers, isLoading: wallpapersLoading } =
     useRetrieveProfileWallpapers();
+  const { data: collections, isLoading: collectionsLoading } =
+    useRetrieveProfileCollections();
+  const { data: profileLayout, isLoading: layoutLoading } =
+    useRetrieveProfileLayout();
 
   const loading =
-    profileLoading || uploadsLoading || profilePairsLoading || favoritesLoading || emojicombosLoading || emotesLoading || wallpapersLoading;
+    profileLoading || uploadsLoading || profilePairsLoading || favoritesLoading || emojicombosLoading || emotesLoading || wallpapersLoading || collectionsLoading || layoutLoading;
   const [previewItem, setPreviewItem] = useState<
     UserUpload | ProfilePair | null
   >(null);
@@ -124,10 +209,11 @@ export default function UserProfile() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<
-    "pairs" | "pfps" | "banners" | "emotes" | "wallpapers" | "emojicombos" | "favorites"
+    "pairs" | "pfps" | "banners" | "emotes" | "wallpapers" | "collections" | "emojicombos" | "favorites"
   >("pairs");
   const [showAllBadges, setShowAllBadges] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [flairNameData, setFlairNameData] = useState<FlairProfileNameData | null>(null);
   
   // Followers/Following modal state
   const [showFollowModal, setShowFollowModal] = useState(false);
@@ -147,6 +233,228 @@ export default function UserProfile() {
   // Filtered data for PFPs and Banners
   const pfps = uploads?.filter((upload) => upload.type === "profile") || [];
   const banners = uploads?.filter((upload) => upload.type === "banner") || [];
+
+  const parsedLayout = useMemo<FlairLayoutJson | null>(() => {
+    if (!profileLayout?.layout_json || typeof profileLayout.layout_json !== "object") {
+      return null;
+    }
+    return profileLayout.layout_json as FlairLayoutJson;
+  }, [profileLayout?.layout_json]);
+
+  const isHexColor = (value: unknown): value is string =>
+    typeof value === "string" && /^#(?:[0-9a-fA-F]{3}){1,2}$/.test(value);
+
+  const layoutSurfaceColor = isHexColor(parsedLayout?.theme?.surface)
+    ? parsedLayout?.theme?.surface
+    : "#0f172a";
+  const layoutAccentColor = isHexColor(parsedLayout?.theme?.accent)
+    ? parsedLayout?.theme?.accent
+    : "#a855f7";
+  const accentGradient = getAccentGradient(layoutAccentColor);
+  const tabTheme = useMemo(
+    () => ({
+      stripStart: isHexColor(parsedLayout?.theme?.tabs?.stripStart)
+        ? (parsedLayout?.theme?.tabs?.stripStart as string)
+        : accentGradient.start,
+      stripEnd: isHexColor(parsedLayout?.theme?.tabs?.stripEnd)
+        ? (parsedLayout?.theme?.tabs?.stripEnd as string)
+        : accentGradient.end,
+      activeStart: isHexColor(parsedLayout?.theme?.tabs?.activeStart)
+        ? (parsedLayout?.theme?.tabs?.activeStart as string)
+        : accentGradient.start,
+      activeEnd: isHexColor(parsedLayout?.theme?.tabs?.activeEnd)
+        ? (parsedLayout?.theme?.tabs?.activeEnd as string)
+        : accentGradient.end,
+    }),
+    [
+      accentGradient.end,
+      accentGradient.start,
+      parsedLayout?.theme?.tabs?.activeEnd,
+      parsedLayout?.theme?.tabs?.activeStart,
+      parsedLayout?.theme?.tabs?.stripEnd,
+      parsedLayout?.theme?.tabs?.stripStart,
+    ]
+  );
+  const adaptiveColors = getAdaptiveContainerColors(layoutSurfaceColor);
+  const badgeAccentBorderColor = parsedLayout?.theme?.accent || tabTheme.activeStart || "#a855f7";
+
+  const sectionState = useMemo(() => {
+    const defaultState = {
+      hero: true,
+      about: true,
+      highlights: true,
+    };
+    const sections = parsedLayout?.sections;
+    if (!Array.isArray(sections) || sections.length === 0) {
+      return defaultState;
+    }
+
+    const state = { ...defaultState };
+    for (const section of sections) {
+      if (!section?.type) continue;
+      if (section.type === "hero") state.hero = section.enabled !== false;
+      if (section.type === "about") state.about = section.enabled !== false;
+      if (section.type === "highlights") state.highlights = section.enabled !== false;
+    }
+    return state;
+  }, [parsedLayout?.sections]);
+
+  const headerBlockOrder = useMemo(
+    () => normalizeHeaderBlockOrder(parsedLayout?.header?.blockOrder),
+    [parsedLayout?.header?.blockOrder]
+  );
+  const avatarLayout = useMemo(
+    () => ({
+      x:
+        typeof parsedLayout?.header?.avatar?.x === "number"
+          ? parsedLayout.header.avatar.x
+          : 0,
+      y:
+        typeof parsedLayout?.header?.avatar?.y === "number"
+          ? parsedLayout.header.avatar.y
+          : 0,
+      size:
+        typeof parsedLayout?.header?.avatar?.size === "number"
+          ? Math.min(1.35, Math.max(0.75, parsedLayout.header.avatar.size))
+          : 1,
+    }),
+    [parsedLayout?.header?.avatar?.size, parsedLayout?.header?.avatar?.x, parsedLayout?.header?.avatar?.y]
+  );
+  const statsVariant =
+    parsedLayout?.header?.stats?.variant === "compact" ? "compact" : "normal";
+  const dragBlockOffsets = useMemo(() => {
+    const blocks = parsedLayout?.drag?.blocks;
+    return {
+      avatar: normalizeDragOffset(blocks?.avatar, { x: 0, y: 0 }),
+      identity: normalizeDragOffset(blocks?.identity, { x: 0, y: 0 }),
+      bio: normalizeDragOffset(blocks?.bio, { x: 0, y: 0 }),
+      stats: normalizeDragOffset(blocks?.stats, { x: 0, y: 0 }),
+      socials: normalizeDragOffset(blocks?.socials, { x: 0, y: 0 }),
+      achievements: normalizeDragOffset(blocks?.achievements, { x: 0, y: 0 }),
+      tabs: normalizeDragOffset(blocks?.tabs, { x: 0, y: 0 }),
+    } satisfies Record<ProfileDragBlockId, { x: number; y: number }>;
+  }, [parsedLayout?.drag?.blocks]);
+  const getDragStyle = (blockId: ProfileDragBlockId) => {
+    const offset = dragBlockOffsets[blockId];
+    if (!offset || (offset.x === 0 && offset.y === 0)) return undefined;
+    return { transform: `translate(${offset.x}px, ${offset.y}px)` };
+  };
+  const avatarCombinedX = avatarLayout.x + dragBlockOffsets.avatar.x;
+  const avatarCombinedY = avatarLayout.y + dragBlockOffsets.avatar.y;
+  const shouldLiftActionButtons = avatarCombinedX > 220 && avatarCombinedY < 140;
+
+  const socialItems = useMemo(() => {
+    const discord = (profile as UserProfile | null)?.discord?.trim();
+    const instagram = (profile as UserProfile | null)?.instagram?.trim();
+    const website = normalizeWebsiteUrl((profile as UserProfile | null)?.website || null);
+    const itemsById: Record<ProfileSocialId, { id: ProfileSocialId; label: string; href?: string; icon: JSX.Element } | null> = {
+      discord: null,
+      instagram: null,
+      website: null,
+    };
+    if (discord) {
+      const href = /^https?:\/\//i.test(discord) ? discord : undefined;
+      itemsById.discord = {
+        id: "discord",
+        label: discord,
+        href,
+        icon: <MessageCircle className="h-3.5 w-3.5" />,
+      };
+    }
+    if (instagram) {
+      const handle = instagram.startsWith("@") ? instagram.slice(1) : instagram;
+      const href = /^https?:\/\//i.test(instagram)
+        ? instagram
+        : `https://instagram.com/${handle}`;
+      itemsById.instagram = {
+        id: "instagram",
+        label: instagram,
+        href,
+        icon: <Instagram className="h-3.5 w-3.5" />,
+      };
+    }
+    if (website) {
+      itemsById.website = {
+        id: "website",
+        label: website.replace(/^https?:\/\//i, ""),
+        href: website,
+        icon: <Globe className="h-3.5 w-3.5" />,
+      };
+    }
+    return normalizeSocialOrder(parsedLayout?.header?.socials?.order)
+      .map((id) => itemsById[id])
+      .filter(Boolean) as Array<{ id: ProfileSocialId; label: string; href?: string; icon: JSX.Element }>;
+  }, [
+    (profile as UserProfile | null)?.discord,
+    (profile as UserProfile | null)?.instagram,
+    (profile as UserProfile | null)?.website,
+    parsedLayout?.header?.socials?.order,
+  ]);
+
+  const orderedTabs = useMemo(() => {
+    const tabsById = {
+      pairs: {
+        id: "pairs" as const,
+        label: "Profile Pairs",
+        count: profilePairs?.length || 0,
+        icon: User,
+      },
+      pfps: {
+        id: "pfps" as const,
+        label: "PFPs",
+        count: pfps.length,
+        icon: Image,
+      },
+      banners: {
+        id: "banners" as const,
+        label: "Banners",
+        count: banners.length,
+        icon: ImageIcon,
+      },
+      emotes: {
+        id: "emotes" as const,
+        label: "Emotes",
+        count: emotes?.length || 0,
+        icon: Smile,
+      },
+      wallpapers: {
+        id: "wallpapers" as const,
+        label: "Wallpapers",
+        count: wallpapers?.length || 0,
+        icon: Monitor,
+      },
+      collections: {
+        id: "collections" as const,
+        label: "Collections",
+        count: collections?.length || 0,
+        icon: FolderKanban,
+      },
+      emojicombos: {
+        id: "emojicombos" as const,
+        label: "Emoji Combos",
+        count: emojicombos?.length || 0,
+        icon: BsFillEmojiHeartEyesFill,
+      },
+      favorites: {
+        id: "favorites" as const,
+        label: "Favorites",
+        count: favorites?.length ?? 0,
+        icon: Heart,
+      },
+    };
+
+    return normalizeTabOrder(parsedLayout?.tabs?.order).map((tabId) => tabsById[tabId]);
+  }, [
+    banners.length,
+    collections?.length,
+    emojicombos?.length,
+    emotes?.length,
+    favorites?.length,
+    parsedLayout?.tabs?.order,
+    pfps.length,
+    profilePairs?.length,
+    wallpapers?.length,
+  ]);
 
   // Pagination helper function
   const getPaginatedData = <T,>(data: T[] | undefined): T[] => {
@@ -168,81 +476,6 @@ export default function UserProfile() {
     setCurrentPage(1);
   };
 
-  // Pagination component
-  const Pagination = ({ totalPages, currentPage, onPageChange }: { totalPages: number; currentPage: number; onPageChange: (page: number) => void }) => {
-    if (totalPages <= 1) return null;
-
-    const pages = [];
-    const maxVisible = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
-
-    if (endPage - startPage < maxVisible - 1) {
-      startPage = Math.max(1, endPage - maxVisible + 1);
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(i);
-    }
-
-    return (
-      <div className="flex items-center justify-center gap-2 mt-8">
-        <button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        
-        {startPage > 1 && (
-          <>
-            <button
-              onClick={() => onPageChange(1)}
-              className="px-3 py-2 rounded-lg bg-slate-800/60 hover:bg-slate-700/50 text-white transition-colors"
-            >
-              1
-            </button>
-            {startPage > 2 && <span className="text-slate-400">...</span>}
-          </>
-        )}
-
-        {pages.map((page) => (
-          <button
-            key={page}
-            onClick={() => onPageChange(page)}
-            className={`px-3 py-2 rounded-lg transition-colors ${
-              currentPage === page
-                ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
-                : "bg-slate-800/60 hover:bg-slate-700/50 text-white"
-            }`}
-          >
-            {page}
-          </button>
-        ))}
-
-        {endPage < totalPages && (
-          <>
-            {endPage < totalPages - 1 && <span className="text-slate-400">...</span>}
-            <button
-              onClick={() => onPageChange(totalPages)}
-              className="px-3 py-2 rounded-lg bg-slate-800/60 hover:bg-slate-700/50 text-white transition-colors"
-            >
-              {totalPages}
-            </button>
-          </>
-        )}
-
-        <button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-      </div>
-    );
-  };
 
   // Follow functionality
   const { stats: followStats, toggleFollow, loading: followLoading } = useFollows(profile?.user_id);
@@ -334,6 +567,20 @@ export default function UserProfile() {
   };
 
   // Check profile visibility and mutual follow status
+  useEffect(() => {
+    const fetchFlairNameData = async () => {
+      if (!profile?.user_id) return;
+      const { data } = await supabase
+        .from("flair_profiles")
+        .select("custom_display_name, display_name_animation, display_name_gradient")
+        .eq("user_id", profile.user_id)
+        .maybeSingle();
+      setFlairNameData((data as FlairProfileNameData | null) || null);
+    };
+
+    fetchFlairNameData();
+  }, [profile?.user_id]);
+
   useEffect(() => {
     const checkProfileAccess = async () => {
       if (!profile?.user_id) {
@@ -442,7 +689,7 @@ export default function UserProfile() {
 
   if (loading || checkingAccess) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
           <p className="text-white text-lg">Loading profile...</p>
@@ -453,7 +700,7 @@ export default function UserProfile() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <User className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white mb-2">User not found</h2>
@@ -472,7 +719,7 @@ export default function UserProfile() {
   // Show access denied message if user doesn't have access
   if (!hasAccess) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="mb-6">
             <div className="h-24 w-24 mx-auto bg-slate-800 rounded-full flex items-center justify-center border-2 border-slate-700">
@@ -488,7 +735,7 @@ export default function UserProfile() {
           {!user && (
             <Link
               to="/login"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all"
+              className="inline-flex items-center gap-2 px-6 py-3 btn-flat-primary text-white rounded-xl font-semibold transition-colors"
             >
               Sign in to view
             </Link>
@@ -521,12 +768,16 @@ export default function UserProfile() {
         <meta name="twitter:image" content={profileImage} />
         <link rel="canonical" href={profileUrl} />
       </Helmet>
-      <div className="min-h-screen bg-slate-900">
+      <div
+        className="min-h-screen bg-slate-900"
+        style={layoutSurfaceColor ? { backgroundColor: layoutSurfaceColor } : undefined}
+      >
         <div className="max-w-7xl mx-auto px-4 py-4 md:py-8">
-          {/* Profile Header */}
-          <div className="relative mb-6 md:mb-8">
-            {/* Banner Container with overflow for rounded corners */}
-            <div className="relative h-48 sm:h-64 md:h-80 rounded-xl md:rounded-2xl overflow-visible bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 shadow-2xl">
+          {/* Profile Header / About */}
+          {(sectionState.hero || sectionState.about) && (
+            <div className="relative mb-6 md:mb-8">
+            {sectionState.hero && (
+            <div className="relative h-48 sm:h-64 md:h-80 rounded-xl md:rounded-2xl overflow-visible bg-slate-800 shadow-lg">
               <div className="relative h-full w-full overflow-hidden rounded-xl md:rounded-2xl">
                 {profile.banner_url ? (
                   <img
@@ -535,7 +786,7 @@ export default function UserProfile() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 flex items-center justify-center">
+                  <div className="w-full h-full bg-slate-800 flex items-center justify-center">
                     <div className="text-white/20 text-6xl">
                       <User />
                     </div>
@@ -545,28 +796,48 @@ export default function UserProfile() {
               </div>
               
               {/* Avatar - positioned relative to banner, half on/half off */}
-              <div className="absolute w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 left-1/2 sm:left-1/2 md:left-40 transform -translate-x-1/2 md:translate-x-0 z-10 bottom-[-3rem] sm:bottom-[-4rem] md:bottom-[-5rem]">
-                <div className="relative w-full h-full">
-                  <motion.img
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ duration: 0.3 }}
-                    src={profile.avatar_url || "/default-avatar.png"}
-                    alt={`${profile.username}'s avatar`}
-                    className="w-full h-full rounded-full border-4 border-slate-900 shadow-2xl object-cover bg-slate-800"
-                  />
-                  {/* Online status indicator - positioned absolutely on bottom right of the image */}
-                  {isOnline && (
-                    <div className="absolute bottom-5 right-5 w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 bg-green-500 rounded-full border-2 border-slate-900 shadow-lg z-20 pointer-events-none translate-x-1/4 translate-y-1/4">
-                      <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-75 pointer-events-none"></div>
-                    </div>
-                  )}
+              {headerBlockOrder.includes("avatar") && (
+                <div
+                  className="absolute w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 left-24 sm:left-32 md:left-40 z-10 bottom-[-3rem] sm:bottom-[-4rem] md:bottom-[-5rem]"
+                  style={{
+                    transform: `translate(calc(-50% + ${avatarLayout.x + dragBlockOffsets.avatar.x}px), ${avatarLayout.y + dragBlockOffsets.avatar.y}px)`,
+                  }}
+                >
+                  <div
+                    className="relative w-full h-full"
+                    style={{
+                      transform: `scale(${avatarLayout.size})`,
+                      transformOrigin: "center bottom",
+                    }}
+                  >
+                    <motion.img
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                      src={profile.avatar_url || "/default-avatar.png"}
+                      alt={`${profile.username}'s avatar`}
+                      className="w-full h-full rounded-full border-4 shadow-2xl object-cover bg-slate-800"
+                      style={{ borderColor: layoutSurfaceColor || "#0f172a" }}
+                    />
+                    {/* Online status indicator - positioned absolutely on bottom right of the image */}
+                    {isOnline && (
+                      <div className="absolute bottom-5 right-5 w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 bg-green-500 rounded-full border-2 border-slate-900 shadow-lg z-20 pointer-events-none translate-x-1/4 translate-y-1/4">
+                        <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-75 pointer-events-none"></div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
+            )}
 
             {/* Action Buttons - positioned outside banner container to prevent dropdown clipping, half on/half off banner like profile picture */}
-            <div className="absolute right-4 sm:right-6 flex items-center gap-2 z-20 top-36 sm:top-48 md:top-60">
+            {sectionState.hero && headerBlockOrder.includes("actions") && (
+            <div
+              className={`absolute right-4 sm:right-6 flex items-center gap-2 z-20 ${
+                shouldLiftActionButtons ? "top-4 sm:top-5 md:top-6" : "top-36 sm:top-48 md:top-60"
+              }`}
+            >
                 {!isOwnProfile && (
                   <>
                   <motion.button
@@ -576,8 +847,8 @@ export default function UserProfile() {
                       disabled={followLoading}
                     className={`inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-3 rounded-xl font-semibold transition-all shadow-lg text-sm sm:text-base ${
                         followStats.isFollowing
-                        ? "bg-slate-700/90 backdrop-blur-md text-white hover:bg-slate-600 border border-slate-600"
-                        : "bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 border border-purple-500/50"
+                      ? "bg-slate-700/90 text-white hover:bg-slate-600 border border-slate-600"
+                      : "bg-purple-600 text-white hover:bg-purple-700 border border-purple-500/50"
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                     {followLoading ? (
@@ -595,7 +866,7 @@ export default function UserProfile() {
                       )}
                   </motion.button>
                   <Menu as="div" className="relative z-30">
-                    <Menu.Button className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-slate-800/90 backdrop-blur-md text-white rounded-xl hover:bg-slate-700 transition-colors shadow-lg border border-slate-700">
+                    <Menu.Button className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-slate-800/95 text-white rounded-xl hover:bg-slate-700 transition-colors shadow-md border border-slate-700">
                       <MoreHorizontal className="h-4 w-4 sm:h-5 sm:w-5" />
                     </Menu.Button>
                     <Transition
@@ -607,7 +878,7 @@ export default function UserProfile() {
                       leaveFrom="transform opacity-100 scale-100"
                       leaveTo="transform opacity-0 scale-95"
                     >
-                      <Menu.Items className="absolute right-0 mt-2 w-56 bg-slate-800/95 backdrop-blur-md rounded-xl shadow-2xl ring-1 ring-slate-700 focus:outline-none z-[100] border border-slate-700">
+                      <Menu.Items className="absolute right-0 mt-2 w-56 bg-slate-900 rounded-xl shadow-lg ring-1 ring-slate-700 focus:outline-none z-[100] border border-slate-700">
                         <Menu.Item>
                           {({ active }) => (
                             <button
@@ -655,7 +926,7 @@ export default function UserProfile() {
               {isOwnProfile && (
                 <Link
                   to="/profile-settings"
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 sm:px-5 sm:py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg text-sm sm:text-base border border-purple-500/50"
+                  className="inline-flex items-center gap-2 btn-flat-primary text-white px-4 py-2 sm:px-5 sm:py-3 rounded-xl font-semibold transition-colors shadow-md text-sm sm:text-base border border-purple-500/50"
                 >
                   <Settings className="h-4 w-4" />
                   <span className="hidden sm:inline">Edit Profile</span>
@@ -663,17 +934,30 @@ export default function UserProfile() {
                 </Link>
                 )}
               </div>
+            )}
 
             {/* Profile Info */}
-            <div className="relative px-4 sm:px-6 pb-4 sm:pb-6 mt-0">
-              <div className="pt-16 sm:pt-20 md:pt-24">
+            {sectionState.about && (
+            <div
+              className="relative px-4 sm:px-6 pb-4 sm:pb-6 mt-0"
+            >
+              <div className={sectionState.hero ? "pt-16 sm:pt-20 md:pt-24" : "pt-0"}>
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-6">
                   {/* Left side - Profile info */}
                   <div className="flex-1 md:max-w-2xl">
                     {/* Username and Special Badges - Inline horizontal flow */}
-                    <div className="flex items-center gap-3 mb-2 flex-wrap">
-                      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
-                        @{profile.username}
+                    {headerBlockOrder.includes("identity") && (
+                    <div
+                      className="flex items-center gap-3 mb-2 flex-wrap overflow-visible"
+                      style={getDragStyle("identity")}
+                    >
+                      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold leading-[1.2] py-1 overflow-visible">
+                        <FlairNameText
+                          name={`@${flairNameData?.custom_display_name || profile.username}`}
+                          animation={flairNameData?.display_name_animation || "none"}
+                          gradientJson={flairNameData?.display_name_gradient || null}
+                          className="inline-block align-middle text-white"
+                        />
                       </h1>
                       
                       {/* Special Badges - Only show special category badges (admin, staff, member, verified, bug_tester) */}
@@ -790,9 +1074,10 @@ export default function UserProfile() {
                                   rarity={(ub.badges?.rarity || 'common') as any}
                                   size={32}
                                   className="cursor-pointer"
+                                  borderColor={badgeAccentBorderColor}
                                 />
                                 {/* Badge name tooltip */}
-                                <div className="badge-tooltip fixed px-2 py-1 bg-slate-900/95 backdrop-blur-sm rounded text-xs text-white whitespace-nowrap opacity-0 transition-opacity pointer-events-none z-[99999] border border-slate-700 shadow-lg"
+                                <div className="badge-tooltip fixed px-2 py-1 bg-slate-900 rounded text-xs text-white whitespace-nowrap opacity-0 transition-opacity pointer-events-none z-[99999] border border-slate-700 shadow-md"
                                   style={{
                                     visibility: 'hidden',
                                     top: '-9999px',
@@ -815,45 +1100,105 @@ export default function UserProfile() {
                         );
                       })()}
                     </div>
-
-                    {/* Bio - Left aligned */}
-                    {profile.bio && (
-                      <p className="text-slate-300 text-sm sm:text-base mb-3 leading-relaxed">
-                        {profile.bio}
-                      </p>
                     )}
 
-                    {/* Stats - Compact horizontal flow like Discord */}
-                    <div className="flex items-center gap-4 sm:gap-5 mt-3 flex-wrap">
-                      <div className="flex items-center gap-1.5 text-slate-400 hover:text-slate-300 transition-colors cursor-default">
-                        <Calendar className="h-4 w-4" />
-                        <span className="text-sm">
-                          Joined {profile.created_at ? formatDate(profile.created_at) : "Unknown"}
-                        </span>
+                    {/* Bio - Left aligned */}
+                    {headerBlockOrder.includes("identity") && profile.bio && (
+                      <div style={getDragStyle("bio")}>
+                        <p className="text-slate-300 text-sm sm:text-base mb-3 leading-relaxed">
+                          {profile.bio}
+                        </p>
                       </div>
-                      
-                      <div className="w-1 h-1 rounded-full bg-slate-600"></div>
-                      
-                      <div 
-                        className="flex items-center gap-1.5 text-slate-400 hover:text-slate-300 transition-colors cursor-pointer"
-                        onClick={() => openFollowModal("followers")}
-                      >
-                        <Users className="h-4 w-4" />
-                        <span className="text-sm font-medium text-white">{followStats.followers}</span>
-                        <span className="text-sm">followers</span>
-                      </div>
-                      
-                      <div className="w-1 h-1 rounded-full bg-slate-600"></div>
-                      
-                      <div 
-                        className="flex items-center gap-1.5 text-slate-400 hover:text-slate-300 transition-colors cursor-pointer"
-                        onClick={() => openFollowModal("following")}
-                      >
-                        <UserPlus className="h-4 w-4" />
-                        <span className="text-sm font-medium text-white">{followStats.following}</span>
-                        <span className="text-sm">following</span>
-                      </div>
+                    )}
+
+                    {/* Stats - intentionally subtle and compact */}
+                    {headerBlockOrder.includes("stats") && (
+                    <div
+                      className={
+                        statsVariant === "normal"
+                          ? "mt-2 inline-flex flex-wrap items-center gap-4 text-sm text-slate-300 align-middle"
+                          : "mt-2 inline-flex flex-wrap items-center gap-2 rounded-full border border-slate-700/70 bg-slate-800/35 px-2.5 py-1 text-[11px] text-slate-400"
+                      }
+                      style={getDragStyle("stats")}
+                    >
+                      {normalizeStatsItemOrder(parsedLayout?.header?.stats?.order).map((itemId, idx) => (
+                        <Fragment key={itemId}>
+                          {idx > 0 && <span className="text-slate-600">•</span>}
+                          {itemId === "joined" && (
+                            <div className="flex items-center gap-1 text-slate-400 hover:text-slate-300 transition-colors cursor-default">
+                              <Calendar className="h-3.5 w-3.5" />
+                              <span>Joined {profile.created_at ? formatDate(profile.created_at) : "Unknown"}</span>
+                            </div>
+                          )}
+                          {itemId === "followers" && (
+                            <div
+                              className="flex items-center gap-1 text-slate-400 hover:text-slate-300 transition-colors cursor-pointer"
+                              onClick={() => openFollowModal("followers")}
+                            >
+                              <Users className="h-3.5 w-3.5" />
+                              <span className="font-medium text-slate-200">{followStats.followers}</span>
+                              <span>followers</span>
+                            </div>
+                          )}
+                          {itemId === "following" && (
+                            <div
+                              className="flex items-center gap-1 text-slate-400 hover:text-slate-300 transition-colors cursor-pointer"
+                              onClick={() => openFollowModal("following")}
+                            >
+                              <UserPlus className="h-3.5 w-3.5" />
+                              <span className="font-medium text-slate-200">{followStats.following}</span>
+                              <span>following</span>
+                            </div>
+                          )}
+                          {itemId === "favorites" && (
+                            <button
+                              type="button"
+                              onClick={() => handleTabChange("favorites")}
+                              className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium text-slate-200 transition-colors"
+                              style={{
+                                backgroundColor: adaptiveColors.chipBg,
+                                border: `1px solid ${adaptiveColors.chipBorder}`,
+                              }}
+                            >
+                              <Heart className="h-3 w-3" />
+                              Favorites
+                            </button>
+                          )}
+                        </Fragment>
+                      ))}
                     </div>
+                    )}
+
+                    {headerBlockOrder.includes("socials") && socialItems.length > 0 && (
+                      <div
+                        className={`${headerBlockOrder.includes("stats") ? "mt-2 inline-flex flex-wrap items-center gap-2 align-middle" : "mt-3 inline-flex flex-wrap items-center gap-2 align-middle"}`}
+                        style={getDragStyle("socials")}
+                      >
+                        {headerBlockOrder.includes("stats") && <span className="text-slate-600">•</span>}
+                        {socialItems.map((item) =>
+                          item.href ? (
+                            <a
+                              key={item.id}
+                              href={item.href}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 rounded-full border border-slate-600/70 bg-slate-800/60 px-2.5 py-1 text-xs text-slate-300 hover:text-white hover:border-purple-500/60 transition-colors"
+                            >
+                              {item.icon}
+                              {item.label}
+                            </a>
+                          ) : (
+                            <span
+                              key={item.id}
+                              className="inline-flex items-center gap-1 rounded-full border border-slate-600/70 bg-slate-800/60 px-2.5 py-1 text-xs text-slate-300"
+                            >
+                              {item.icon}
+                              {item.label}
+                            </span>
+                          )
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Right side - Achievements */}
@@ -910,10 +1255,16 @@ export default function UserProfile() {
                     if (achievementBadges.length === 0 && totalBadgeCount === 0) return null;
                     
                     return (
-                      <div className="md:w-64 lg:w-80 flex-shrink-0">
-                        <div className="bg-slate-800/60 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-slate-700/50 shadow-lg">
+                      <div className="md:w-64 lg:w-80 flex-shrink-0" style={getDragStyle("achievements")}>
+                        <div
+                          className="rounded-xl p-3 sm:p-4 shadow-md"
+                          style={{
+                            backgroundColor: adaptiveColors.containerBg,
+                            border: `1px solid ${adaptiveColors.containerBorder}`,
+                          }}
+                        >
                           <div className="flex items-center gap-2 mb-3">
-                            <Trophy className="h-4 w-4 text-purple-400" />
+                            <Trophy className="h-4 w-4" style={{ color: badgeAccentBorderColor }} />
                             <h2 className="text-sm font-semibold text-white">Achievements</h2>
                             <span className="ml-auto text-xs text-slate-400">
                               {totalBadgeCount}
@@ -991,9 +1342,10 @@ export default function UserProfile() {
                                       rarity={(badge?.rarity || 'common') as any}
                                       size={32}
                                       className="cursor-pointer"
+                                      borderColor={badgeAccentBorderColor}
                                     />
                                     {/* Badge tooltip - positioned fixed to escape overflow container */}
-                                    <div className="badge-tooltip fixed px-2 py-1 bg-slate-900/95 backdrop-blur-sm rounded text-xs text-white whitespace-nowrap opacity-0 transition-opacity pointer-events-none z-[99999] border border-slate-700 shadow-lg"
+                                    <div className="badge-tooltip fixed px-2 py-1 bg-slate-900 rounded text-xs text-white whitespace-nowrap opacity-0 transition-opacity pointer-events-none z-[99999] border border-slate-700 shadow-md"
                                       style={{
                                         visibility: 'hidden',
                                         top: '-9999px',
@@ -1022,63 +1374,41 @@ export default function UserProfile() {
                 </div>
               </div>
             </div>
+            )}
           </div>
+          )}
 
           {/* Content Tabs */}
+          {sectionState.highlights && (
+          <>
           <div className="mb-6 md:mb-8">
-            <div className="flex space-x-1 bg-slate-800/60 backdrop-blur-sm rounded-xl p-1 overflow-x-auto no-scrollbar border border-slate-700/50 shadow-lg">
-              {[
-                {
-                  id: "pairs",
-                  label: "Profile Pairs",
-                  count: profilePairs?.length || 0,
-                  icon: User,
-                },
-                {
-                  id: "pfps",
-                  label: "PFPs",
-                  count: pfps.length,
-                  icon: Image,
-                },
-                {
-                  id: "banners",
-                  label: "Banners",
-                  count: banners.length,
-                  icon: ImageIcon,
-                },
-                {
-                  id: "emotes",
-                  label: "Emotes",
-                  count: emotes?.length || 0,
-                  icon: Smile,
-                },
-                {
-                  id: "wallpapers",
-                  label: "Wallpapers",
-                  count: wallpapers?.length || 0,
-                  icon: Monitor,
-                },
-                {
-                  id: "emojicombos",
-                  label: "Emoji Combos",
-                  count: emojicombos?.length || 0,
-                  icon: BsFillEmojiHeartEyesFill,
-                },
-                {
-                  id: "favorites",
-                  label: "Favorites",
-                  count: favorites?.length ?? 0,
-                  icon: Heart,
-                },
-              ].map((tab) => (
+            <div
+              className="flex space-x-1 rounded-xl p-1 overflow-x-auto no-scrollbar border shadow-md"
+              style={{
+                background: `linear-gradient(145deg, ${hexToRgba(tabTheme.stripStart, 0.22)}, ${hexToRgba(
+                  tabTheme.stripEnd,
+                  0.16
+                )})`,
+                borderColor: adaptiveColors.containerBorder,
+              }}
+            >
+              {orderedTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
                   className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
                     activeTab === tab.id
-                      ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/30"
+                      ? "text-white shadow-lg"
                       : "text-slate-300 hover:text-white hover:bg-slate-700/50"
                   }`}
+                  style={
+                    activeTab === tab.id
+                      ? {
+                          backgroundImage: `linear-gradient(135deg, ${tabTheme.activeStart}, ${tabTheme.activeEnd})`,
+                          boxShadow: `0 12px 24px ${hexToRgba(tabTheme.activeStart, 0.35)}`,
+                        }
+                      : undefined
+                  }
                 >
                   <tab.icon className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span className="text-sm sm:text-base">{tab.label}</span>
@@ -1164,7 +1494,7 @@ export default function UserProfile() {
                       </div>
                       ))}
                     </div>
-                    <Pagination
+                    <ProfilePagination
                       totalPages={getTotalPages(profilePairs)}
                       currentPage={currentPage}
                       onPageChange={setCurrentPage}
@@ -1198,7 +1528,7 @@ export default function UserProfile() {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           whileHover={{ scale: 1.05 }}
-                          className="group bg-slate-800/60 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-slate-800/80 transition-all cursor-pointer border border-slate-700/50 hover:border-slate-600 shadow-lg hover:shadow-purple-500/10"
+                          className="group bg-slate-800/75 rounded-xl overflow-hidden hover:bg-slate-800/90 transition-colors cursor-pointer border border-slate-700/50 hover:border-slate-600 shadow-md"
                           onClick={() => openPreview(upload as UserUpload)}
                         >
                           <div className="aspect-square overflow-hidden">
@@ -1236,7 +1566,7 @@ export default function UserProfile() {
                         </motion.div>
                       ))}
                     </div>
-                    <Pagination
+                    <ProfilePagination
                       totalPages={getTotalPages(pfps)}
                       currentPage={currentPage}
                       onPageChange={setCurrentPage}
@@ -1270,7 +1600,7 @@ export default function UserProfile() {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           whileHover={{ scale: 1.05 }}
-                          className="group bg-slate-800/60 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-slate-800/80 transition-all cursor-pointer border border-slate-700/50 hover:border-slate-600 shadow-lg hover:shadow-purple-500/10"
+                          className="group bg-slate-800/75 rounded-xl overflow-hidden hover:bg-slate-800/90 transition-colors cursor-pointer border border-slate-700/50 hover:border-slate-600 shadow-md"
                           onClick={() => openPreview(upload as UserUpload)}
                         >
                           <div className="aspect-video overflow-hidden">
@@ -1308,7 +1638,7 @@ export default function UserProfile() {
                         </motion.div>
                       ))}
                     </div>
-                    <Pagination
+                    <ProfilePagination
                       totalPages={getTotalPages(banners)}
                       currentPage={currentPage}
                       onPageChange={setCurrentPage}
@@ -1342,7 +1672,7 @@ export default function UserProfile() {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           whileHover={{ scale: 1.05 }}
-                          className="group bg-slate-800/60 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-slate-800/80 transition-all cursor-pointer border border-slate-700/50 hover:border-slate-600 shadow-lg hover:shadow-purple-500/10"
+                          className="group bg-slate-800/75 rounded-xl overflow-hidden hover:bg-slate-800/90 transition-colors cursor-pointer border border-slate-700/50 hover:border-slate-600 shadow-md"
                         >
                           <div className="aspect-square overflow-hidden">
                             <img
@@ -1379,7 +1709,7 @@ export default function UserProfile() {
                         </motion.div>
                       ))}
                     </div>
-                    <Pagination
+                    <ProfilePagination
                       totalPages={getTotalPages(emotes)}
                       currentPage={currentPage}
                       onPageChange={setCurrentPage}
@@ -1451,8 +1781,64 @@ export default function UserProfile() {
                         </motion.div>
                       ))}
                     </div>
-                    <Pagination
+                    <ProfilePagination
                       totalPages={getTotalPages(wallpapers)}
+                      currentPage={currentPage}
+                      onPageChange={setCurrentPage}
+                    />
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Collections Tab */}
+            {activeTab === "collections" && (
+              <div>
+                {collections?.length === 0 ? (
+                  <div className="text-center py-16">
+                    <FolderKanban className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-white mb-2">
+                      No collections yet
+                    </h3>
+                    <p className="text-gray-400">
+                      {isOwnProfile
+                        ? "You haven't created any collections yet."
+                        : "This user hasn't published any collections yet."}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                      {getPaginatedData(collections).map((collection) => (
+                        <Link
+                          key={collection.id}
+                          to={`/collections/${collection.id}`}
+                          className="surface-elevated p-4 transition-colors hover:border-slate-500 hover:bg-slate-800"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <h3 className="text-base sm:text-lg font-semibold text-white truncate">
+                              {collection.name}
+                            </h3>
+                            <span className="rounded-full bg-slate-700/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+                              {collection.is_public ? "Public" : "Private"}
+                            </span>
+                          </div>
+
+                          {collection.description && (
+                            <p className="mt-2 line-clamp-2 text-sm text-slate-400">
+                              {collection.description}
+                            </p>
+                          )}
+
+                          <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
+                            <span>{Array.isArray(collection.emote_ids) ? collection.emote_ids.length : 0} items</span>
+                            <span>{collection.download_count || 0} downloads</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                    <ProfilePagination
+                      totalPages={getTotalPages(collections)}
                       currentPage={currentPage}
                       onPageChange={setCurrentPage}
                     />
@@ -1492,7 +1878,7 @@ export default function UserProfile() {
                           return (
                             <div
                               key={fav.id}
-                              className="group bg-white/5 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-white/10 transition-all cursor-pointer hover:scale-105"
+                              className="group bg-slate-800/65 rounded-xl overflow-hidden hover:bg-slate-800/80 transition-colors cursor-pointer hover:scale-[1.02]"
                             >
                               <div className="aspect-square overflow-hidden relative bg-slate-800/50 p-4 flex items-center justify-center">
                                 <div className="text-2xl sm:text-3xl text-center break-words">
@@ -1522,7 +1908,7 @@ export default function UserProfile() {
                         return (
                           <div
                             key={fav.id}
-                            className="group bg-white/5 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-white/10 transition-all cursor-pointer hover:scale-105"
+                            className="group bg-slate-800/65 rounded-xl overflow-hidden hover:bg-slate-800/80 transition-colors cursor-pointer hover:scale-[1.02]"
                             onClick={() => {
                               if (contentType === 'profile' && fav?.upload) {
                                 openPreview(fav.upload as UserUpload)
@@ -1551,7 +1937,7 @@ export default function UserProfile() {
                         )
                       })}
                     </div>
-                    <Pagination
+                    <ProfilePagination
                       totalPages={getTotalPages(favorites)}
                       currentPage={currentPage}
                       onPageChange={setCurrentPage}
@@ -1618,7 +2004,7 @@ export default function UserProfile() {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           whileHover={{ scale: 1.02 }}
-                          className="group bg-slate-800/60 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-slate-800/80 transition-all border border-slate-700/50 hover:border-slate-600 shadow-lg hover:shadow-purple-500/10 mb-4 sm:mb-6 break-inside-avoid"
+                          className="group bg-slate-800/75 rounded-xl overflow-hidden hover:bg-slate-800/90 transition-colors border border-slate-700/50 hover:border-slate-600 shadow-md mb-4 sm:mb-6 break-inside-avoid"
                           style={{ pageBreakInside: 'avoid' }}
                         >
                           {/* Content Preview Area */}
@@ -1705,7 +2091,7 @@ export default function UserProfile() {
                       );
                       })}
                     </div>
-                    <Pagination
+                    <ProfilePagination
                       totalPages={getTotalPages(emojicombos)}
                       currentPage={currentPage}
                       onPageChange={setCurrentPage}
@@ -1715,236 +2101,24 @@ export default function UserProfile() {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
 
-        {/* Preview Modal - Using gallery.tsx style */}
-        <Transition appear show={isModalOpen} as={Fragment}>
-          <Dialog
-            as="div"
-            className="fixed inset-0 z-50 overflow-y-auto"
-            onClose={closePreview}
-          >
-            <div className="min-h-screen px-4 text-center bg-black bg-opacity-80 backdrop-blur-sm">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <Dialog.Panel className="inline-block w-full max-w-4xl my-20 overflow-hidden text-left align-middle transition-all transform bg-slate-900 shadow-2xl rounded-2xl border border-slate-700">
-                  <div className="relative">
-                    {/* Close Button */}
-                    <button
-                      onClick={closePreview}
-                      className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors z-10"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
+        <ProfilePreviewModal
+          isOpen={isModalOpen}
+          onClose={closePreview}
+          previewItem={previewItem}
+          formatDate={formatDate}
+        />
 
-                    {previewItem && "image_url" in previewItem ? (
-                      // Single image preview
-                      <>
-                        <div className="aspect-video overflow-hidden">
-                          <img
-                            src={previewItem.image_url || "/placeholder.svg"}
-                            alt={previewItem.title || "Preview image"}
-                            className="w-full h-full object-contain bg-slate-800"
-                          />
-                        </div>
-                        <div className="p-6">
-                          <h3 className="text-2xl font-bold text-white mb-2">
-                            {previewItem.title || "Untitled"}
-                          </h3>
-                          <p className="text-gray-300 mb-4">
-                            {previewItem.category || "No category"}
-                          </p>
-
-                          {previewItem.tags && previewItem.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mb-4">
-                              {previewItem.tags.map((tag, i) => (
-                                <span
-                                  key={i}
-                                  className="inline-flex items-center gap-1 bg-purple-900/30 text-purple-300 px-3 py-1 rounded-full text-sm"
-                                >
-                                  <Tag className="h-3 w-3" />
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-
-                          {previewItem.created_at && (
-                            <p className="text-sm text-gray-400">
-                              Created on {formatDate(previewItem.created_at)}
-                            </p>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      // Profile pair preview (banner + pfp)
-                      previewItem &&
-                      "pfp_url" in previewItem && (
-                        <>
-                          <div className="relative">
-                            {previewItem.banner_url && (
-                              <img
-                                src={
-                                  previewItem.banner_url || "/placeholder.svg"
-                                }
-                                alt={`${previewItem.title} banner`}
-                                className="w-full h-64 object-cover brightness-75"
-                                loading="lazy"
-                              />
-                            )}
-                            {previewItem.pfp_url && (
-                              <img
-                                src={previewItem.pfp_url || "/placeholder.svg"}
-                                alt={`${previewItem.title} profile`}
-                                className="w-32 h-32 rounded-full border-4 border-purple-500 absolute top-48 left-1/2 transform -translate-x-1/2 bg-slate-900"
-                                loading="lazy"
-                              />
-                            )}
-                          </div>
-
-                          <div className="pt-20 pb-8 px-6 text-center">
-                            <Dialog.Title
-                              as="h3"
-                              className="text-3xl font-bold leading-12 text-white mb-5"
-                            >
-                              {previewItem.title || "Untitled"}
-                            </Dialog.Title>
-
-                            <div className="flex flex-wrap justify-center gap-2 mb-6 max-h-20 overflow-auto px-2">
-                              {(previewItem.tags || []).map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="bg-purple-700/30 text-purple-200 text-sm px-3 py-1 rounded-full select-none whitespace-nowrap border border-purple-600/30"
-                                >
-                                  #{tag}
-                                </span>
-                              ))}
-                            </div>
-
-                            <div className="flex justify-center gap-6">
-                              <button
-                                type="button"
-                                className="inline-flex justify-center px-8 py-3 text-sm font-semibold text-purple-400 bg-transparent border border-purple-600 rounded-lg hover:bg-purple-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
-                                onClick={closePreview}
-                              >
-                                Close
-                              </button>
-                            </div>
-                          </div>
-                        </>
-                      )
-                    )}
-                  </div>
-                </Dialog.Panel>
-              </Transition.Child>
-            </div>
-          </Dialog>
-        </Transition>
-
-
-        {/* Followers/Following Modal */}
-        <Transition appear show={showFollowModal} as={Fragment}>
-          <Dialog as="div" className="relative z-50" onClose={() => setShowFollowModal(false)}>
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0"
-              enterTo="opacity-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100"
-              leaveTo="opacity-0"
-            >
-              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
-            </Transition.Child>
-
-            <div className="fixed inset-0 overflow-y-auto">
-              <div className="flex min-h-full items-center justify-center p-4">
-                <Transition.Child
-                  as={Fragment}
-                  enter="ease-out duration-300"
-                  enterFrom="opacity-0 scale-95"
-                  enterTo="opacity-100 scale-100"
-                  leave="ease-in duration-200"
-                  leaveFrom="opacity-100 scale-100"
-                  leaveTo="opacity-0 scale-95"
-                >
-                  <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-slate-800 border border-slate-700 shadow-xl">
-                    <div className="p-6">
-                      <div className="flex items-center justify-between mb-6">
-                        <Dialog.Title className="text-xl font-bold text-white flex items-center gap-2">
-                          {followModalType === "followers" ? (
-                            <>
-                              <Users className="h-5 w-5 text-purple-400" />
-                              Followers
-                            </>
-                          ) : (
-                            <>
-                              <UserPlus className="h-5 w-5 text-purple-400" />
-                              Following
-                            </>
-                          )}
-                        </Dialog.Title>
-                        <button
-                          onClick={() => setShowFollowModal(false)}
-                          className="text-slate-400 hover:text-white transition-colors"
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
-                      </div>
-
-                      {loadingFollowList ? (
-                        <div className="flex items-center justify-center py-12">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
-                        </div>
-                      ) : followList.length === 0 ? (
-                        <div className="text-center py-12">
-                          <Users className="h-16 w-16 mx-auto text-slate-400 mb-4" />
-                          <p className="text-slate-400">
-                            No {followModalType === "followers" ? "followers" : "following"} yet
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-3 max-h-96 overflow-y-auto">
-                          {followList.map((item) => (
-                            item.user && (
-                              <Link
-                                key={item.user.user_id}
-                                to={`/user/${item.user.username}`}
-                                onClick={() => setShowFollowModal(false)}
-                                className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-700/50 transition-colors group"
-                              >
-                                <img
-                                  src={item.user.avatar_url || "/placeholder.svg"}
-                                  alt={item.user.display_name || item.user.username}
-                                  className="w-12 h-12 rounded-full object-cover border-2 border-slate-600 group-hover:border-purple-500 transition-colors"
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-white truncate">
-                                    {item.user.display_name || item.user.username}
-                                  </p>
-                                  <p className="text-sm text-slate-400 truncate">
-                                    @{item.user.username}
-                                  </p>
-                                </div>
-                              </Link>
-                            )
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </Dialog.Panel>
-                </Transition.Child>
-              </div>
-            </div>
-          </Dialog>
-        </Transition>
+        <FollowListModal
+          isOpen={showFollowModal}
+          onClose={() => setShowFollowModal(false)}
+          type={followModalType}
+          loading={loadingFollowList}
+          followList={followList}
+        />
       </div>
       <Footer />
     </>

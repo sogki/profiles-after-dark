@@ -6,29 +6,11 @@ import { motion } from "framer-motion"
 import { useAuth } from "../../context/authContext"
 import { supabase } from "../../lib/supabase"
 import ReportContentButton from "../shared/ReportContentButton"
+import FlairNameText from "@/components/flair/FlairNameText"
+import { useDiscoveryFlairNames } from "@/hooks/flair/useDiscoveryFlairNames"
 
 import Footer from "../Footer"
-
-interface UserProfile {
-  username: string | null
-  display_name: string | null
-  avatar_url: string | null
-}
-
-interface Banner {
-  id: string
-  user_id: string
-  title: string
-  category: string
-  type: string
-  image_url: string
-  download_count: number
-  tags: string[]
-  created_at: string
-  updated_at: string
-  color?: string
-  user_profiles?: UserProfile
-}
+import type { GalleryImageItem as Banner } from "./shared/types"
 
 const FAVORITES_STORAGE_KEY = "banner_favorites"
 
@@ -201,6 +183,26 @@ export default function BannerGallery() {
     return filteredBanners.slice(start, start + ITEMS_PER_PAGE)
   }, [filteredBanners, page])
 
+  const flairNameMap = useDiscoveryFlairNames(
+    useMemo(() => [...new Set(banners.map((banner) => banner.user_id).filter(Boolean))], [banners])
+  )
+
+  const renderDiscoveryName = (userId: string, username?: string | null, displayName?: string | null, className = "") => {
+    const flairData = flairNameMap[userId]
+    const fallbackName = username || displayName || "Unknown User"
+    if (flairData?.isPremium) {
+      return (
+        <FlairNameText
+          name={flairData.customDisplayName || fallbackName}
+          animation={flairData.animation}
+          gradientJson={flairData.gradient}
+          className={className}
+        />
+      )
+    }
+    return <span className={className}>{fallbackName}</span>
+  }
+
   useEffect(() => {
     setPage(1)
   }, [searchQuery, selectedTags, selectedColor])
@@ -332,7 +334,7 @@ export default function BannerGallery() {
       </div>
 
       {/* Enhanced Filters */}
-      <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-slate-600/50 shadow-2xl">
+      <div className="surface-elevated rounded-2xl p-8 mb-8">
         {/* Search Bar */}
         <div className="mb-6">
           <div className="relative">
@@ -342,7 +344,7 @@ export default function BannerGallery() {
               placeholder="Search titles, categories, or tags..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-6 py-4 rounded-xl bg-slate-700/50 text-white placeholder-slate-400 border border-slate-600/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200 text-lg backdrop-blur-sm"
+              className="w-full pl-12 pr-6 py-4 rounded-xl bg-slate-700/70 text-white placeholder-slate-400 border border-slate-600/60 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors duration-200 text-lg"
               aria-label="Search banners" />
             {searchQuery && (
               <button
@@ -558,7 +560,7 @@ export default function BannerGallery() {
                                   <div className="text-3xl mb-2 text-purple-400">🎬</div>
                                 </div>
                                 <div className="absolute bottom-2 right-2">
-                                  <div className="text-gray-300 text-xs bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">Hover to preview</div>
+                                  <div className="text-gray-300 text-xs bg-slate-900/80 rounded-full px-3 py-1">Hover to preview</div>
                                 </div>
                               </div>
                             ) : (
@@ -670,7 +672,11 @@ export default function BannerGallery() {
                             </div>
                           )}
                           <span className="truncate font-medium">
-                            {banner.user_profiles.username || banner.user_profiles.display_name || "Unknown User"}
+                            {renderDiscoveryName(
+                              banner.user_id,
+                              banner.user_profiles.username,
+                              banner.user_profiles.display_name
+                            )}
                           </span>
                         </Link>
                       )}
@@ -763,7 +769,12 @@ export default function BannerGallery() {
                             </div>
                           )}
                           <span className="truncate font-medium">
-                            by {banner.user_profiles.username || banner.user_profiles.display_name || "Unknown User"}
+                            by{" "}
+                            {renderDiscoveryName(
+                              banner.user_id,
+                              banner.user_profiles.username,
+                              banner.user_profiles.display_name
+                            )}
                           </span>
                         </Link>
                       )}
@@ -831,8 +842,8 @@ export default function BannerGallery() {
 
       {/* Enhanced Preview Modal */}
       <Transition appear show={isModalOpen} as={Fragment}>
-        <Dialog as="div" className="fixed inset-0 z-50 overflow-y-auto" onClose={closePreview}>
-          <div className="min-h-screen px-4 text-center bg-black bg-opacity-80 backdrop-blur-sm">
+        <Dialog as="div" className="fixed inset-0 z-50" onClose={closePreview}>
+          <div className="min-h-screen px-4 text-center modal-backdrop-light flex items-center justify-center py-8">
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
@@ -842,7 +853,7 @@ export default function BannerGallery() {
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="inline-block w-full max-w-6xl my-20 overflow-hidden text-left align-middle transition-all transform bg-slate-900 shadow-2xl rounded-2xl border border-slate-700">
+              <Dialog.Panel className="inline-block w-full max-w-5xl my-0 max-h-[90vh] overflow-y-auto text-left align-middle transition-all transform modal-popup-shell">
                 <div className="relative">
                   {previewBanner && (
                     <img

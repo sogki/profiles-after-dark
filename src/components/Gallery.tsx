@@ -5,34 +5,7 @@ import { Download, Heart, Eye, Search, Clock, Tag } from "lucide-react"
 import { Dialog, Transition } from "@headlessui/react"
 import { useAuth } from "../context/authContext"
 import { supabase } from "../lib/supabase"
-
-interface ProfilePair {
-  id: string
-  user_id: string
-  title: string
-  category: string
-  tags: string[]
-  pfp_url: string
-  banner_url: string
-  created_at: string | null
-  updated_at: string | null
-  type: "pair"
-  download_count?: number
-}
-
-interface Profile {
-  id: string
-  user_id: string
-  title: string
-  category: string
-  type: string
-  image_url: string
-  download_count: number
-  tags: string[]
-  created_at: string | null
-  updated_at: string | null
-  text_data: string
-}
+import type { GalleryImageItem as Profile, GalleryProfilePair as ProfilePair } from "./gallery/shared/types"
 
 type GalleryItem = ProfilePair | Profile
 
@@ -105,14 +78,14 @@ const ProfileCard = memo(({ profile, onPreview, onDownload, onToggleFavorite, is
 
   return (
     <div
-      className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 border border-slate-700 hover:border-slate-600 flex flex-col"
+      className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-200 border border-slate-700 hover:border-slate-600 flex flex-col"
       style={{ minHeight: "320px", maxHeight: "420px" }}
       onMouseEnter={() => onHover(profile.id)}
       onMouseLeave={() => onHover(null)}
     >
       {/* Animated Content Indicator - always show for animated content */}
       {isAnimated && (
-        <div className="absolute top-2 left-2 z-20 bg-purple-600/90 text-white text-xs px-2 py-1 rounded-full font-medium backdrop-blur-sm">
+        <div className="absolute top-2 left-2 z-20 bg-purple-600 text-white text-xs px-2 py-1 rounded-full font-medium">
           ✨ Animated
         </div>
       )}
@@ -132,7 +105,7 @@ const ProfileCard = memo(({ profile, onPreview, onDownload, onToggleFavorite, is
                         <div className="text-3xl mb-2 text-purple-400">🎬</div>
                       </div>
                       <div className="absolute bottom-2 right-2">
-                        <div className="text-gray-300 text-xs bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">Hover to preview</div>
+                        <div className="text-gray-300 text-xs bg-slate-900/80 rounded-full px-3 py-1">Hover to preview</div>
                       </div>
                     </div>
                   ) : (
@@ -181,7 +154,7 @@ const ProfileCard = memo(({ profile, onPreview, onDownload, onToggleFavorite, is
                             <div className="text-3xl mb-2 text-purple-400">🎬</div>
                           </div>
                           <div className="absolute bottom-2 right-2">
-                            <div className="text-gray-300 text-xs bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">Hover to preview</div>
+                            <div className="text-gray-300 text-xs bg-slate-900/80 rounded-full px-3 py-1">Hover to preview</div>
                           </div>
                         </div>
                       ) : (
@@ -642,7 +615,7 @@ export default function ProfilesGallery() {
       </div>
 
       {/* Enhanced Filters */}
-      <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-slate-600/50 shadow-2xl mx-4 sm:mx-6 lg:mx-8">
+      <div className="surface-elevated rounded-2xl p-8 mb-8 mx-4 sm:mx-6 lg:mx-8">
         {/* Search Bar */}
         <div className="mb-6">
           <div className="relative">
@@ -652,7 +625,7 @@ export default function ProfilesGallery() {
               placeholder="Search titles, categories, or tags..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-6 py-4 rounded-xl bg-slate-700/50 text-white placeholder-slate-400 border border-slate-600/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200 text-lg backdrop-blur-sm"
+              className="w-full pl-12 pr-6 py-4 rounded-xl bg-slate-700/70 text-white placeholder-slate-400 border border-slate-600/60 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors duration-200 text-lg"
               aria-label="Search profiles"
             />
             {searchQuery && (
@@ -859,8 +832,8 @@ export default function ProfilesGallery() {
 
       {/* Enhanced Preview Modal */}
       <Transition appear show={isModalOpen} as={Fragment}>
-        <Dialog as="div" className="fixed inset-0 z-50 overflow-y-auto" onClose={closePreview}>
-          <div className="min-h-screen px-4 text-center bg-black bg-opacity-80 backdrop-blur-sm">
+        <Dialog as="div" className="fixed inset-0 z-50" onClose={closePreview}>
+          <div className="min-h-screen px-4 text-center modal-backdrop-light flex items-center justify-center py-8">
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
@@ -870,7 +843,7 @@ export default function ProfilesGallery() {
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="inline-block w-full max-w-4xl my-20 overflow-hidden text-left align-middle transition-all transform bg-slate-900 shadow-2xl rounded-2xl border border-slate-700">
+              <Dialog.Panel className="inline-block w-full max-w-5xl my-0 max-h-[90vh] overflow-y-auto text-left align-middle transition-all transform modal-popup-shell">
                 <div className="relative">
                   {previewProfile && "pfp_url" in previewProfile && previewProfile.type === "pair" ? (
                     // Profile Pair Preview
@@ -908,7 +881,7 @@ export default function ProfilesGallery() {
                   {/* Close Button */}
                   <button
                     onClick={closePreview}
-                    className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors"
+                    className="absolute top-4 right-4 p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

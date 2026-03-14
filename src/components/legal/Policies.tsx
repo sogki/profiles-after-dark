@@ -1,13 +1,13 @@
 import React from "react";
 import Footer from "../Footer";
-import { FileText, Shield, Database, Cookie, Gavel, Lock } from "lucide-react";
+import { FileText, Shield, Database, Cookie, Gavel, Lock, CreditCard, UserRoundCheck } from "lucide-react";
 import { motion } from "framer-motion";
 
 const policies = [
   {
     icon: Shield,
     title: "Privacy Policy",
-    description: "We are committed to protecting your privacy. We collect only the information necessary to provide our services, such as account details and usage data, and we never sell your personal data to third parties. We use industry-standard security measures to protect your information and allow you to control your data preferences.",
+    description: "We collect and process information needed to run the service, including account details, uploaded content metadata, moderation records, and core analytics. We do not sell personal data. Access is restricted and protected with administrative and technical safeguards.",
     color: "blue",
   },
   {
@@ -19,14 +19,26 @@ const policies = [
   {
     icon: Database,
     title: "Data Retention Policy",
-    description: "We retain your personal data only as long as necessary to fulfill the purposes for which it was collected, including providing services, complying with legal obligations, and resolving disputes. Upon account deletion or request, we will securely delete your information in accordance with applicable laws.",
+    description: "We retain data only as long as required for service delivery, fraud prevention, security, compliance, and dispute handling. Deletion requests are handled in line with applicable law and operational requirements.",
     color: "purple",
+  },
+  {
+    icon: CreditCard,
+    title: "Payment Processing (Stripe)",
+    description: "Paid subscriptions and billing portal actions are processed by Stripe. Payment method details are handled directly by Stripe and are not stored in full on our systems. We may store limited billing metadata such as subscription status, customer IDs, and renewal timestamps.",
+    color: "blue",
   },
   {
     icon: Cookie,
     title: "Cookie Policy",
     description: "Our platform uses cookies and similar tracking technologies to enhance your experience, analyze site traffic, and personalize content. You can manage cookie preferences via your browser settings. We do not use cookies to collect personally identifiable information without your consent.",
     color: "yellow",
+  },
+  {
+    icon: UserRoundCheck,
+    title: "Your Data Rights",
+    description: "Depending on your jurisdiction, you may have rights to access, correct, export, or request deletion of your personal data. Requests can be submitted through support and will be evaluated under applicable legal requirements.",
+    color: "orange",
   },
   {
     icon: FileText,

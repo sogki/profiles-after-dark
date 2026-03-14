@@ -7,49 +7,7 @@ import { useAuth } from '../../../context/authContext'
 import { Menu, Transition } from '@headlessui/react'
 import { Fragment } from 'react'
 import { notifyUserOfTicketUpdate, sendTicketEmailNotification } from '../../../lib/supportTicketUtils'
-
-type SupportTicket = {
-  id: string
-  user_id: string | null
-  type: 'support'
-  subject: string | null
-  message: string
-  status: 'pending' | 'reviewed' | 'resolved' | 'dismissed'
-  priority: 'low' | 'medium' | 'high' | 'urgent'
-  ticket_number: string | null
-  assigned_to: string | null
-  owner_id: string | null
-  is_locked: boolean
-  locked_at: string | null
-  reviewed_by: string | null
-  reviewed_at: string | null
-  response: string | null
-  user_agent: string | null
-  platform: string | null
-  created_at: string
-  updated_at: string
-  user_profiles?: {
-    username: string | null
-    display_name: string | null
-  } | null
-  owner_profile?: {
-    username: string | null
-    display_name: string | null
-  } | null
-}
-
-type ConversationMessage = {
-  id: string
-  ticket_id: string
-  user_id: string | null
-  message: string
-  is_staff: boolean
-  created_at: string
-  user_profiles?: {
-    username: string | null
-    display_name: string | null
-  } | null
-}
+import type { ConversationMessage, SupportTicket } from './types'
 
 export default function SupportTicketsView() {
   const { user, userProfile } = useAuth()
@@ -1123,11 +1081,11 @@ export default function SupportTicketsView() {
 
       {/* Transfer Modal */}
       {showTransferModal && selectedTicket && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 modal-backdrop-light flex items-center justify-center z-50 p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-slate-800 rounded-xl border border-slate-700 p-6 max-w-md w-full shadow-2xl"
+            className="modal-popup-shell p-6 max-w-md w-full"
           >
             <h3 className="text-xl font-bold text-white mb-2">Transfer Ticket</h3>
             <p className="text-sm text-slate-400 mb-4">
@@ -1171,12 +1129,12 @@ export default function SupportTicketsView() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && ticketToDelete && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+        <div className="fixed inset-0 modal-backdrop-light flex items-center justify-center z-[10000] p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-slate-800 rounded-xl border border-red-500/30 p-6 max-w-md w-full shadow-2xl"
+            className="modal-popup-shell border-red-500/30 p-6 max-w-md w-full"
           >
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-red-500/20 rounded-lg">

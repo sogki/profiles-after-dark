@@ -1,7 +1,7 @@
 import type React from "react"
 import { useEffect, useState, useRef, useMemo, useCallback } from "react"
 import { supabase } from "../../lib/supabase"
-import { Settings, ArrowLeft, Menu, User, Shield, Bell, Palette, Lock, Database, HelpCircle, Trophy } from 'lucide-react'
+import { Settings, ArrowLeft, Menu, User, Shield, Bell, Palette, Lock, Database, HelpCircle, Trophy, Crown, Sparkles, CreditCard, CalendarClock } from 'lucide-react'
 import toast from "react-hot-toast"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { useNavigate, useSearchParams } from "react-router-dom"
@@ -14,6 +14,10 @@ import AppearanceSettings from "../settings/AppearanceSettings"
 import PrivacySettings from "../settings/PrivacySettings"
 import DataSettings from "../settings/DataSettings"
 import SupportSettings from "../settings/SupportSettings"
+import FlairCustomizationSettings from "../settings/FlairCustomizationSettings"
+import { useFlairSubscription } from "../../hooks/useFlair"
+import { createFlairBillingPortalSession } from "../../lib/flairBilling"
+import StripeSecurityNotice from "../flair/StripeSecurityNotice"
 
 type Profile = {
   username: string
@@ -48,7 +52,7 @@ export default function ProfileSettings() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [activeTab, setActiveTab] = useState<
-    "account" | "security" | "notifications" | "appearance" | "privacy" | "data" | "support" | "unlockables"
+    "account" | "security" | "notifications" | "appearance" | "privacy" | "data" | "support" | "unlockables" | "subscription" | "customization"
   >("account")
 
   const bannerInputRef = useRef<HTMLInputElement>(null)
@@ -69,6 +73,7 @@ export default function ProfileSettings() {
   const [notificationFilter, setNotificationFilter] = useState<"all" | "unread" | "read">("all")
   const [selectedNotifications, setSelectedNotifications] = useState<Set<string>>(new Set())
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [billingBusy, setBillingBusy] = useState<"checkout" | "portal" | null>(null)
 
   // Essential feature states
   const [selectedTheme, setSelectedTheme] = useState("dark")
@@ -87,6 +92,13 @@ export default function ProfileSettings() {
   // Feedback
   const [feedbackText, setFeedbackText] = useState("")
   const [feedbackType, setFeedbackType] = useState("general")
+  const {
+    subscription: flairSubscription,
+    isPremium: isFlairPremium,
+    loading: flairSubscriptionLoading,
+    refetch: refetchFlairSubscription,
+  } = useFlairSubscription(user?.id)
+  const isCustomizationTab = activeTab === "customization"
 
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -541,8 +553,40 @@ export default function ProfileSettings() {
     }
   }
 
+  const openBillingPortal = async () => {
+    try {
+      setBillingBusy("portal")
+      const url = await createFlairBillingPortalSession()
+      window.location.href = url
+    } catch (error: any) {
+      toast.error(error?.message || "Unable to open billing portal.")
+    } finally {
+      setBillingBusy(null)
+    }
+  }
+
+  const goToFlairPlans = () => {
+    navigate("/flair")
+  }
+
+  const formatRenewalDate = (value: unknown) => {
+    if (!value) return "Not available"
+    const parsed =
+      typeof value === "number"
+        ? new Date(value * 1000)
+        : new Date(String(value))
+    if (Number.isNaN(parsed.getTime())) return "Not available"
+    return parsed.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })
+  }
+
   const navigationItems = useMemo(() => [
     { id: "account", label: "Account", icon: User },
+    { id: "customization", label: "Customisation", icon: Sparkles },
+    { id: "subscription", label: "Subscription", icon: Crown },
     { id: "unlockables", label: "Unlockables", icon: Trophy },
     { id: "security", label: "Security", icon: Shield },
     { id: "notifications", label: "Notifications", icon: Bell },
@@ -615,7 +659,13 @@ export default function ProfileSettings() {
 
           {/* Main Content */}
           <div className="flex-1 overflow-y-auto">
-            <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
+            <div
+              className={
+                isCustomizationTab
+                  ? "w-full px-2 sm:px-3 lg:px-4 py-3 sm:py-4"
+                  : "max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-3 sm:py-4"
+              }
+            >
               {/* Mobile Menu Button */}
               <div className="lg:hidden mb-4">
                 <button
@@ -639,8 +689,14 @@ export default function ProfileSettings() {
             </div>
 
             {/* Content */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-slate-800/30 shadow-lg">
-              <div className="p-4 sm:p-5">
+            <div
+              className={
+                isCustomizationTab
+                  ? "bg-transparent rounded-none border-0 shadow-none"
+                  : "bg-[#1A1A1A] rounded-xl border border-slate-800/30 shadow-lg"
+              }
+            >
+              <div className={isCustomizationTab ? "p-0" : "p-4 sm:p-5"}>
               {/* Account Tab */}
               {activeTab === "account" && (
                 <AccountSettings
@@ -850,6 +906,110 @@ export default function ProfileSettings() {
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Subscription Tab */}
+              {activeTab === "subscription" && (
+                <div className="space-y-6">
+                  <div>
+                    <div className="mb-2 flex items-center gap-2">
+                      <h2 className="text-2xl font-bold text-white">Subscription</h2>
+                      <span className="inline-flex items-center rounded-full border border-yellow-500/40 bg-yellow-500/15 px-2 py-0.5 text-xs font-semibold text-yellow-300">
+                        Coming Soon
+                      </span>
+                    </div>
+                    <p className="text-slate-400">
+                      Manage your subscription, billing, and renewal details.
+                    </p>
+                  </div>
+
+                  {flairSubscriptionLoading ? (
+                    <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-5 text-sm text-slate-400">
+                      Loading subscription details...
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                        <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">
+                          <p className="text-xs text-slate-400 mb-1">Plan</p>
+                          <p className="text-white font-semibold capitalize">
+                            {flairSubscription?.subscription_tier || (isFlairPremium ? "premium" : "free")}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">
+                          <p className="text-xs text-slate-400 mb-1">Status</p>
+                          <p className="text-white font-semibold capitalize">
+                            {flairSubscription?.status || "active"}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">
+                          <p className="text-xs text-slate-400 mb-1">Renewal Date</p>
+                          <p className="text-white font-semibold">
+                            {isFlairPremium
+                              ? formatRenewalDate(
+                                  (flairSubscription as any)?.current_period_end ||
+                                    (flairSubscription as any)?.stripe_current_period_end ||
+                                    (flairSubscription as any)?.renewal_date
+                                )
+                              : "Upgrade required"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">
+                        <div className="flex flex-wrap gap-2">
+                          {isFlairPremium ? (
+                            <button
+                              onClick={openBillingPortal}
+                              disabled={billingBusy !== null}
+                              className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-white disabled:opacity-60"
+                            >
+                              <CreditCard className="h-4 w-4" />
+                              {billingBusy === "portal" ? "Opening portal..." : "Manage subscription"}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={goToFlairPlans}
+                              disabled={billingBusy !== null}
+                              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2.5 text-sm font-semibold text-white hover:from-purple-700 hover:to-pink-700 disabled:opacity-60"
+                            >
+                              <Crown className="h-4 w-4" />
+                              Upgrade to Premium
+                            </button>
+                          )}
+                          <button
+                            onClick={() => refetchFlairSubscription()}
+                            className="inline-flex items-center gap-2 rounded-lg border border-slate-600 bg-slate-700/50 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-700"
+                          >
+                            <CalendarClock className="h-4 w-4" />
+                            Refresh status
+                          </button>
+                        </div>
+                        <div className="mt-3 flex flex-col gap-2">
+                          <StripeSecurityNotice />
+                          {isFlairPremium && (
+                            <p className="text-xs text-slate-400">
+                              You can cancel anytime from the Stripe billing portal.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Customization Tab */}
+              {activeTab === "customization" && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-white mb-2">Flair Customisation</h2>
+                    <p className="text-slate-400">
+                      Manage emotes and collections here, and unlock premium profile effects, analytics, and themes when subscribed.
+                    </p>
+                  </div>
+                  <FlairCustomizationSettings />
                 </div>
               )}
 

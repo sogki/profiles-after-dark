@@ -13,6 +13,7 @@ import HowItWorks from "./components/HowItWorks"
 import KeyBenefits from "./components/KeyBenefits"
 import CombinedCTAs from "./components/CombinedCTAs"
 import VisualShowcase from "./components/VisualShowcase"
+import HomeFlairPremiumCTA from "./components/HomeFlairPremiumCTA"
 // import MobileBottomNav from "./components/MobileBottomNav"
 
 // Lazy load heavy components
@@ -44,6 +45,11 @@ const ReportDetailView = lazy(() => import("./components/moderation/views/Report
 const HelpCenter = lazy(() => import("./components/help/HelpCenter"))
 const BadgeShowcase = lazy(() => import("./components/achievements/BadgeShowcase"))
 const ScrollToTop = lazy(() => import("./components/ScrollToTop"))
+const FlairDashboard = lazy(() => import("./components/flair/FlairDashboard"))
+const BillingPage = lazy(() => import("./components/flair/BillingPage"))
+const BillingSuccessPage = lazy(() => import("./components/flair/BillingSuccessPage"))
+const CollectionsPage = lazy(() => import("./components/flair/CollectionsPage"))
+const CollectionDetailPage = lazy(() => import("./components/flair/CollectionDetailPage"))
 
 import { useAuth } from "./context/authContext"
 import { useUpdateActivity } from "./hooks/useOnlineStatus"
@@ -165,6 +171,12 @@ function App() {
     window.addEventListener("scroll", handleScroll)
 
     return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  // Guard against stale overflow locks from route-specific overlays.
+  useEffect(() => {
+    document.body.style.overflowY = "auto"
+    document.body.style.overflowX = "hidden"
   }, [])
 
   // Listen for custom event to open upload modal
@@ -311,6 +323,7 @@ function App() {
                     <QuickCategories />
                     <KeyBenefits />
                     <CombinedCTAs />
+                    <HomeFlairPremiumCTA />
                     <Footer />
                   </>
                 }
@@ -326,6 +339,11 @@ function App() {
               <Route path="/moderation/reports/:reportId" element={<ReportDetailView />} />
               <Route path="/help" element={<HelpCenter />} />
               <Route path="/badges" element={<BadgeShowcase />} />
+              <Route path="/flair" element={<FlairDashboard />} />
+              <Route path="/billing" element={<BillingPage />} />
+              <Route path="/billing/success" element={<BillingSuccessPage />} />
+              <Route path="/collections" element={<CollectionsPage />} />
+              <Route path="/collections/:collectionId" element={<CollectionDetailPage />} />
               <Route path="/gallery/profiles" element={<ProfilesGallery />} />
               <Route path="/gallery/pfps" element={<PfpGallery />} />
               <Route path="/gallery/banners" element={<BannersGallery />} />

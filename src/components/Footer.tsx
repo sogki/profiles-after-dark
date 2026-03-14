@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "react-router-dom";
-import { Users, ImageIcon, Heart, Sparkles, ArrowRight, Mail, Github, Twitter } from "lucide-react";
+import { Users, ImageIcon, Heart, Sparkles, ArrowRight, Crown } from "lucide-react";
 import { motion } from "framer-motion";
 import useFooterStats from "@/hooks/footer-stats/use-footer-stats";
 import useRealtimeFooterStats from "@/hooks/footer-stats/use-realtime-stats";
@@ -21,9 +21,8 @@ export default function Footer() {
   };
 
   return (
-    <footer className="relative bg-gradient-to-br from-slate-900 via-slate-800/95 to-slate-900 border-t border-slate-700/30">
-      {/* Decorative gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-purple-900/5 via-transparent to-transparent pointer-events-none" />
+    <footer className="relative bg-slate-900 border-t border-slate-700/35">
+      <div className="absolute inset-0 pointer-events-none" />
       
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-12 mb-12">
@@ -49,16 +48,24 @@ export default function Footer() {
                 Discover stunning profile pictures, banners, wallpapers, and emotes. Join our community of creators sharing aesthetic content for your digital presence.
               </p>
 
+              <Link
+                to="/flair"
+                className="mb-6 inline-flex items-center gap-2 rounded-lg border border-purple-500/40 bg-purple-500/10 px-4 py-2 text-sm font-semibold text-purple-200 hover:border-purple-400/70 hover:bg-purple-500/20"
+              >
+                <Crown className="h-4 w-4 text-yellow-300" />
+                Explore Flair Premium
+              </Link>
+
             {/* Real-time Stats */}
               <div className="grid grid-cols-2 gap-4">
               <motion.div
                   whileHover={{ scale: 1.05, y: -2 }}
-                  className="group relative bg-gradient-to-br from-blue-500/10 to-cyan-500/10 backdrop-blur-sm rounded-2xl p-5 border border-blue-500/20 hover:border-blue-500/40 transition-all duration-300 shadow-lg hover:shadow-blue-500/20 overflow-hidden"
+                  className="group relative rounded-2xl p-5 border border-blue-500/25 bg-slate-800/70 hover:border-blue-500/45 transition-colors duration-300 overflow-hidden"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   <div className="relative">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 bg-gradient-to-br from-blue-500/30 to-cyan-500/30 rounded-xl border border-blue-500/40 group-hover:scale-110 transition-transform duration-300">
+                      <div className="p-2 bg-blue-500/20 rounded-xl border border-blue-500/40 group-hover:scale-105 transition-transform duration-300">
                         <Users className="h-5 w-5 text-blue-400" />
                   </div>
                       <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
@@ -76,12 +83,12 @@ export default function Footer() {
               </motion.div>
               <motion.div
                   whileHover={{ scale: 1.05, y: -2 }}
-                  className="group relative bg-gradient-to-br from-purple-500/10 to-pink-500/10 backdrop-blur-sm rounded-2xl p-5 border border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 shadow-lg hover:shadow-purple-500/20 overflow-hidden"
+                  className="group relative rounded-2xl p-5 border border-purple-500/25 bg-slate-800/70 hover:border-purple-500/45 transition-colors duration-300 overflow-hidden"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="absolute inset-0 bg-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   <div className="relative">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-xl border border-purple-500/40 group-hover:scale-110 transition-transform duration-300">
+                      <div className="p-2 bg-purple-500/20 rounded-xl border border-purple-500/40 group-hover:scale-105 transition-transform duration-300">
                         <ImageIcon className="h-5 w-5 text-purple-400" />
                   </div>
                       <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
@@ -217,9 +224,9 @@ export default function Footer() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-lg border border-purple-500/20">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/70 rounded-lg border border-purple-500/25">
                 <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-                <span className="text-xs font-semibold text-purple-300">v2.0.0</span>
+                <span className="text-xs font-semibold text-purple-300">v3.0.0</span>
               </div>
               <div className="h-6 w-px bg-slate-700/50" />
               <div className="flex items-center gap-3">

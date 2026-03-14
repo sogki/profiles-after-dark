@@ -33,33 +33,7 @@ import {
 import { supabase } from '../../../lib/supabase';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../context/authContext';
-
-type ContentType = 'profiles' | 'profile_pairs' | 'emotes' | 'wallpapers' | 'emoji_combos' | 'single_uploads';
-
-interface ContentItem {
-  id: string;
-  user_id: string;
-  title?: string;
-  name?: string; // For emoji combos
-  type?: 'profile' | 'banner';
-  image_url?: string | null;
-  pfp_url?: string | null;
-  banner_url?: string | null;
-  combo_text?: string;
-  description?: string;
-  category: string;
-  download_count?: number;
-  tags: string[] | null;
-  created_at: string;
-  status: 'approved' | 'pending' | 'rejected';
-  reviewed_by?: string | null;
-  reviewed_at?: string | null;
-  contentType: ContentType;
-  user?: {
-    username: string | null;
-    display_name: string | null;
-  };
-}
+import type { ContentItem, ContentType } from './types';
 
 export default function ContentManagementView() {
   const { user } = useAuth();
@@ -169,24 +143,6 @@ export default function ContentManagementView() {
           contentType: 'emoji_combos' as ContentType,
           status: (c.status || 'pending') as 'approved' | 'pending' | 'rejected'
         })));
-      }
-
-      // Load single_uploads if table exists
-      try {
-        const { data: singleData, error: singleError } = await supabase
-          .from('single_uploads')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (!singleError && singleData) {
-          allContent.push(...singleData.map(s => ({
-            ...s,
-            contentType: 'single_uploads' as ContentType,
-            status: (s.status || 'pending') as 'approved' | 'pending' | 'rejected'
-          })));
-        }
-      } catch (e) {
-        // Table might not exist, ignore
       }
 
       // Get unique user IDs
@@ -501,7 +457,6 @@ export default function ContentManagementView() {
       case 'emotes': return 'Emote';
       case 'wallpapers': return 'Wallpaper';
       case 'emoji_combos': return 'Emoji Combo';
-      case 'single_uploads': return 'Single Upload';
       default: return type;
     }
   };
@@ -546,7 +501,7 @@ export default function ContentManagementView() {
   return (
     <div className="space-y-6">
       {/* Header with Stats */}
-      <div className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 rounded-xl border border-slate-700/50 p-6">
+      <div className="bg-slate-800/75 rounded-xl border border-slate-700/50 p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-bold text-white mb-2">Content Management</h2>
@@ -622,7 +577,6 @@ export default function ContentManagementView() {
             <option value="emotes">Emotes</option>
             <option value="wallpapers">Wallpapers</option>
             <option value="emoji_combos">Emoji Combos</option>
-            <option value="single_uploads">Single Uploads</option>
           </select>
 
           {/* Status Filter */}
@@ -730,7 +684,7 @@ export default function ContentManagementView() {
                           e.stopPropagation();
                           toggleItemSelection(item.id);
                         }}
-                        className={`p-1.5 rounded-lg backdrop-blur-sm transition-all ${
+                        className={`p-1.5 rounded-lg transition-all ${
                           isSelected
                             ? 'bg-purple-600 text-white'
                             : 'bg-slate-900/70 text-slate-400 hover:bg-slate-800/70'
@@ -746,7 +700,7 @@ export default function ContentManagementView() {
 
                     {/* Status Badge - positioned over image */}
                     <div className="absolute top-2 right-2 z-20">
-                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full backdrop-blur-sm ${
+                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
                         item.status === 'approved' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
                         item.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
                         'bg-red-500/20 text-red-400 border border-red-500/30'
@@ -766,7 +720,7 @@ export default function ContentManagementView() {
                           e.stopPropagation();
                           window.open(previewUrl, '_blank');
                         }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 bg-slate-900/80 rounded-lg backdrop-blur-sm"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 bg-slate-900/90 rounded-lg"
                       >
                         <Eye className="w-5 h-5 text-white" />
                       </button>
@@ -781,7 +735,7 @@ export default function ContentManagementView() {
                           e.stopPropagation();
                           toggleItemSelection(item.id);
                         }}
-                        className={`p-1.5 rounded-lg backdrop-blur-sm transition-all ${
+                        className={`p-1.5 rounded-lg transition-all ${
                           isSelected
                             ? 'bg-purple-600 text-white'
                             : 'bg-slate-900/70 text-slate-400 hover:bg-slate-800/70'
@@ -797,7 +751,7 @@ export default function ContentManagementView() {
 
                     {/* Status Badge - positioned over placeholder */}
                     <div className="absolute top-2 right-2 z-20">
-                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full backdrop-blur-sm ${
+                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
                         item.status === 'approved' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
                         item.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
                         'bg-red-500/20 text-red-400 border border-red-500/30'

@@ -7,25 +7,9 @@ import { supabase } from "../../lib/supabase"
 import { useAuth } from "../../context/authContext"
 import ReportContentButton from "../shared/ReportContentButton"
 import Footer from "../Footer"
-
-interface UserProfile {
-  username: string | null
-  display_name: string | null
-  avatar_url: string | null
-}
-
-interface Wallpaper {
-  id: string
-  title: string
-  image_url: string
-  category: string
-  resolution: string | null
-  tags: string[] | null
-  download_count: number | null
-  created_at: string | null
-  user_id: string
-  user_profiles?: UserProfile
-}
+import FlairNameText from "@/components/flair/FlairNameText"
+import { useDiscoveryFlairNames } from "@/hooks/flair/useDiscoveryFlairNames"
+import type { GalleryWallpaper as Wallpaper } from "./shared/types"
 
 const WallpaperGallery = memo(function WallpaperGallery() {
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>([])
@@ -211,6 +195,26 @@ const WallpaperGallery = memo(function WallpaperGallery() {
     return sortedWallpapers.slice(start, start + ITEMS_PER_PAGE)
   }, [sortedWallpapers, page])
 
+  const flairNameMap = useDiscoveryFlairNames(
+    useMemo(() => [...new Set(wallpapers.map((wallpaper) => wallpaper.user_id).filter(Boolean))], [wallpapers])
+  )
+
+  const renderDiscoveryName = (userId: string, username?: string | null, displayName?: string | null, className = "") => {
+    const flairData = flairNameMap[userId]
+    const fallbackName = username || displayName || "Unknown User"
+    if (flairData?.isPremium) {
+      return (
+        <FlairNameText
+          name={flairData.customDisplayName || fallbackName}
+          animation={flairData.animation}
+          gradientJson={flairData.gradient}
+          className={className}
+        />
+      )
+    }
+    return <span className={className}>{fallbackName}</span>
+  }
+
   // Load favorites from database
   useEffect(() => {
     if (user?.id) {
@@ -380,7 +384,7 @@ const WallpaperGallery = memo(function WallpaperGallery() {
         </div>
 
         {/* Enhanced Filters */}
-        <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-slate-600/50 shadow-2xl">
+        <div className="surface-elevated rounded-2xl p-8 mb-8">
           {/* Search Bar */}
           <div className="mb-6">
             <div className="relative">
@@ -390,7 +394,7 @@ const WallpaperGallery = memo(function WallpaperGallery() {
                 placeholder="Search titles, categories, or tags..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-6 py-4 rounded-xl bg-slate-700/50 text-white placeholder-slate-400 border border-slate-600/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200 text-lg backdrop-blur-sm"
+                className="w-full pl-12 pr-6 py-4 rounded-xl bg-slate-700/70 text-white placeholder-slate-400 border border-slate-600/60 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors duration-200 text-lg"
                 aria-label="Search wallpapers" />
               {searchQuery && (
                 <button
@@ -690,7 +694,11 @@ const WallpaperGallery = memo(function WallpaperGallery() {
                             </div>
                           )}
                           <span className="truncate font-medium">
-                            {wallpaper.user_profiles.username || wallpaper.user_profiles.display_name || "Unknown User"}
+                            {renderDiscoveryName(
+                              wallpaper.user_id,
+                              wallpaper.user_profiles.username,
+                              wallpaper.user_profiles.display_name
+                            )}
                           </span>
                         </Link>
                       )}
@@ -780,7 +788,12 @@ const WallpaperGallery = memo(function WallpaperGallery() {
                             </div>
                           )}
                           <span className="truncate font-medium">
-                            by {wallpaper.user_profiles.username || wallpaper.user_profiles.display_name || "Unknown User"}
+                            by{" "}
+                            {renderDiscoveryName(
+                              wallpaper.user_id,
+                              wallpaper.user_profiles.username,
+                              wallpaper.user_profiles.display_name
+                            )}
                           </span>
                         </Link>
                       )}
@@ -795,8 +808,8 @@ const WallpaperGallery = memo(function WallpaperGallery() {
 
       {/* Preview Modal */}
       <Transition appear show={isModalOpen} as={Fragment}>
-        <Dialog as="div" className="fixed inset-0 z-50 overflow-y-auto" onClose={closePreview}>
-          <div className="min-h-screen px-4 text-center bg-black bg-opacity-80 backdrop-blur-sm">
+        <Dialog as="div" className="fixed inset-0 z-50" onClose={closePreview}>
+          <div className="min-h-screen px-4 text-center modal-backdrop-light flex items-center justify-center py-8">
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
@@ -806,7 +819,7 @@ const WallpaperGallery = memo(function WallpaperGallery() {
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="inline-block w-full max-w-4xl my-20 overflow-hidden text-left align-middle transition-all transform bg-slate-900 shadow-2xl rounded-2xl border border-slate-700">
+              <Dialog.Panel className="inline-block w-full max-w-5xl my-0 max-h-[90vh] overflow-y-auto text-left align-middle transition-all transform modal-popup-shell">
                 <div className="relative">
                   {previewWallpaper && (
                     <img
@@ -858,7 +871,13 @@ const WallpaperGallery = memo(function WallpaperGallery() {
                               <User className="h-4 w-4 text-white" />
                             </div>
                           )}
-                          <span>{previewWallpaper.user_profiles.username || previewWallpaper.user_profiles.display_name || "Unknown User"}</span>
+                          <span>
+                            {renderDiscoveryName(
+                              previewWallpaper.user_id,
+                              previewWallpaper.user_profiles.username,
+                              previewWallpaper.user_profiles.display_name
+                            )}
+                          </span>
                         </Link>
                       )}
                     </div>

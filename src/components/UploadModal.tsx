@@ -1,13 +1,17 @@
-import { useState } from "react"
-import { X, Image, User, Smile, Monitor } from "lucide-react"
+import { useEffect, useState } from "react"
+import { X, Image, User, Smile, Monitor, FolderKanban } from "lucide-react"
 import { BsFillEmojiHeartEyesFill } from "react-icons/bs"
 import { useAuth } from "../context/authContext"
 import { supabase } from "../lib/supabase"
+import { assertCanUpload, getUploadQuota, type UploadQuota } from "../lib/uploadLimits"
 import SingleUploadForm from "./upload/SingleUploadForm"
 import ProfilePairUploadForm from "./upload/ProfilePairUploadForm"
 import EmojiComboUploadForm from "./upload/EmojiComboUploadForm"
 import EmoteUploadForm from "./upload/EmoteUploadForm"
 import WallpaperUploadForm from "./upload/WallpaperUploadForm"
+import CollectionUploadForm from "./upload/CollectionUploadForm"
+import { assertCanCreateCollection, getCollectionQuota } from "@/lib/collectionLimits"
+import { getUserCollectionContentOptions } from "@/lib/collectionContent"
 
 interface UploadModalProps {
   isOpen: boolean
@@ -16,10 +20,13 @@ interface UploadModalProps {
 
 export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
   const { user } = useAuth()
-  const [uploadMode, setUploadMode] = useState<"single" | "profilePair" | "emojiCombo" | "emote" | "wallpaper">("single")
+  const [uploadMode, setUploadMode] = useState<"single" | "profilePair" | "emojiCombo" | "emote" | "wallpaper" | "collection">("single")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadQuota, setUploadQuota] = useState<UploadQuota | null>(null)
+  const [collectionQuota, setCollectionQuota] = useState<{ isPremium: boolean; used: number; remaining: number } | null>(null)
+  const [collectionOptions, setCollectionOptions] = useState<Array<{ id: string; name: string; image_url: string; content_type?: string }>>([])
 
   // Form states
   const [singleForm, setSingleForm] = useState({
@@ -61,14 +68,48 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     tags: [] as string[],
     file: null as File | null,
   })
+  const [collectionForm, setCollectionForm] = useState({
+    name: "",
+    description: "",
+    is_public: true,
+    emote_ids: [] as string[],
+  })
 
-  if (!isOpen) return null
+  const refreshQuota = async () => {
+    if (!user) return
+    try {
+      const [quota, collection] = await Promise.all([getUploadQuota(user.id), getCollectionQuota(user.id)])
+      setUploadQuota(quota)
+      setCollectionQuota({
+        isPremium: collection.isPremium,
+        used: collection.used,
+        remaining: collection.remaining,
+      })
+    } catch (err) {
+      console.error("Failed to fetch upload quota:", err)
+    }
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+      refreshQuota()
+    }
+  }, [isOpen, user])
+
+  useEffect(() => {
+    const fetchCollectionOptions = async () => {
+      if (!isOpen || !user) return
+      const options = await getUserCollectionContentOptions(user.id)
+      setCollectionOptions(options)
+    }
+    fetchCollectionOptions()
+  }, [isOpen, user])
 
   const sanitizeFilename = (filename: string) => {
     return filename.replace(/[^a-zA-Z0-9.-]/g, "_")
   }
 
-  const uploadImage = async (file: File, fileName: string, bucket: string = "images") => {
+  const uploadImage = async (file: File, fileName: string, bucket: string = "avatars") => {
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(fileName, file, {
@@ -94,13 +135,17 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     setUploadProgress(0)
 
     try {
+      const uploadCost = singleForm.type === "profile" ? 2 : 1
+      await assertCanUpload(user.id, uploadCost)
+
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => Math.min(prev + 10, 90))
       }, 200)
 
       const cleanFileName = sanitizeFilename(singleForm.file.name)
-      const fileName = `${Date.now()}-${singleForm.type}-${cleanFileName}`
-      const { url, error: uploadError } = await uploadImage(singleForm.file, fileName)
+      const fileName = `${user.id}/${Date.now()}-${singleForm.type}-${cleanFileName}`
+      const targetBucket = singleForm.type === "profile" ? "avatars" : "banners"
+      const { url, error: uploadError } = await uploadImage(singleForm.file, fileName, targetBucket)
 
       clearInterval(progressInterval)
       setUploadProgress(100)
@@ -109,7 +154,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         throw new Error(uploadError || "Failed to upload image")
       }
 
-      const { error: insertError } = await supabase.from("single_uploads").insert([
+      const { error: insertError } = await supabase.from("profiles").insert([
         {
         title: singleForm.title,
         category: singleForm.category,
@@ -132,6 +177,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         file: null,
       })
       setUploadProgress(0)
+      await refreshQuota()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed")
       setUploadProgress(0)
@@ -149,14 +195,16 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     setUploadProgress(0)
 
     try {
+      await assertCanUpload(user.id, 2)
+
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => Math.min(prev + 10, 90))
       }, 200)
 
       // Upload PFP
       const pfpCleanFileName = sanitizeFilename(pairForm.pfpFile.name)
-      const pfpFileName = `${Date.now()}-pfp-${pfpCleanFileName}`
-      const { url: pfpUrl, error: pfpError } = await uploadImage(pairForm.pfpFile, pfpFileName)
+      const pfpFileName = `${user.id}/${Date.now()}-pfp-${pfpCleanFileName}`
+      const { url: pfpUrl, error: pfpError } = await uploadImage(pairForm.pfpFile, pfpFileName, "avatars")
 
       if (pfpError || !pfpUrl) {
         throw new Error(pfpError || "Failed to upload profile picture")
@@ -164,8 +212,8 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
 
       // Upload Banner
       const bannerCleanFileName = sanitizeFilename(pairForm.bannerFile.name)
-      const bannerFileName = `${Date.now()}-banner-${bannerCleanFileName}`
-      const { url: bannerUrl, error: bannerError } = await uploadImage(pairForm.bannerFile, bannerFileName)
+      const bannerFileName = `${user.id}/${Date.now()}-banner-${bannerCleanFileName}`
+      const { url: bannerUrl, error: bannerError } = await uploadImage(pairForm.bannerFile, bannerFileName, "banners")
 
       clearInterval(progressInterval)
       setUploadProgress(100)
@@ -197,6 +245,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         bannerFile: null,
       })
       setUploadProgress(0)
+      await refreshQuota()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed")
       setUploadProgress(0)
@@ -214,6 +263,8 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     setUploadProgress(0)
 
     try {
+      await assertCanUpload(user.id, 1)
+
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => Math.min(prev + 10, 90))
       }, 200)
@@ -244,6 +295,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         tags: [],
       })
       setUploadProgress(0)
+      await refreshQuota()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed")
       setUploadProgress(0)
@@ -261,12 +313,14 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     setUploadProgress(0)
 
     try {
+      await assertCanUpload(user.id, 1)
+
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => Math.min(prev + 10, 90))
       }, 200)
 
       const cleanFileName = sanitizeFilename(emoteForm.file.name)
-      const fileName = `${Date.now()}-emote-${cleanFileName}`
+      const fileName = `${user.id}/${Date.now()}-emote-${cleanFileName}`
       const { url, error: uploadError } = await uploadImage(emoteForm.file, fileName, "emotes")
 
       clearInterval(progressInterval)
@@ -298,6 +352,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         file: null,
       })
       setUploadProgress(0)
+      await refreshQuota()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed")
       setUploadProgress(0)
@@ -315,12 +370,14 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     setUploadProgress(0)
 
     try {
+      await assertCanUpload(user.id, 1)
+
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => Math.min(prev + 10, 90))
       }, 200)
 
       const cleanFileName = sanitizeFilename(wallpaperForm.file.name)
-      const fileName = `${Date.now()}-wallpaper-${cleanFileName}`
+      const fileName = `${user.id}/${Date.now()}-wallpaper-${cleanFileName}`
       const { url, error: uploadError } = await uploadImage(wallpaperForm.file, fileName, "wallpapers")
 
       clearInterval(progressInterval)
@@ -354,8 +411,63 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         file: null,
       })
       setUploadProgress(0)
+      await refreshQuota()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed")
+      setUploadProgress(0)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleSubmitCollection = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (isSubmitting || !user) return
+    if (!collectionForm.name.trim()) {
+      setError("Collection name is required")
+      return
+    }
+    if (collectionForm.emote_ids.length === 0) {
+      setError("Select at least one emote for the collection")
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+    setUploadProgress(0)
+
+    try {
+      await assertCanCreateCollection(user.id)
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => Math.min(prev + 20, 90))
+      }, 200)
+
+      const { error: insertError } = await supabase.from("flair_emote_collections").insert([
+        {
+          user_id: user.id,
+          name: collectionForm.name.trim(),
+          description: collectionForm.description.trim() || null,
+          emote_ids: collectionForm.emote_ids,
+          is_public: collectionForm.is_public,
+          is_active: true,
+        },
+      ])
+
+      clearInterval(progressInterval)
+      setUploadProgress(100)
+      if (insertError) throw new Error(insertError.message)
+
+      onClose()
+      setCollectionForm({
+        name: "",
+        description: "",
+        is_public: true,
+        emote_ids: [],
+      })
+      setUploadProgress(0)
+      await refreshQuota()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create collection")
       setUploadProgress(0)
     } finally {
       setIsSubmitting(false)
@@ -369,6 +481,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
       case "emojiCombo": return "Upload Emoji Combo"
       case "emote": return "Upload Emote"
       case "wallpaper": return "Upload Wallpaper"
+      case "collection": return "Create Collection"
       default: return "Upload"
     }
   }
@@ -379,23 +492,26 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     { id: "emote", label: "Emote", icon: Smile },
     { id: "wallpaper", label: "Wallpaper", icon: Monitor },
     { id: "emojiCombo", label: "Emoji Combo", icon: BsFillEmojiHeartEyesFill },
+    { id: "collection", label: "Collection", icon: FolderKanban },
   ]
 
+  if (!isOpen) return null
+
   return (
-    <div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !isSubmitting) {
-          onClose()
-        }
-      }}
-    >
+    <div className="modal-fullpage-container">
+      <div
+        className="modal-backdrop-light absolute inset-0"
+        onClick={() => {
+          if (!isSubmitting) onClose()
+        }}
+      />
+      <div className="modal-page-shell">
       <div 
-        className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl max-w-4xl w-full border border-slate-700 shadow-2xl my-8 max-h-[90vh] overflow-y-auto"
+        className="surface-elevated rounded-2xl max-w-5xl w-full border border-slate-700 my-4 sm:my-6 max-h-[94vh] overflow-y-auto mx-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-700 sticky top-0 bg-slate-800/95 backdrop-blur-sm z-10">
+        <div className="flex items-center justify-between p-6 border-b border-slate-700 sticky top-0 bg-slate-800/95 z-10">
           <div>
             <h2 className="text-2xl font-bold text-white mb-1">
               Upload Content
@@ -414,7 +530,21 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         </div>
 
         {/* Mode Switch Buttons - Improved Layout */}
-        <div className="p-4 border-b border-slate-700 bg-slate-800/50">
+        <div className="p-4 border-b border-slate-700 bg-slate-800/60">
+          {uploadQuota && (
+            <div className="mb-3 rounded-lg border border-slate-700/60 bg-slate-900/40 px-3 py-2 text-xs text-slate-300">
+              {uploadQuota.isPremium
+                ? "Premium: Unlimited uploads."
+                : `Upload quota ${uploadQuota.used}/${uploadQuota.quota} (${uploadQuota.remaining} remaining).`}
+            </div>
+          )}
+          {collectionQuota && (
+            <div className="mb-3 rounded-lg border border-slate-700/60 bg-slate-900/40 px-3 py-2 text-xs text-slate-300">
+              {collectionQuota.isPremium
+                ? "Premium: Unlimited collections."
+                : `Collection quota ${collectionQuota.used}/3 (${collectionQuota.remaining} remaining).`}
+            </div>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
             {uploadModes.map((mode) => {
               const IconComponent = mode.icon
@@ -427,9 +557,9 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
                     setUploadMode(mode.id as any)
                   }}
                   disabled={isSubmitting}
-                  className={`flex flex-col items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  className={`flex flex-col items-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors duration-200 ${
                     isActive
-                      ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/30"
+                      ? "bg-purple-600 text-white"
                       : "bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-white"
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
@@ -446,7 +576,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
           <div className="px-6 py-2">
             <div className="w-full bg-slate-700 rounded-full h-2">
                 <div
-                className="bg-gradient-to-r from-purple-600 to-purple-700 h-2 rounded-full transition-all duration-300"
+                className="bg-purple-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${uploadProgress}%` }}
                 />
             </div>
@@ -513,7 +643,18 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
               isSubmitting={isSubmitting}
             />
           )}
+
+          {uploadMode === "collection" && (
+            <CollectionUploadForm
+              form={collectionForm}
+              items={collectionOptions}
+              onFormChange={(updates) => setCollectionForm({ ...collectionForm, ...updates })}
+              onSubmit={handleSubmitCollection}
+              isSubmitting={isSubmitting}
+            />
+          )}
         </div>
+      </div>
       </div>
     </div>
   )

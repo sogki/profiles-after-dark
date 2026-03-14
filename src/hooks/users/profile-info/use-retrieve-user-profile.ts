@@ -19,9 +19,13 @@ export default function useRetrieveUserProfile() {
         id,
         user_id,
         username,
+        display_name,
         avatar_url,
         banner_url,
         bio,
+        discord,
+        instagram,
+        website,
         show_badges_on_profile,
         created_at
       `

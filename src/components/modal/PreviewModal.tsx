@@ -1,6 +1,6 @@
-import React, { Fragment } from 'react';
+import { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
-import { X, Download, Tag, Calendar, User } from 'lucide-react';
+import { X, Download, Tag, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface Profile {
@@ -29,12 +29,8 @@ export default function PreviewModal({
 }: PreviewModalProps) {
   return (
     <Transition appear show={isOpen} as={Fragment}>
-      <Dialog
-        as="div"
-        className="fixed inset-0 z-50 overflow-y-auto"
-        onClose={onClose}
-      >
-        <div className="min-h-screen px-4 text-center bg-black/80 backdrop-blur-sm">
+      <Dialog as="div" className="modal-fullpage-container" onClose={onClose}>
+        <div className="modal-backdrop-light min-h-screen flex items-center justify-center p-4">
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -44,49 +40,44 @@ export default function PreviewModal({
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+            <Dialog.Overlay className="fixed inset-0 modal-backdrop-light" />
           </Transition.Child>
-
-          <span className="inline-block h-screen align-middle" aria-hidden="true">
-            &#8203;
-          </span>
 
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
-            enterFrom="opacity-0 scale-95"
-            enterTo="opacity-100 scale-100"
+            enterFrom="opacity-0 translate-y-3"
+            enterTo="opacity-100 translate-y-0"
             leave="ease-in duration-200"
-            leaveFrom="opacity-100 scale-100"
-            leaveTo="opacity-0 scale-95"
+            leaveFrom="opacity-100 translate-y-0"
+            leaveTo="opacity-0 translate-y-2"
           >
-            <Dialog.Panel className="inline-block w-full max-w-4xl my-8 overflow-hidden text-left align-middle transition-all transform bg-slate-900 shadow-2xl rounded-2xl border border-slate-700">
+            <Dialog.Panel className="modal-popup-shell w-full max-w-5xl max-h-[90vh] overflow-y-auto text-left transition-all transform">
               {previewProfile ? (
                 <>
-                  {/* Image Section */}
-                  <div className="relative bg-slate-800">
-                    <img
-                      src={previewProfile.image_url}
-                      alt={previewProfile.title}
-                      className="w-full max-h-[60vh] object-contain"
-                    />
+                  <div className="sticky top-0 z-10 border-b border-slate-700/70 bg-slate-900/95 px-4 py-4 sm:px-6 flex items-center justify-between gap-4">
+                    <Dialog.Title as="h3" className="text-2xl font-bold text-white truncate">
+                      {previewProfile.title}
+                    </Dialog.Title>
                     <button
                       onClick={onClose}
-                      className="absolute top-4 right-4 p-2 bg-black/70 hover:bg-black/90 rounded-full text-white transition-all duration-200 backdrop-blur-sm z-10"
+                      className="btn-flat-secondary p-2"
                       aria-label="Close preview modal"
                     >
                       <X className="h-5 w-5" />
                     </button>
                   </div>
 
-                  {/* Content Section */}
-                  <div className="p-8">
-                    <Dialog.Title
-                      as="h3"
-                      className="text-3xl font-bold text-white mb-6"
-                    >
-                      {previewProfile.title}
-                    </Dialog.Title>
+                  {/* Image Section */}
+                  <div className="relative bg-slate-800 px-4 py-4 sm:px-6">
+                    <img
+                      src={previewProfile.image_url}
+                      alt={previewProfile.title}
+                      className="w-full max-h-[58vh] object-contain rounded-xl border border-slate-700/70"
+                    />
+                  
+                    {/* Content Section */}
+                    <div className="pt-8">
 
                     {/* Metadata */}
                     <div className="flex flex-wrap items-center gap-6 mb-6 text-sm text-slate-400">
@@ -138,7 +129,7 @@ export default function PreviewModal({
                         onClick={() => handleDownload(previewProfile)}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg font-semibold transition-all duration-200 shadow-lg shadow-purple-500/25"
+                        className="btn-flat-primary inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-colors duration-200"
                         aria-label={`Download ${previewProfile.title}`}
                       >
                         <Download className="h-5 w-5" />
@@ -146,11 +137,12 @@ export default function PreviewModal({
                       </motion.button>
                       <button
                         onClick={onClose}
-                        className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors duration-200"
+                        className="btn-flat-secondary px-6 py-3 rounded-lg font-medium transition-colors duration-200"
                       >
                         Close
                       </button>
                     </div>
+                  </div>
                   </div>
                 </>
               ) : (

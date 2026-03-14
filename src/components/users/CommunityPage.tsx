@@ -15,40 +15,15 @@ import {
   Zap,
   Download,
   Link as LinkIcon,
+  Crown,
 } from "lucide-react";
 import { useAuth } from "../../context/authContext";
 import { supabase } from "../../lib/supabase";
 import { useFollows } from "../../hooks/useFollows";
 import Footer from "../Footer";
-
-interface User {
-  id: string;
-  user_id: string;
-  username: string;
-  display_name?: string;
-  avatar_url?: string;
-  banner_url?: string;
-  bio?: string;
-  created_at?: string;
-  upload_count?: number;
-  follower_count?: number;
-  is_following?: boolean;
-}
-
-interface ActivityItem {
-  id: string;
-  type: "upload" | "follow" | "favorite" | "download" | "profile_pair" | "emoji_combo";
-  user_id: string;
-  username?: string;
-  avatar_url?: string;
-  content_title?: string;
-  content_id?: string;
-  content_type?: string;
-  target_user_id?: string;
-  target_username?: string;
-  created_at: string;
-  url?: string;
-}
+import FlairNameText from "@/components/flair/FlairNameText";
+import { useDiscoveryFlairNames } from "@/hooks/flair/useDiscoveryFlairNames";
+import type { ActivityItem, CommunityUser as User } from "./community/types";
 
 export default function CommunityPage() {
   const { user } = useAuth();
@@ -62,6 +37,34 @@ export default function CommunityPage() {
   const [activityPage, setActivityPage] = useState(1);
   const [hasMoreActivity, setHasMoreActivity] = useState(true);
   const ACTIVITY_PER_PAGE = 20;
+  const flairNameMap = useDiscoveryFlairNames(
+    useMemo(
+      () => [
+        ...new Set([
+          ...users.map((u) => u.user_id).filter(Boolean),
+          ...activity.map((a) => a.user_id).filter(Boolean),
+        ]),
+      ],
+      [users, activity]
+    )
+  );
+
+  const renderDiscoveryName = (userId?: string, username?: string | null, displayName?: string | null, className = "") => {
+    const fallbackName = username || displayName || "Unknown";
+    if (!userId) return <span className={className}>{fallbackName}</span>;
+    const flairData = flairNameMap[userId];
+    if (flairData?.isPremium) {
+      return (
+        <FlairNameText
+          name={flairData.customDisplayName || fallbackName}
+          animation={flairData.animation}
+          gradientJson={flairData.gradient}
+          className={className}
+        />
+      );
+    }
+    return <span className={className}>{fallbackName}</span>;
+  };
 
   // Fetch community members
   const fetchUsers = async () => {
@@ -73,6 +76,8 @@ export default function CommunityPage() {
         .from("user_profiles")
         .select("*")
         .not("username", "is", null)
+        .order("spotlight_enabled", { ascending: false })
+        .order("spotlight_priority", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -148,6 +153,8 @@ export default function CommunityPage() {
         created_at: u.created_at,
         upload_count: uploadCounts[u.user_id] || 0,
         follower_count: followerCounts[u.user_id] || 0,
+        spotlight_enabled: Boolean(u.spotlight_enabled),
+        spotlight_priority: Number(u.spotlight_priority || 0),
       }));
 
       setUsers(processedUsers);
@@ -590,18 +597,35 @@ export default function CommunityPage() {
     // Apply category filter
     switch (filter) {
       case "trending":
-        filtered = [...filtered].sort((a, b) => (b.follower_count || 0) - (a.follower_count || 0));
+        filtered = [...filtered].sort((a, b) => {
+          if (Boolean(b.spotlight_enabled) !== Boolean(a.spotlight_enabled)) {
+            return Number(Boolean(b.spotlight_enabled)) - Number(Boolean(a.spotlight_enabled));
+          }
+          return (b.follower_count || 0) - (a.follower_count || 0);
+        });
         break;
       case "new":
-        filtered = [...filtered].sort((a, b) => 
-          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-        );
+        filtered = [...filtered].sort((a, b) => {
+          if (Boolean(b.spotlight_enabled) !== Boolean(a.spotlight_enabled)) {
+            return Number(Boolean(b.spotlight_enabled)) - Number(Boolean(a.spotlight_enabled));
+          }
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        });
         break;
       case "following":
         // Filter to only show users you follow
         // This would need to be implemented with the useFollows hook
         break;
       default:
+        filtered = [...filtered].sort((a, b) => {
+          if (Boolean(b.spotlight_enabled) !== Boolean(a.spotlight_enabled)) {
+            return Number(Boolean(b.spotlight_enabled)) - Number(Boolean(a.spotlight_enabled));
+          }
+          if ((b.spotlight_priority || 0) !== (a.spotlight_priority || 0)) {
+            return (b.spotlight_priority || 0) - (a.spotlight_priority || 0);
+          }
+          return (b.follower_count || 0) - (a.follower_count || 0);
+        });
         break;
     }
 
@@ -733,12 +757,12 @@ export default function CommunityPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
+    <div className="min-h-screen flex flex-col bg-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-xl">
+            <div className="p-3 bg-slate-800/70 rounded-xl border border-slate-700/60">
               <Users className="h-8 w-8 text-purple-400" />
             </div>
             <div>
@@ -748,7 +772,7 @@ export default function CommunityPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex space-x-1 bg-white/5 backdrop-blur-sm rounded-xl p-1 mb-6">
+          <div className="flex space-x-1 bg-slate-800/70 rounded-xl p-1 mb-6 border border-slate-700/60">
             <button
               onClick={() => setActiveTab("members")}
               className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
@@ -827,7 +851,7 @@ export default function CommunityPage() {
               <Link
                 key={userItem.id}
                 to={`/user/${userItem.username}`}
-                className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 block"
+                className="relative group bg-slate-800 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.02] block"
               >
                 {/* Banner */}
                 <div className="relative h-32">
@@ -839,7 +863,7 @@ export default function CommunityPage() {
                       loading="lazy"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">
+                  <div className="w-full h-full bg-slate-800 flex items-center justify-center">
                       <div className="text-white/30 text-2xl font-medium">
                         {userItem.username?.charAt(0).toUpperCase()}
                       </div>
@@ -860,10 +884,16 @@ export default function CommunityPage() {
                 {/* Content */}
                 <div className="pt-12 pb-6 px-6 text-center">
                   <h2 className="text-white font-semibold text-lg mb-1 truncate group-hover:text-purple-300 transition-colors">
-                    @{userItem.username}
+                    {renderDiscoveryName(userItem.user_id, userItem.username, userItem.display_name, "text-lg font-semibold")}
                   </h2>
-                  {userItem.display_name && (
-                    <p className="text-slate-400 text-sm mb-2">{userItem.display_name}</p>
+                  {userItem.spotlight_enabled && (
+                    <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-yellow-500/20 px-2 py-0.5 text-[10px] font-semibold text-yellow-300">
+                      <Crown className="h-3 w-3" />
+                      Spotlight
+                    </div>
+                  )}
+                  {userItem.username && (
+                    <p className="text-slate-400 text-sm mb-2">@{userItem.username}</p>
                   )}
                   <p className="text-slate-400 text-xs leading-relaxed line-clamp-2 min-h-[2.5rem] mb-4">
                     {userItem.bio || "No bio available"}
@@ -883,7 +913,7 @@ export default function CommunityPage() {
                 </div>
 
                 {/* Hover gradient */}
-                <div className="absolute inset-0 bg-gradient-to-t from-purple-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                <div className="absolute inset-0 bg-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
               </Link>
               ))}
             </div>
@@ -957,7 +987,7 @@ export default function CommunityPage() {
                           onClick={(e) => e.stopPropagation()}
                           className="font-semibold text-white hover:text-purple-400 transition-colors"
                         >
-                          @{item.username || "Unknown"}
+                          {renderDiscoveryName(item.user_id, item.username, undefined, "font-semibold")}
                         </Link>
                         <span className="text-slate-400">{getActivityText(item)}</span>
                         {isClickable && (

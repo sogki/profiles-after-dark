@@ -130,6 +130,132 @@
   animation: fade-in 0.8s ease-out forwards;
 }
 
+@keyframes flair-scroll-up {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
+@keyframes flair-scroll-down {
+  0% {
+    transform: translateY(-50%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.flair-marquee-up {
+  animation: flair-scroll-up 24s linear infinite;
+}
+
+.flair-marquee-down {
+  animation: flair-scroll-down 26s linear infinite;
+}
+
+.flair-marquee-up:hover,
+.flair-marquee-down:hover {
+  animation-play-state: paused;
+}
+
+@keyframes flairNameGlow {
+  0%,
+  100% {
+    text-shadow:
+      0 0 8px rgb(var(--flair-accent-rgb, 236 72 153) / 0.55),
+      0 0 16px rgb(var(--flair-accent-rgb, 236 72 153) / 0.35);
+  }
+  50% {
+    text-shadow:
+      0 0 14px rgb(var(--flair-accent-rgb, 236 72 153) / 0.8),
+      0 0 28px rgb(var(--flair-main-rgb, 168 85 247) / 0.5);
+  }
+}
+
+@keyframes flairNamePulse {
+  0%,
+  100% {
+    transform: scale(1);
+    text-shadow: 0 0 7px rgb(var(--flair-main-rgb, 168 85 247) / 0.35);
+    filter: saturate(1);
+  }
+  50% {
+    transform: scale(1.05);
+    text-shadow:
+      0 0 16px rgb(var(--flair-accent-rgb, 236 72 153) / 0.55),
+      0 0 30px rgb(var(--flair-secondary-rgb, 59 130 246) / 0.28);
+    filter: saturate(1.28);
+  }
+}
+
+@keyframes flairNameScroll {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes flairNameGradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.flair-name-glow {
+  animation: flairNameGlow 2.4s ease-in-out infinite;
+  display: inline-block;
+  overflow: visible;
+}
+
+.flair-name-pulse {
+  display: inline-block;
+  transform-origin: left center;
+  animation: flairNamePulse 2.2s ease-in-out infinite;
+  overflow: visible;
+}
+
+.flair-name-scroll {
+  display: inline-block;
+  animation: flairNameScroll 3.8s linear infinite;
+  overflow: visible;
+}
+
+.flair-name-gradient-shift {
+  display: inline-block;
+  animation: flairNameGradientShift 4.2s ease-in-out infinite;
+  overflow: visible;
+}
+
+.flair-name-rainbow {
+  display: inline-block;
+  background-image: linear-gradient(
+    110deg,
+    #ef4444 0%,
+    #f97316 12%,
+    #f59e0b 24%,
+    #22c55e 38%,
+    #06b6d4 50%,
+    #3b82f6 62%,
+    #8b5cf6 76%,
+    #ec4899 88%,
+    #ef4444 100%
+  ) !important;
+  background-size: 200% auto !important;
+  animation: flairNameScroll 3.2s linear infinite !important;
+  overflow: visible;
+}
+
 /* Mobile-first optimizations */
 @layer base {
   html {
@@ -142,18 +268,106 @@
   }
 
   body {
-    /* Prevent pull-to-refresh on mobile */
-    overscroll-behavior-y: contain;
-    /* Improve touch interactions */
-    touch-action: manipulation;
+    /* Keep wheel + trackpad scrolling working consistently */
+    overscroll-behavior-y: auto;
+    touch-action: auto;
     /* Prevent horizontal scrollbar */
     overflow-x: hidden;
+    overflow-y: auto;
     width: 100%;
     max-width: 100vw;
   }
 }
 
 @layer components {
+  /* Flattened shared surface system (preserves existing color tokens) */
+  .surface-base {
+    @apply rounded-xl border;
+    background-color: rgba(30, 41, 59, 0.92);
+    border-color: rgba(100, 116, 139, 0.35);
+  }
+
+  .surface-elevated {
+    @apply rounded-xl border shadow-md;
+    background-color: rgba(30, 41, 59, 0.96);
+    border-color: rgba(100, 116, 139, 0.4);
+    box-shadow: 0 10px 24px -14px rgba(2, 6, 23, 0.8);
+  }
+
+  .surface-soft {
+    @apply rounded-lg border;
+    background-color: rgba(51, 65, 85, 0.55);
+    border-color: rgba(100, 116, 139, 0.28);
+  }
+
+  .surface-divider {
+    border-color: rgba(100, 116, 139, 0.3);
+  }
+
+  .flat-interactive {
+    @apply transition-colors duration-200;
+  }
+
+  .flat-interactive:hover {
+    background-color: rgba(51, 65, 85, 0.45);
+  }
+
+  .btn-flat-primary {
+    @apply text-white font-medium px-4 py-2 rounded-lg transition-colors duration-200;
+    background: linear-gradient(to right, #7c3aed, #2563eb);
+  }
+
+  .btn-flat-primary:hover {
+    background: linear-gradient(to right, #6d28d9, #1d4ed8);
+  }
+
+  .btn-flat-secondary {
+    @apply text-slate-100 font-medium px-4 py-2 rounded-lg border transition-colors duration-200;
+    background-color: rgba(51, 65, 85, 0.55);
+    border-color: rgba(100, 116, 139, 0.35);
+  }
+
+  .btn-flat-secondary:hover {
+    background-color: rgba(51, 65, 85, 0.75);
+  }
+
+  /* Modal primitives: full-page by default, popup by explicit exception */
+  .modal-backdrop-light {
+    background-color: rgba(2, 6, 23, 0.42);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .modal-page-shell {
+    @apply fixed inset-0 z-50 flex flex-col;
+    background-color: rgba(15, 23, 42, 0.97);
+  }
+
+  .modal-page-header {
+    @apply sticky top-0 z-10 border-b px-4 py-4 sm:px-6;
+    background-color: rgba(30, 41, 59, 0.98);
+    border-color: rgba(100, 116, 139, 0.35);
+  }
+
+  .modal-page-content {
+    @apply flex-1 overflow-y-auto px-4 py-4 sm:px-6;
+  }
+
+  .modal-popup-shell {
+    @apply rounded-xl border shadow-lg;
+    background-color: rgba(30, 41, 59, 0.98);
+    border-color: rgba(100, 116, 139, 0.4);
+    box-shadow: 0 16px 34px -20px rgba(2, 6, 23, 0.9);
+  }
+
+  .modal-popup-container {
+    @apply fixed inset-0 z-50 flex items-center justify-center p-4;
+  }
+
+  .modal-fullpage-container {
+    @apply fixed inset-0 z-50;
+  }
+
   /* Mobile-optimized scrollbar */
   .no-scrollbar {
     -ms-overflow-style: none;
@@ -243,10 +457,11 @@
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   }
 
-  /* Mobile-optimized backdrop blur */
+  /* Mobile backdrop helper (flattened: no blur) */
   .mobile-backdrop {
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: rgba(15, 23, 42, 0.4);
   }
 
   /* Mobile-optimized gradients */
@@ -393,5 +608,43 @@
   .scrollbar-track-slate-900::-webkit-scrollbar-track {
     background-color: rgb(15 23 42);
     border-radius: 3px;
+  }
+
+  /* Custom range styling for Flair layout builder controls */
+  .flair-range {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, rgba(168, 85, 247, 0.75), rgba(236, 72, 153, 0.75));
+    outline: none;
+  }
+
+  .flair-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    background: #f8fafc;
+    border: 2px solid #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
+    cursor: pointer;
+  }
+
+  .flair-range::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    background: #f8fafc;
+    border: 2px solid #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
+    cursor: pointer;
+  }
+
+  .flair-range::-moz-range-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, rgba(168, 85, 247, 0.75), rgba(236, 72, 153, 0.75));
   }
 }

@@ -118,7 +118,7 @@ export default function VisualShowcase() {
           className="text-center mb-16"
         >
           <h2 className="text-4xl sm:text-5xl font-bold text-white mb-4">
-            <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">
+            <span className="text-purple-400">
               Creative Showcase
             </span>
           </h2>
@@ -159,7 +159,7 @@ export default function VisualShowcase() {
                     {/* PFP integrated in top-right corner like a badge */}
                     <div className="absolute top-3 right-3 z-20">
                       <div className="relative">
-                        <div className="absolute inset-0 bg-black/40 rounded-full blur-md" />
+                        <div className="absolute inset-0 bg-black/35 rounded-full" />
                         <img
                           src={item.pfp_url}
                           alt={`${item.title} profile`}
@@ -169,7 +169,7 @@ export default function VisualShowcase() {
                       </div>
                     </div>
                     {/* Gradient overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     {/* Title */}
                     <div className="absolute bottom-0 left-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
                       <p className="text-white font-semibold text-sm truncate drop-shadow-lg">{item.title}</p>
@@ -178,14 +178,14 @@ export default function VisualShowcase() {
                 ) : (
                   // Single profile - Full image
                   <>
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 via-pink-600/20 to-blue-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+                    <div className="absolute inset-0 bg-purple-500/15 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
                     <img
                       src={item.image_url || "/placeholder.svg"}
                       alt={item.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       loading="lazy"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+                    <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
                     <div className="absolute bottom-0 left-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
                       <p className="text-white font-semibold text-sm truncate drop-shadow-lg">{item.title}</p>
                     </div>
@@ -205,7 +205,7 @@ export default function VisualShowcase() {
         >
           <Link
             to="/trending"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 hover:from-purple-700 hover:via-pink-700 hover:to-blue-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-purple-500/25"
+            className="btn-flat-primary inline-flex items-center gap-2 px-8 py-4 text-white font-semibold rounded-xl transition-transform duration-200 hover:scale-[1.02]"
           >
             Explore All Collections
             <ArrowRight className="h-5 w-5" />

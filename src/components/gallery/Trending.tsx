@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from "react"
+import { useState, useEffect, Fragment, useMemo } from "react"
 import {
   TrendingUp,
   Download,
@@ -22,30 +22,9 @@ import { motion } from "framer-motion"
 import { useAuth } from "../../context/authContext"
 import { supabase } from "../../lib/supabase"
 import Footer from "../Footer"
-
-interface UserProfile {
-  username: string | null
-  display_name: string | null
-  avatar_url: string | null
-}
-
-interface TrendingItem {
-  id: string
-  title: string
-  type: "profile" | "pfp" | "banner" | "pair"
-  image_url?: string
-  pfp_url?: string
-  banner_url?: string
-  download_count: number
-  category: string
-  tags: string[]
-  created_at: string
-  updated_at: string
-  trend_score: number
-  growth_rate: number
-  user_id?: string
-  user_profiles?: UserProfile
-}
+import type { TrendingItem } from "./shared/types"
+import FlairNameText from "@/components/flair/FlairNameText"
+import { useDiscoveryFlairNames } from "@/hooks/flair/useDiscoveryFlairNames"
 
 interface TrendingStats {
   totalDownloads: number
@@ -65,6 +44,7 @@ const TrendingCard = ({
   onFavorite,
   isFavorited,
   user,
+  flairNameMap,
 }: { 
   item: TrendingItem
   rank: number
@@ -73,7 +53,24 @@ const TrendingCard = ({
   onFavorite: (itemId: string) => void
   isFavorited: boolean
   user: any
+  flairNameMap: Record<string, { customDisplayName: string | null; animation: string | null; gradient: string | null; isPremium: boolean }>
 }) => {
+  const renderDiscoveryName = (userId: string, username?: string | null, displayName?: string | null) => {
+    const flairData = flairNameMap[userId]
+    const fallbackName = username || displayName || "Unknown User"
+    if (flairData?.isPremium) {
+      return (
+        <FlairNameText
+          name={flairData.customDisplayName || fallbackName}
+          animation={flairData.animation}
+          gradientJson={flairData.gradient}
+          className="text-xs font-medium"
+        />
+      )
+    }
+    return <span>{fallbackName}</span>
+  }
+
   const getImageUrl = () => {
     if (item.type === "pair") return item.banner_url || item.pfp_url
     return item.image_url
@@ -247,7 +244,11 @@ const TrendingCard = ({
               </div>
             )}
             <span className="truncate font-medium">
-              {item.user_profiles.username || item.user_profiles.display_name || "Unknown User"}
+              {renderDiscoveryName(
+                item.user_id,
+                item.user_profiles.username,
+                item.user_profiles.display_name
+              )}
             </span>
           </Link>
         )}
@@ -275,7 +276,7 @@ const StatCard = ({
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.5 }}
-    className="group relative bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6 hover:border-slate-600/50 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10"
+    className="group relative bg-slate-800/70 rounded-xl border border-slate-700/50 p-6 hover:border-slate-600/50 transition-colors duration-200 shadow-md"
   >
     <div className="flex items-center justify-between mb-4">
       <div className={`p-3 rounded-xl ${color} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
@@ -302,6 +303,9 @@ const StatCard = ({
 export default function TrendingPage() {
   const { user } = useAuth()
   const [trendingItems, setTrendingItems] = useState<TrendingItem[]>([])
+  const flairNameMap = useDiscoveryFlairNames(
+    useMemo(() => [...new Set(trendingItems.map((item) => item.user_id).filter(Boolean))], [trendingItems])
+  )
   const [stats, setStats] = useState<TrendingStats>({
     totalDownloads: 0,
     totalUploads: 0,
@@ -669,7 +673,7 @@ export default function TrendingPage() {
           className="mb-12 text-center"
         >
           <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="p-4 bg-gradient-to-br from-orange-500/20 via-red-500/20 to-pink-500/20 rounded-2xl backdrop-blur-sm border border-orange-500/30 shadow-lg">
+            <div className="p-4 bg-slate-800/75 rounded-2xl border border-orange-500/30 shadow-md">
               <Flame className="h-10 w-10 text-orange-400" />
             </div>
             <div>
@@ -685,7 +689,7 @@ export default function TrendingPage() {
           {/* Enhanced Filters */}
           <div className="flex flex-wrap justify-center gap-4 mb-8">
             {/* Time Filter */}
-            <div className="flex bg-slate-800/50 backdrop-blur-sm rounded-xl p-1.5 border border-slate-700/50 shadow-lg">
+            <div className="flex bg-slate-800/70 rounded-xl p-1.5 border border-slate-700/50 shadow-md">
               {timeFilterOptions.map((option) => (
                 <button
                   key={option.value}
@@ -702,7 +706,7 @@ export default function TrendingPage() {
             </div>
 
             {/* Category Filter */}
-            <div className="flex bg-slate-800/50 backdrop-blur-sm rounded-xl p-1.5 border border-slate-700/50 shadow-lg">
+            <div className="flex bg-slate-800/70 rounded-xl p-1.5 border border-slate-700/50 shadow-md">
               {categoryFilterOptions.map((option) => (
                 <button
                   key={option.value}
@@ -761,7 +765,7 @@ export default function TrendingPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.15 }}
-          className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6 mb-8"
+          className="bg-slate-800/70 rounded-xl border border-slate-700/50 p-6 mb-8"
         >
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-lg border border-blue-500/30">
@@ -842,7 +846,7 @@ export default function TrendingPage() {
               <Link
                 key={tag.tag}
                 to={`/browse/tag/${encodeURIComponent(tag.tag)}`}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 hover:border-purple-500/50 hover:bg-slate-700/30 transition-all duration-200 group flex-shrink-0"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/70 border border-slate-700/50 hover:border-purple-500/50 hover:bg-slate-700/50 transition-colors duration-200 group flex-shrink-0"
               >
                 <span className="text-purple-300 text-sm font-medium group-hover:text-purple-200 transition-colors">#{tag.tag}</span>
                 <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20">
@@ -892,7 +896,7 @@ export default function TrendingPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="text-center py-16 bg-slate-800/30 backdrop-blur-sm rounded-2xl border border-slate-700/50"
+              className="text-center py-16 bg-slate-800/60 rounded-2xl border border-slate-700/50"
             >
               <div className="p-4 bg-gradient-to-br from-orange-500/20 to-red-500/20 rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center">
                 <TrendingUp className="h-10 w-10 text-orange-400" />
@@ -912,6 +916,7 @@ export default function TrendingPage() {
                   onFavorite={handleFavorite}
                   isFavorited={favorites.has(item.id)}
                   user={user}
+                  flairNameMap={flairNameMap}
                 />
               ))}
             </div>
@@ -921,8 +926,8 @@ export default function TrendingPage() {
 
       {/* Preview Modal */}
       <Transition appear show={isModalOpen} as={Fragment}>
-        <Dialog as="div" className="fixed inset-0 z-50 overflow-y-auto" onClose={closePreview}>
-          <div className="min-h-screen px-4 text-center bg-black bg-opacity-80 backdrop-blur-sm">
+        <Dialog as="div" className="fixed inset-0 z-50" onClose={closePreview}>
+          <div className="min-h-screen px-4 text-center modal-backdrop-light flex items-center justify-center py-8">
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
@@ -932,7 +937,7 @@ export default function TrendingPage() {
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="inline-block w-full max-w-4xl my-20 overflow-hidden text-left align-middle transition-all transform bg-slate-900 shadow-2xl rounded-2xl border border-slate-700">
+              <Dialog.Panel className="inline-block w-full max-w-5xl my-0 max-h-[90vh] overflow-y-auto text-left align-middle transition-all transform modal-popup-shell">
                 <div className="relative">
                   {previewItem && (
                     <>
@@ -1012,7 +1017,23 @@ export default function TrendingPage() {
                               <User className="h-4 w-4 text-white" />
                             </div>
                           )}
-                          <span>{previewItem.user_profiles.username || previewItem.user_profiles.display_name || "Unknown User"}</span>
+                          <span>
+                            {(() => {
+                              const flairData = flairNameMap[previewItem.user_id]
+                              const fallbackName = previewItem.user_profiles.username || previewItem.user_profiles.display_name || "Unknown User"
+                              if (flairData?.isPremium) {
+                                return (
+                                  <FlairNameText
+                                    name={flairData.customDisplayName || fallbackName}
+                                    animation={flairData.animation}
+                                    gradientJson={flairData.gradient}
+                                    className="text-sm font-medium"
+                                  />
+                                )
+                              }
+                              return fallbackName
+                            })()}
+                          </span>
                         </Link>
                       )}
                     </div>

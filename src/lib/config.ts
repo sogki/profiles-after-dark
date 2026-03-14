@@ -12,6 +12,9 @@ interface Config {
   WEB_URL?: string;
   CLIENT_ID?: string;
   GUILD_ID?: string;
+  STRIPE_PUBLISHABLE_KEY?: string;
+  FLAIR_PREMIUM_PRICE_GBP?: string;
+  FLAIR_PREMIUM_PRICE_USD?: string;
   // VITE_ prefixed versions (for backward compatibility, derived from base keys)
   VITE_SUPABASE_URL?: string;
   VITE_SUPABASE_ANON_KEY?: string;

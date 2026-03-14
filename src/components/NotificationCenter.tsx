@@ -285,7 +285,7 @@ export default function NotificationCenter({
         initial={{ opacity: 0, scale: 0.95, y: -10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: -10 }}
-        className="fixed top-16 right-4 md:right-8 bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden z-50"
+        className="fixed top-16 right-4 md:right-8 modal-popup-shell w-full max-w-md max-h-[80vh] overflow-hidden z-50"
         data-notification-center
       >
           {/* Header */}
@@ -370,7 +370,7 @@ export default function NotificationCenter({
           </AnimatePresence>
 
           {/* Actions */}
-          <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-800/50">
+          <div className="flex items-center justify-between p-4 border-b border-slate-700/70 bg-slate-800/60">
             <div className="flex items-center gap-2">
               {selectedNotifications.size > 0 && (
                 <button
@@ -519,7 +519,7 @@ export default function NotificationCenter({
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-slate-700 bg-slate-800/50">
+          <div className="p-4 border-t border-slate-700/70 bg-slate-800/60">
             <button
               onClick={(e) => {
                 e.stopPropagation()

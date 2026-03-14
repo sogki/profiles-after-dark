@@ -62,6 +62,13 @@ interface UserAction {
   };
 }
 
+interface EditUserForm {
+  display_name: string;
+  username: string;
+  bio: string;
+  is_active: boolean;
+}
+
 export default function EnhancedUserManagementView() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
@@ -72,15 +79,30 @@ export default function EnhancedUserManagementView() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [editForm, setEditForm] = useState<EditUserForm>({
+    display_name: '',
+    username: '',
+    bio: '',
+    is_active: true
+  });
   const [actionModal, setActionModal] = useState({
     open: false,
     action: '',
     reason: ''
   });
-
   useEffect(() => {
     loadUsers();
   }, []);
+
+  useEffect(() => {
+    if (!editingUser) return;
+    setEditForm({
+      display_name: editingUser.display_name || '',
+      username: editingUser.username || '',
+      bio: editingUser.bio || '',
+      is_active: Boolean(editingUser.is_active),
+    });
+  }, [editingUser]);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -153,6 +175,7 @@ export default function EnhancedUserManagementView() {
           user_id: selectedUser.user_id,
           title: `Account ${action === 'ban' ? 'Suspended' : action === 'unban' ? 'Restored' : 'Updated'}`,
           message: reason || `Your account has been ${action}ed by a moderator.`,
+          content: reason || `Your account has been ${action}ed by a moderator.`,
           type: 'account_action',
           priority: 'high',
           created_at: new Date().toISOString()
@@ -190,6 +213,7 @@ export default function EnhancedUserManagementView() {
           user_id: editingUser.user_id,
           title: 'Profile Updated',
           message: 'Your profile information has been updated by a moderator.',
+          content: 'Your profile information has been updated by a moderator.',
           type: 'profile_update',
           priority: 'medium',
           created_at: new Date().toISOString()
@@ -207,6 +231,7 @@ export default function EnhancedUserManagementView() {
       toast.error('Failed to update user profile');
     }
   };
+
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = !searchQuery || 
@@ -367,14 +392,14 @@ export default function EnhancedUserManagementView() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop-light"
             onClick={() => setShowUserModal(false)}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-slate-800 rounded-xl border border-slate-700 p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              className="modal-popup-shell p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
@@ -474,6 +499,7 @@ export default function EnhancedUserManagementView() {
                       </button>
                     </div>
                   </div>
+
                 </div>
 
                 {/* User Actions History */}
@@ -508,6 +534,108 @@ export default function EnhancedUserManagementView() {
         )}
       </AnimatePresence>
 
+      {/* Edit User Modal */}
+      <AnimatePresence>
+        {editingUser && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop-light"
+            onClick={() => setEditingUser(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="modal-popup-shell p-6 max-w-lg w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-lg font-semibold text-white">Edit User Profile</h3>
+                <button
+                  onClick={() => setEditingUser(null)}
+                  className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1.5">Display name</label>
+                  <input
+                    value={editForm.display_name}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({ ...prev, display_name: event.target.value }))
+                    }
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1.5">Username</label>
+                  <input
+                    value={editForm.username}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({ ...prev, username: event.target.value.toLowerCase() }))
+                    }
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1.5">Bio</label>
+                  <textarea
+                    value={editForm.bio}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({ ...prev, bio: event.target.value }))
+                    }
+                    rows={3}
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={editForm.is_active}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({ ...prev, is_active: event.target.checked }))
+                    }
+                    className="rounded border-slate-500 bg-slate-700 text-purple-500 focus:ring-purple-500"
+                  />
+                  Account active
+                </label>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    onClick={() =>
+                      updateUserProfile({
+                        display_name: editForm.display_name,
+                        username: editForm.username,
+                        bio: editForm.bio,
+                        is_active: editForm.is_active
+                      })
+                    }
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                  >
+                    <Save className="w-4 h-4" />
+                    Save Changes
+                  </button>
+                  <button
+                    onClick={() => setEditingUser(null)}
+                    className="flex-1 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Action Modal */}
       <AnimatePresence>
         {actionModal.open && (
@@ -515,14 +643,14 @@ export default function EnhancedUserManagementView() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop-light"
             onClick={() => setActionModal({ open: false, action: '', reason: '' })}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-slate-800 rounded-xl border border-slate-700 p-6 max-w-md w-full"
+              className="modal-popup-shell p-6 max-w-md w-full"
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-lg font-semibold text-white mb-4">

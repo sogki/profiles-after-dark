@@ -1,6 +1,6 @@
 import React from "react";
 import Footer from "../Footer";
-import { ShieldCheck, FileText, AlertCircle, Ban, RefreshCw, Mail } from "lucide-react";
+import { ShieldCheck, FileText, AlertCircle, Ban, RefreshCw, Mail, CreditCard, Database } from "lucide-react";
 import { motion } from "framer-motion";
 
 const sections = [
@@ -11,8 +11,8 @@ const sections = [
   },
   {
     icon: FileText,
-    title: "2. Content Ownership",
-    content: "You retain ownership of your uploads but grant us a non-exclusive license to display them on our platform.",
+    title: "2. Content Ownership and License",
+    content: "You retain ownership of your uploads, but you grant us a non-exclusive, worldwide, revocable license to host, display, and distribute your content as needed to operate and improve the platform.",
   },
   {
     icon: AlertCircle,
@@ -20,19 +20,29 @@ const sections = [
     content: "You agree not to use the platform to post or share content that violates laws or infringes on the rights of others.",
   },
   {
+    icon: CreditCard,
+    title: "4. Payments and Billing (Stripe)",
+    content: "Premium subscriptions are processed by Stripe. By purchasing, you authorize recurring charges until cancellation. We do not store full card numbers or sensitive payment credentials on our servers.",
+  },
+  {
+    icon: Database,
+    title: "5. Data and Privacy",
+    content: "Use of the platform is also governed by our Privacy Policy, including how we collect account, usage, and transaction metadata, how long we retain it, and how users can request access or deletion where legally required.",
+  },
+  {
     icon: Ban,
-    title: "4. Termination",
-    content: "We reserve the right to terminate your access if you violate these terms or engage in harmful behavior.",
+    title: "6. Suspension and Termination",
+    content: "We may suspend or terminate access for policy violations, abuse, fraud, non-payment, legal obligations, or actions that risk platform safety or reliability.",
   },
   {
     icon: RefreshCw,
-    title: "5. Changes to Terms",
-    content: "We may update these terms at any time. Continued use of the platform constitutes acceptance of the updated terms.",
+    title: "7. Changes to Terms",
+    content: "We may update these terms from time to time. Material updates take effect when posted. Continued use of the platform after updates constitutes acceptance.",
   },
   {
     icon: Mail,
-    title: "6. Contact",
-    content: "If you have questions about these Terms, please contact us via the support channels provided on the platform.",
+    title: "8. Contact",
+    content: "If you have questions about these Terms, billing, or data handling, please contact us through the support channels available on the platform.",
   },
 ];
 

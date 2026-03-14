@@ -11,6 +11,7 @@ import monitoringRouter from './monitoring.js';
 import configRouter from './config.js';
 import usersRouter from './users.js';
 import accountLinkingRouter from './account-linking.js';
+import flairSubscriptionsRouter from './flair-subscriptions.js';
 
 const router = express.Router();
 
@@ -27,6 +28,7 @@ router.use('/monitoring', monitoringRouter);
 router.use('/config', configRouter);
 router.use('/users', usersRouter);
 router.use('/account-linking', accountLinkingRouter);
+router.use('/flair-subscriptions', flairSubscriptionsRouter);
 
 /**
  * @route   GET /api/v1
@@ -48,7 +50,8 @@ router.get('/', (req, res) => {
       stats: '/api/v1/stats',
       search: '/api/v1/search',
       monitoring: '/api/v1/monitoring',
-      users: '/api/v1/users'
+      users: '/api/v1/users',
+      flair_subscriptions: '/api/v1/flair-subscriptions'
     },
     documentation: 'https://dev.profilesafterdark.com/api/v1'
   });

@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { loadConfig } from '../utils/config.js';
 import rateLimit from 'express-rate-limit';
 import v1Router from './routes/v1/index.js';
+import { handleFlairStripeWebhook } from './routes/v1/flair-subscriptions.js';
 import { trackMetric } from './middleware/metrics.js';
 
 dotenv.config();
@@ -29,16 +30,16 @@ const corsOptions = {
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
-    const allowedOrigins = [
+    const exactAllowedOrigins = [
       'https://profilesafterdark.com',
       'https://www.profilesafterdark.com',
       'https://dev.profilesafterdark.com',
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'http://localhost:5174'
     ];
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+
+    // Allow localhost / 127.0.0.1 on any port for local development testing.
+    const isLocalDevOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+
+    if (exactAllowedOrigins.includes(origin) || isLocalDevOrigin || process.env.NODE_ENV === 'development') {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -46,11 +47,18 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true }));
 
 // Request logging middleware
@@ -71,8 +79,6 @@ const limiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  // Trust only the first proxy (Railway/Heroku)
-  trustProxy: 1,
 });
 
 // Metrics tracking middleware (before rate limiting to track all requests)
@@ -104,6 +110,10 @@ app.get('/health', (req, res) => {
 
 // API version 1
 app.use('/api/v1', v1Router);
+
+// Stripe webhook alias for cleaner public URL.
+// This points to the same handler as /api/v1/flair-subscriptions/webhook.
+app.post('/billing/stripe', handleFlairStripeWebhook);
 
 // Redirect /api to /api/v1
 app.get('/api', (req, res) => {

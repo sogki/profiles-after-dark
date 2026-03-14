@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Mail, Lock, User, Loader, Info, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/authContext';
 import { trackSignup } from '../lib/pinterestTracking';
@@ -110,8 +110,11 @@ export default function AuthModal({ isOpen, onClose, showEmailConfirmed = false 
   // Show email confirmed success state
   if (emailConfirmed && isOpen) {
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-slate-800 rounded-2xl max-w-md w-full">
+      <div className="modal-fullpage-container">
+        <div className="modal-backdrop-light absolute inset-0" />
+        <div className="modal-page-shell">
+          <div className="w-full max-w-md mx-auto px-4 py-6 sm:py-10">
+        <div className="modal-popup-shell w-full">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-slate-700">
             <h2 className="text-2xl font-bold text-white">Email Confirmed!</h2>
@@ -148,11 +151,13 @@ export default function AuthModal({ isOpen, onClose, showEmailConfirmed = false 
                   setEmailConfirmed(false);
                   onClose();
                 }}
-                className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all"
+                className="btn-flat-primary w-full px-4 py-2 rounded-lg transition-colors"
               >
                 Get Started
               </button>
             </div>
+          </div>
+        </div>
           </div>
         </div>
       </div>
@@ -160,8 +165,11 @@ export default function AuthModal({ isOpen, onClose, showEmailConfirmed = false 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-2xl max-w-md w-full">
+    <div className="modal-fullpage-container">
+      <div className="modal-backdrop-light absolute inset-0" />
+      <div className="modal-page-shell">
+        <div className="w-full max-w-md mx-auto px-4 py-6 sm:py-10">
+      <div className="modal-popup-shell w-full">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
           <h2 className="text-2xl font-bold text-white">
@@ -248,7 +256,7 @@ export default function AuthModal({ isOpen, onClose, showEmailConfirmed = false 
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="btn-flat-primary w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? (
                 <>
@@ -292,6 +300,8 @@ export default function AuthModal({ isOpen, onClose, showEmailConfirmed = false 
             </p>
           </div>
         </form>
+      </div>
+        </div>
       </div>
     </div>
   );

@@ -393,13 +393,16 @@ export type Database = {
           banner_url: string | null
           bio: string | null
           created_at: string | null
+          discord: string | null
           display_name: string | null
           id: string
+          instagram: string | null
           is_active: boolean
           restricted_until: string | null
           role: string | null
           updated_at: string | null
           user_id: string
+          website: string | null
           username: string | null
         }
         Insert: {
@@ -407,13 +410,16 @@ export type Database = {
           banner_url?: string | null
           bio?: string | null
           created_at?: string | null
+          discord?: string | null
           display_name?: string | null
           id?: string
+          instagram?: string | null
           is_active?: boolean
           restricted_until?: string | null
           role?: string | null
           updated_at?: string | null
           user_id: string
+          website?: string | null
           username?: string | null
         }
         Update: {
@@ -421,13 +427,16 @@ export type Database = {
           banner_url?: string | null
           bio?: string | null
           created_at?: string | null
+          discord?: string | null
           display_name?: string | null
           id?: string
+          instagram?: string | null
           is_active?: boolean
           restricted_until?: string | null
           role?: string | null
           updated_at?: string | null
           user_id?: string
+          website?: string | null
           username?: string | null
         }
         Relationships: []

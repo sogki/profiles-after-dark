@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import {
@@ -18,13 +18,17 @@ import {
   Layout,
   Smile,
   Sticker,
-  Trophy
+  Trophy,
+  FolderKanban
 } from "lucide-react"
 import { useAuth } from "../context/authContext"
 import { supabase } from "../lib/supabase"
 import { useNotifications } from "../hooks/useNotifications"
 import NotificationCenter from "./NotificationCenter"
 import { trackSearch } from "../lib/pinterestTracking"
+import { STAFF_ROLES } from "./header/constants"
+import FlairNameText from "./flair/FlairNameText"
+import { useDiscoveryFlairNames } from "@/hooks/flair/useDiscoveryFlairNames"
 
 interface HeaderProps {
   onUploadClick: () => void
@@ -50,12 +54,32 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
   const notifRef = useRef<HTMLDivElement>(null)
 
   // Search suggestions
-  const [searchSuggestions, setSearchSuggestions] = useState<Array<{type: string, text: string, id?: string, username?: string}>>([])
+  type SearchSuggestion = {
+    type: string
+    text: string
+    id?: string
+    username?: string
+    userId?: string
+    avatarUrl?: string | null
+  }
+  const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([])
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
   
   // Notification center state
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false)
+  const flairLookupUserIds = useMemo(
+    () =>
+      [
+        ...(user?.id ? [user.id] : []),
+        ...searchSuggestions
+          .filter((suggestion) => suggestion.type === "user" && Boolean(suggestion.userId))
+          .map((suggestion) => suggestion.userId as string),
+      ],
+    [user?.id, searchSuggestions]
+  )
+  const flairNameMap = useDiscoveryFlairNames(flairLookupUserIds)
+  const currentUserFlair = user?.id ? flairNameMap[user.id] : null
 
   useEffect(() => {
     const handleScroll = () => {
@@ -108,7 +132,7 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
   const fetchSearchSuggestions = async (query: string) => {
     try {
       const searchTerm = `%${query}%`
-      const suggestions: Array<{type: string, text: string, id?: string}> = []
+      const suggestions: SearchSuggestion[] = []
       const seenKeys = new Set<string>() // Track case-insensitive duplicates
 
       // Helper function to check if suggestion already exists (case-insensitive)
@@ -148,7 +172,7 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
       // Search user profiles (username and display_name)
       const { data: users, error: usersError } = await supabase
         .from("user_profiles")
-        .select("id, username, display_name")
+        .select("id, user_id, username, display_name, avatar_url")
         .or(`username.ilike.${searchTerm},display_name.ilike.${searchTerm}`)
         .limit(2)
 
@@ -156,7 +180,14 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
         users.forEach(user => {
           const name = user.display_name || user.username || ""
           if (name && user.username && !isDuplicate("user", name)) {
-            suggestions.push({ type: "user", text: name, id: user.id, username: user.username })
+            suggestions.push({
+              type: "user",
+              text: name,
+              id: user.id,
+              username: user.username,
+              userId: user.user_id || undefined,
+              avatarUrl: user.avatar_url || null,
+            })
           }
         })
       }
@@ -210,8 +241,9 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
   }
 
   const isActive = (path: string) => location.pathname === path
+  const isCollectionsActive = location.pathname.startsWith("/collections")
 
-  const handleSearchSuggestionClick = (suggestion: {type: string, text: string, id?: string, username?: string}) => {
+  const handleSearchSuggestionClick = (suggestion: SearchSuggestion) => {
     onSearchChange(suggestion.text)
     setShowSearchSuggestions(false)
     
@@ -229,6 +261,48 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
     }
   }
 
+  const renderSuggestionPrimary = (suggestion: SearchSuggestion) => {
+    if (suggestion.type !== "user") {
+      return <span className="flex-1 truncate">{suggestion.text}</span>
+    }
+
+    const fallbackName = suggestion.text || suggestion.username || "User"
+    const flairData = suggestion.userId ? flairNameMap[suggestion.userId] : null
+
+    return (
+      <div className="flex-1 min-w-0 flex items-center gap-2">
+        {suggestion.avatarUrl ? (
+          <img
+            src={suggestion.avatarUrl}
+            alt={suggestion.username || "User"}
+            className="h-6 w-6 rounded-full object-cover ring-1 ring-slate-600"
+          />
+        ) : (
+          <div className="h-6 w-6 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center ring-1 ring-slate-600">
+            <UserIcon className="h-3.5 w-3.5 text-white" />
+          </div>
+        )}
+        <div className="min-w-0 flex flex-col">
+          <span className="truncate text-sm font-medium text-white">
+            {flairData?.isPremium ? (
+              <FlairNameText
+                name={flairData.customDisplayName || fallbackName}
+                animation={flairData.animation}
+                gradientJson={flairData.gradient}
+                className="text-sm font-semibold"
+              />
+            ) : (
+              fallbackName
+            )}
+          </span>
+          {suggestion.username && (
+            <span className="truncate text-xs text-slate-400">@{suggestion.username}</span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       {/* Notification Center */}
@@ -242,7 +316,7 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
         deleteNotifications={deleteNotifications}
       />
       
-          <header className="bg-slate-900/95 backdrop-blur-md border-b border-slate-700/50 sticky top-0 z-50 shadow-lg shadow-black/20">
+          <header className="bg-slate-900/98 border-b border-slate-700/50 sticky top-0 z-50 shadow-md shadow-black/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Enhanced Logo - Left Side */}
@@ -274,12 +348,12 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                       navigate(`/trending?search=${encodeURIComponent(searchQuery)}`)
                     }
                   }}
-                  className="pl-11 pr-4 py-2.5 w-full bg-slate-800/60 border border-slate-700/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all backdrop-blur-sm hover:bg-slate-800/70"
+                  className="pl-11 pr-4 py-2.5 w-full bg-slate-800/70 border border-slate-700/60 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors hover:bg-slate-800/80"
                 />
 
                 {/* Search Suggestions */}
                 {showSearchSuggestions && searchSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800/95 backdrop-blur-md border border-slate-700/50 rounded-lg shadow-xl z-50 overflow-hidden">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-50 overflow-hidden backdrop-blur-none">
                     {searchSuggestions.map((suggestion, index) => {
                       const getIcon = () => {
                         switch(suggestion.type) {
@@ -296,8 +370,8 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                           onClick={() => handleSearchSuggestionClick(suggestion)}
                           className="w-full text-left px-4 py-2.5 text-white hover:bg-slate-700/50 transition-colors flex items-center gap-2 group"
                         >
-                          <span className="flex-shrink-0">{getIcon()}</span>
-                          <span className="flex-1 truncate">{suggestion.text}</span>
+                          <span className="flex-shrink-0">{suggestion.type === "user" ? null : getIcon()}</span>
+                          {renderSuggestionPrimary(suggestion)}
                           <span className="text-xs text-slate-400 capitalize flex-shrink-0 group-hover:text-slate-300 transition-colors">
                             {suggestion.type}
                           </span>
@@ -316,7 +390,7 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                   {/* Upload Button */}
                   <Link
                     to="/upload"
-                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-xl transition-all transform hover:scale-105 shadow-lg hover:shadow-purple-500/30 font-medium"
+                    className="btn-flat-primary flex items-center space-x-2 px-4 py-2 rounded-xl transition-transform hover:scale-[1.02] font-medium"
                   >
                     <Upload className="h-4 w-4" />
                     <span className="hidden lg:inline">Upload</span>
@@ -369,10 +443,10 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: -10, scale: 0.95 }}
                           transition={{ duration: 0.15 }}
-                          className="absolute right-0 mt-2 w-80 bg-slate-800 rounded-xl shadow-2xl z-50 border border-slate-700/80 overflow-hidden backdrop-blur-xl"
+                          className="absolute right-0 mt-2 w-80 bg-slate-900 rounded-xl shadow-lg z-50 border border-slate-700/80 overflow-hidden"
                         >
                           {/* User Header Section */}
-                          <div className="p-5 bg-gradient-to-br from-slate-800 via-slate-800/95 to-slate-800 border-b border-slate-700/60">
+                          <div className="p-5 bg-slate-900 border-b border-slate-700/70">
                             <div className="flex items-center space-x-4">
                               <div className="relative">
                                 <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-purple-500/40 ring-offset-2 ring-offset-slate-800">
@@ -392,7 +466,16 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-base font-semibold text-white truncate mb-0.5">
-                                  {userProfile?.display_name || userProfile?.username || "User"}
+                                  {currentUserFlair?.isPremium ? (
+                                    <FlairNameText
+                                      name={currentUserFlair.customDisplayName || userProfile?.display_name || userProfile?.username || "User"}
+                                      animation={currentUserFlair.animation}
+                                      gradientJson={currentUserFlair.gradient}
+                                      className="text-base font-semibold"
+                                    />
+                                  ) : (
+                                    userProfile?.display_name || userProfile?.username || "User"
+                                  )}
                                 </p>
                                 <p className="text-xs text-slate-400 truncate">{user.email}</p>
                                 {userProfile?.username && (
@@ -416,8 +499,7 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                               
                               // Check if user has ANY staff-related role (admin, staff, or moderator)
                               // Having verified alone doesn't grant access, but having it with staff roles is fine
-                              const staffRoles = ['admin', 'staff', 'moderator'];
-                              const hasStaffRole = roles.some(role => staffRoles.includes(role));
+                              const hasStaffRole = roles.some(role => STAFF_ROLES.includes(role as any));
                               
                               return hasStaffRole && (
                                 <Link
@@ -535,7 +617,7 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
-                className="md:hidden border-t border-slate-700/50 bg-slate-900/95 backdrop-blur-sm"
+                className="md:hidden border-t border-slate-700/50 bg-slate-900/98"
               >
                 <div className="p-4">
                   <div className="relative">
@@ -567,7 +649,7 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
 
                   {/* Mobile Search Suggestions */}
                   {showSearchSuggestions && searchSuggestions.length > 0 && (
-                    <div className="mt-2 bg-slate-700/50 rounded-lg overflow-hidden border border-slate-600/50">
+                    <div className="mt-2 bg-slate-900 rounded-lg overflow-hidden border border-slate-700 shadow-xl">
                       {searchSuggestions.map((suggestion, index) => {
                         const getIcon = () => {
                           switch(suggestion.type) {
@@ -587,8 +669,8 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                             }}
                             className="w-full text-left px-4 py-3 text-white hover:bg-slate-600 transition-colors flex items-center gap-3 group"
                           >
-                            <span className="flex-shrink-0">{getIcon()}</span>
-                            <span className="flex-1 truncate">{suggestion.text}</span>
+                            <span className="flex-shrink-0">{suggestion.type === "user" ? null : getIcon()}</span>
+                            {renderSuggestionPrimary(suggestion)}
                             <span className="text-xs text-slate-400 capitalize flex-shrink-0 group-hover:text-slate-300 transition-colors">
                               {suggestion.type}
                             </span>
@@ -610,7 +692,7 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
-                className="md:hidden border-t border-slate-700/50 bg-slate-900/95 backdrop-blur-sm"
+                className="md:hidden border-t border-slate-700/50 bg-slate-900/98"
               >
                 <div className="p-4">
                   {/* Quick Actions */}
@@ -668,6 +750,15 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                       <ImageIcon className="h-5 w-5 text-indigo-400" />
                       <span className="text-sm text-white">Wallpapers</span>
                     </Link>
+
+                    <Link
+                      to="/collections"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center space-x-2 p-3 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 transition-colors border border-slate-700/50"
+                    >
+                      <FolderKanban className="h-5 w-5 text-violet-400" />
+                      <span className="text-sm text-white">Collections</span>
+                    </Link>
                   </div>
 
                   {/* User Actions */}
@@ -678,7 +769,7 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                           navigate("/upload")
                           setIsMobileMenuOpen(false)
                         }}
-                        className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all font-medium"
+                        className="btn-flat-primary w-full flex items-center justify-center space-x-2 px-4 py-3 rounded-lg transition-colors font-medium"
                       >
                         <Upload className="h-4 w-4" />
                         <span>Upload Content</span>
@@ -696,8 +787,7 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                         
                         // Check if user has ANY staff-related role (admin, staff, or moderator)
                         // Having verified alone doesn't grant access, but having it with staff roles is fine
-                        const staffRoles = ['admin', 'staff', 'moderator'];
-                        const hasStaffRole = roles.some(role => staffRoles.includes(role));
+                        const hasStaffRole = roles.some(role => STAFF_ROLES.includes(role as any));
                         
                         return hasStaffRole ? (
                           <Link
@@ -745,7 +835,7 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
                         onAuthClick()
                         setIsMobileMenuOpen(false)
                       }}
-                        className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all font-medium"
+                        className="btn-flat-primary w-full flex items-center justify-center space-x-2 px-4 py-3 rounded-lg transition-colors font-medium"
                     >
                       <UserIcon className="h-4 w-4" />
                       <span>Sign In</span>
@@ -761,7 +851,7 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
       {/* Enhanced Sub Navigation - Desktop Only */}
       <nav
         className={`
-          hidden md:block bg-slate-800/90 backdrop-blur-sm border-b border-slate-700/50 sticky top-16 z-40
+          hidden md:block bg-slate-800/95 border-b border-slate-700/50 sticky top-16 z-40
           transition-transform duration-300 ease-in-out
           ${showSubNav ? "translate-y-0" : "-translate-y-full"}
         `}
@@ -851,6 +941,17 @@ export default function Header({ onAuthClick, searchQuery, onSearchChange }: Hea
               >
                 <ImageIcon className="inline h-4 w-4 mr-1.5" />
                 Wallpapers
+              </Link>
+              <Link
+                to="/collections"
+                className={`whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isCollectionsActive
+                    ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
+                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                }`}
+              >
+                <FolderKanban className="inline h-4 w-4 mr-1.5" />
+                Collections
               </Link>
             </div>
 

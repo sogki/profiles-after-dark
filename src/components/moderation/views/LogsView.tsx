@@ -35,27 +35,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import toast from 'react-hot-toast';
-
-interface ActivityLog {
-  id: string;
-  type: 'moderation' | 'upload' | 'user' | 'report' | 'download' | 'favorite' | 'feedback' | 'account' | 'backup' | 'deletion';
-  action: string;
-  description: string;
-  user_id?: string;
-  target_user_id?: string;
-  user?: {
-    username: string;
-    display_name: string;
-    avatar_url?: string;
-  };
-  target_user?: {
-    username: string;
-    display_name: string;
-    avatar_url?: string;
-  };
-  created_at: string;
-  metadata?: any;
-}
+import type { ActivityLog } from './types';
 
 export default function LogsView() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
@@ -976,7 +956,7 @@ export default function LogsView() {
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
         <div className="overflow-x-auto max-h-[600px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
           <table className="w-full">
-            <thead className="bg-slate-700 sticky top-0 z-10 backdrop-blur-sm border-b border-slate-600 shadow-lg">
+            <thead className="bg-slate-700 sticky top-0 z-10 border-b border-slate-600 shadow-md">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider bg-slate-700">Type</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider bg-slate-700">Action</th>

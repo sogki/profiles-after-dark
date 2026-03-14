@@ -37,7 +37,10 @@ router.get('/', async (req, res) => {
       'BACKEND_URL',
       'WEB_URL',
       'CLIENT_ID',
-      'GUILD_ID'
+      'GUILD_ID',
+      'STRIPE_PUBLISHABLE_KEY',
+      'FLAIR_PREMIUM_PRICE_GBP',
+      'FLAIR_PREMIUM_PRICE_USD'
     ];
 
     // Build config object with only public values

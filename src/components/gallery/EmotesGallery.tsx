@@ -7,24 +7,9 @@ import { supabase } from "../../lib/supabase"
 import { useAuth } from "../../context/authContext"
 import Footer from "../Footer"
 import ReportContentButton from "../shared/ReportContentButton"
-
-interface UserProfile {
-  username: string | null
-  display_name: string | null
-  avatar_url: string | null
-}
-
-interface Emote {
-  id: string
-  title: string
-  image_url: string
-  category: string
-  tags: string[] | null
-  download_count: number | null
-  created_at: string | null
-  user_id: string
-  user_profiles?: UserProfile
-}
+import FlairNameText from "@/components/flair/FlairNameText"
+import { useDiscoveryFlairNames } from "@/hooks/flair/useDiscoveryFlairNames"
+import type { GalleryEmote as Emote } from "./shared/types"
 
 const EmotesGallery = memo(function EmotesGallery() {
   const [emotes, setEmotes] = useState<Emote[]>([])
@@ -203,6 +188,26 @@ const EmotesGallery = memo(function EmotesGallery() {
     return sortedEmotes.slice(start, start + ITEMS_PER_PAGE)
   }, [sortedEmotes, page])
 
+  const flairNameMap = useDiscoveryFlairNames(
+    useMemo(() => [...new Set(emotes.map((emote) => emote.user_id).filter(Boolean))], [emotes])
+  )
+
+  const renderDiscoveryName = (userId: string, username?: string | null, displayName?: string | null, className = "") => {
+    const flairData = flairNameMap[userId]
+    const fallbackName = username || displayName || "Unknown User"
+    if (flairData?.isPremium) {
+      return (
+        <FlairNameText
+          name={flairData.customDisplayName || fallbackName}
+          animation={flairData.animation}
+          gradientJson={flairData.gradient}
+          className={className}
+        />
+      )
+    }
+    return <span className={className}>{fallbackName}</span>
+  }
+
 
   // Load favorites from database
   useEffect(() => {
@@ -373,7 +378,7 @@ const EmotesGallery = memo(function EmotesGallery() {
         </div>
 
         {/* Enhanced Filters */}
-        <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-slate-600/50 shadow-2xl">
+        <div className="surface-elevated rounded-2xl p-8 mb-8">
           {/* Search Bar */}
           <div className="mb-6">
             <div className="relative">
@@ -383,7 +388,7 @@ const EmotesGallery = memo(function EmotesGallery() {
                 placeholder="Search titles, categories, or tags..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-6 py-4 rounded-xl bg-slate-700/50 text-white placeholder-slate-400 border border-slate-600/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200 text-lg backdrop-blur-sm"
+                className="w-full pl-12 pr-6 py-4 rounded-xl bg-slate-700/70 text-white placeholder-slate-400 border border-slate-600/60 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors duration-200 text-lg"
                 aria-label="Search emotes" />
               {searchQuery && (
                 <button
@@ -588,7 +593,7 @@ const EmotesGallery = memo(function EmotesGallery() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className={`group bg-slate-800/50 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-slate-700/50 transition-all duration-300 border border-slate-700 hover:border-slate-600 ${
+                className={`group bg-slate-800/70 rounded-xl overflow-hidden hover:bg-slate-700/60 transition-colors duration-200 border border-slate-700 hover:border-slate-600 ${
                   viewMode === "list" ? "flex items-center p-4" : ""
                 }`}
               >
@@ -693,7 +698,11 @@ const EmotesGallery = memo(function EmotesGallery() {
                             </div>
                           )}
                           <span className="truncate font-medium">
-                            {emote.user_profiles.username || emote.user_profiles.display_name || "Unknown User"}
+                            {renderDiscoveryName(
+                              emote.user_id,
+                              emote.user_profiles.username,
+                              emote.user_profiles.display_name
+                            )}
                           </span>
                         </Link>
                       )}
@@ -784,7 +793,12 @@ const EmotesGallery = memo(function EmotesGallery() {
                             </div>
                           )}
                           <span className="truncate font-medium">
-                            by {emote.user_profiles.username || emote.user_profiles.display_name || "Unknown User"}
+                            by{" "}
+                            {renderDiscoveryName(
+                              emote.user_id,
+                              emote.user_profiles.username,
+                              emote.user_profiles.display_name
+                            )}
                           </span>
                         </Link>
                       )}
@@ -799,8 +813,8 @@ const EmotesGallery = memo(function EmotesGallery() {
 
       {/* Preview Modal */}
       <Transition appear show={isModalOpen} as={Fragment}>
-        <Dialog as="div" className="fixed inset-0 z-50 overflow-y-auto" onClose={closePreview}>
-          <div className="min-h-screen px-4 text-center bg-black bg-opacity-80 backdrop-blur-sm">
+        <Dialog as="div" className="fixed inset-0 z-50" onClose={closePreview}>
+          <div className="min-h-screen px-4 text-center modal-backdrop-light flex items-center justify-center py-8">
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
@@ -810,7 +824,7 @@ const EmotesGallery = memo(function EmotesGallery() {
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="inline-block w-full max-w-4xl my-20 overflow-hidden text-left align-middle transition-all transform bg-slate-900 shadow-2xl rounded-2xl border border-slate-700">
+              <Dialog.Panel className="inline-block w-full max-w-5xl my-0 max-h-[90vh] overflow-y-auto text-left align-middle transition-all transform modal-popup-shell">
                 <div className="relative">
                   {previewEmote && (
                     <img
@@ -857,7 +871,13 @@ const EmotesGallery = memo(function EmotesGallery() {
                               <User className="h-4 w-4 text-white" />
                             </div>
                           )}
-                          <span>{previewEmote.user_profiles.username || previewEmote.user_profiles.display_name || "Unknown User"}</span>
+                          <span>
+                            {renderDiscoveryName(
+                              previewEmote.user_id,
+                              previewEmote.user_profiles.username,
+                              previewEmote.user_profiles.display_name
+                            )}
+                          </span>
                         </Link>
                       )}
                     </div>

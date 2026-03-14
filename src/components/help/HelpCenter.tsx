@@ -4,23 +4,8 @@ import { Link } from "react-router-dom"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import Footer from "../Footer"
-
-interface HelpArticle {
-  id: string
-  title: string
-  category: string
-  content: string
-  tags: string[]
-}
-
-const helpCategories = [
-  { id: "getting-started", name: "Getting Started", icon: User, color: "text-blue-400" },
-  { id: "uploading", name: "Uploading Content", icon: Upload, color: "text-green-400" },
-  { id: "profile", name: "Profile Settings", icon: Settings, color: "text-purple-400" },
-  { id: "community", name: "Community", icon: Users, color: "text-pink-400" },
-  { id: "safety", name: "Safety & Privacy", icon: Shield, color: "text-red-400" },
-  { id: "troubleshooting", name: "Troubleshooting", icon: HelpCircle, color: "text-yellow-400" },
-]
+import { helpCategories, type HelpArticle } from "./constants"
+import { helpMarkdownComponents } from "./markdown-components"
 
 const helpArticles: HelpArticle[] = [
   // Getting Started
@@ -898,12 +883,12 @@ export default function HelpCenter() {
   return (
     <div className="min-h-screen bg-slate-900">
       {/* Sticky Header - Discord-like design */}
-      <div className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-700/50 shadow-lg">
+      <div className="sticky top-0 z-50 bg-slate-900 border-b border-slate-700/50 shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col gap-4">
             {/* Title Section */}
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-gradient-to-br from-purple-600/20 to-blue-600/20 rounded-lg border border-purple-500/30">
+              <div className="p-2.5 bg-slate-800/80 rounded-lg border border-purple-500/30">
                 <BookOpen className="h-6 w-6 text-purple-400" />
               </div>
               <div>
@@ -920,7 +905,7 @@ export default function HelpCenter() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search for help articles..."
-                className="w-full bg-slate-800/80 border border-slate-700/50 pl-12 pr-4 py-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                className="w-full bg-slate-800/90 border border-slate-700/60 pl-12 pr-4 py-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
               />
               {searchQuery && (
                 <button
@@ -941,7 +926,7 @@ export default function HelpCenter() {
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Sidebar - Categories - Sticky */}
           <div className="w-full lg:w-64 flex-shrink-0">
-            <div className="bg-slate-800/50 rounded-lg border border-slate-700/30 p-4 sticky top-[180px] lg:top-[200px]">
+            <div className="bg-slate-800/75 rounded-lg border border-slate-700/40 p-4 sticky top-[180px] lg:top-[200px]">
               <h2 className="text-lg font-semibold text-white mb-4">Categories</h2>
               <div className="space-y-2">
                 <button
@@ -979,7 +964,7 @@ export default function HelpCenter() {
           {/* Main Content */}
           <div className="flex-1">
             {selectedArticle ? (
-              <div className="bg-slate-800/50 rounded-lg border border-slate-700/30 p-6">
+              <div className="bg-slate-800/75 rounded-lg border border-slate-700/40 p-6">
                 <button
                   onClick={() => setSelectedArticle(null)}
                   className="flex items-center gap-2 text-slate-400 hover:text-white mb-4 transition-colors"
@@ -989,44 +974,7 @@ export default function HelpCenter() {
                 </button>
                 <h2 className="text-2xl font-bold text-white mb-4">{selectedArticle.title}</h2>
                 <div className="prose prose-invert max-w-none prose-headings:text-white prose-p:text-slate-300 prose-strong:text-white prose-a:text-purple-400 prose-a:no-underline hover:prose-a:underline prose-ul:text-slate-300 prose-ol:text-slate-300 prose-li:text-slate-300 prose-code:text-purple-300 prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-700">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      a: ({ node, ...props }) => (
-                        <a {...props} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 underline" />
-                      ),
-                      strong: ({ node, ...props }) => (
-                        <strong {...props} className="font-semibold text-white" />
-                      ),
-                      h1: ({ node, ...props }) => (
-                        <h1 {...props} className="text-2xl font-bold text-white mt-6 mb-4" />
-                      ),
-                      h2: ({ node, ...props }) => (
-                        <h2 {...props} className="text-xl font-bold text-white mt-5 mb-3" />
-                      ),
-                      h3: ({ node, ...props }) => (
-                        <h3 {...props} className="text-lg font-semibold text-white mt-4 mb-2" />
-                      ),
-                      ul: ({ node, ...props }) => (
-                        <ul {...props} className="list-disc list-inside text-slate-300 my-4 space-y-2" />
-                      ),
-                      ol: ({ node, ...props }) => (
-                        <ol {...props} className="list-decimal list-inside text-slate-300 my-4 space-y-2" />
-                      ),
-                      li: ({ node, ...props }) => (
-                        <li {...props} className="text-slate-300" />
-                      ),
-                      p: ({ node, ...props }) => (
-                        <p {...props} className="text-slate-300 leading-relaxed my-3" />
-                      ),
-                      code: ({ node, inline, ...props }: any) => {
-                        if (inline) {
-                          return <code {...props} className="bg-slate-800 text-purple-300 px-1.5 py-0.5 rounded text-sm" />
-                        }
-                        return <code {...props} className="block bg-slate-900 text-slate-300 p-4 rounded-lg overflow-x-auto my-4" />
-                      },
-                    }}
-                  >
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={helpMarkdownComponents}>
                     {selectedArticle.content}
                   </ReactMarkdown>
                 </div>
@@ -1044,7 +992,7 @@ export default function HelpCenter() {
                             setSelectedArticle(article)
                             window.scrollTo({ top: 0, behavior: 'smooth' })
                           }}
-                          className="text-left p-4 bg-slate-700/30 rounded-lg border border-slate-700/30 hover:border-purple-500/50 hover:bg-slate-700/50 transition-all group"
+                          className="text-left p-4 bg-slate-700/50 rounded-lg border border-slate-700/40 hover:border-purple-500/50 hover:bg-slate-700/65 transition-colors group"
                         >
                           <h4 className="font-semibold text-white mb-1 group-hover:text-purple-400 transition-colors">{article.title}</h4>
                           <p className="text-xs text-slate-400 line-clamp-2">{article.content.substring(0, 100)}...</p>
@@ -1096,7 +1044,7 @@ export default function HelpCenter() {
                             setSelectedArticle(article)
                             window.scrollTo({ top: 0, behavior: 'smooth' })
                           }}
-                          className="w-full text-left bg-slate-800/50 rounded-lg border border-slate-700/30 p-5 hover:border-purple-500/50 hover:bg-slate-800/70 cursor-pointer transition-all group"
+                          className="w-full text-left bg-slate-800/75 rounded-lg border border-slate-700/40 p-5 hover:border-purple-500/50 hover:bg-slate-800/90 cursor-pointer transition-colors group"
                         >
                           <div className="flex items-start gap-4">
                             <div className={`p-2.5 rounded-lg bg-slate-700/50 ${category?.color || "text-slate-400"} group-hover:scale-110 transition-transform`}>
@@ -1125,7 +1073,7 @@ export default function HelpCenter() {
                     })}
                   </div>
                 ) : (
-                  <div className="bg-slate-800/50 rounded-lg border border-slate-700/30 p-12 text-center">
+                  <div className="bg-slate-800/75 rounded-lg border border-slate-700/40 p-12 text-center">
                     <HelpCircle className="h-12 w-12 text-slate-500 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-white mb-2">No articles found</h3>
                     <p className="text-slate-400 mb-4">Try adjusting your search or category filter</p>
@@ -1146,7 +1094,7 @@ export default function HelpCenter() {
         </div>
 
         {/* Contact Support CTA */}
-        <div className="mt-8 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-lg border border-purple-500/30 p-6">
+        <div className="mt-8 bg-slate-800/75 rounded-lg border border-purple-500/30 p-6">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <h3 className="text-lg font-semibold text-white mb-2">Still need help?</h3>
@@ -1154,7 +1102,7 @@ export default function HelpCenter() {
             </div>
             <Link
               to="/profile-settings?tab=support"
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-colors whitespace-nowrap"
+              className="flex items-center gap-2 px-6 py-3 btn-flat-primary text-white rounded-lg font-semibold transition-colors whitespace-nowrap"
             >
               <MessageSquare className="h-5 w-5" />
               Contact Support

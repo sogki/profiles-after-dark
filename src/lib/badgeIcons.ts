@@ -27,7 +27,6 @@ import {
   FaMedal,
   FaBirthdayCake,
   FaBug,
-  FaCheckCircle,
   FaUserTie,
 } from 'react-icons/fa';
 import { HiSparkles } from 'react-icons/hi2';

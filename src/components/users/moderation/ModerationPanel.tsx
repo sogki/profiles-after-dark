@@ -8,8 +8,22 @@ import {
   moderateContent,
   generateContentTags,
   analyzeUserBehavior,
-  type ModerationResult,
 } from "../../../lib/openai-moderation";
+import {
+  type Appeal,
+  type AnalyticsData,
+  type AutoModerationScan,
+  type ContentItem,
+  type EditContentModal,
+  type Log,
+  MODERATION_GUILD_ID,
+  type ModerationRule,
+  type ReportedUser,
+  type SpamPattern,
+  type SystemSetting,
+  type UserAccount,
+  type UserSummary,
+} from "./panel/types";
 import {
   HardDrive,
   UserCheck,
@@ -64,228 +78,6 @@ import {
 } from "lucide-react";
 import Footer from "../../Footer";
 
-interface ModCase {
-  id: string;
-  banType: "discord" | "website" | "";
-  status: "open" | "resolved" | "denied";
-}
-
-interface Appeal {
-  id: string; // unique appeal ID
-  appeal_reason: string;
-  banType: "discord" | "website" | "";
-  discordTag?: string;
-  email?: string;
-  username?: string;
-  explanation: string;
-  status: "pending" | "approved" | "denied"; // current appeal status
-  appeal_date: string;
-  reviewed_by?: string;
-  resolved_at?: string;
-
-  // New: Nested mod_cases from Supabase join
-  mod_cases?: ModCase | null;
-  reviewer_name?: string; // add this optional property
-}
-
-interface ReportedUser {
-  id: string;
-  reason: string;
-  description?: string;
-  created_at: string;
-  status?: string;
-  reported_user_id?: string;
-  reporter_user_id: string;
-  content_id?: string;
-  content_type?: string;
-  reported_user: { username: string; avatar_url?: string; id?: string } | null;
-  reporter_user: { username: string } | null;
-}
-
-interface Log {
-  id: string;
-  moderator_id: string;
-  action: string;
-  target_user_id: string;
-  target_profile_id: string | null;
-  description: string | null;
-  created_at: string;
-  title?: string;
-  tags?: string[];
-  content_url?: string;
-}
-
-interface UserSummary {
-  user_id: string;
-  display_name: string | null;
-  username: string | null;
-}
-
-interface ContentItem {
-  id: string;
-  title: string;
-  image_url: string;
-  category: string;
-  type: "profile" | "banner";
-  tags: string[];
-  created_at: string;
-  user_id?: string;
-  username?: string;
-  download_count?: number;
-  source_table: "profiles" | "profile_pairs" | "emoji_combos";
-}
-
-interface EditContentModal {
-  open: boolean;
-  content: ContentItem | null;
-  editedTitle: string;
-  editedTags: string[];
-  tagInput: string;
-}
-
-interface TrendingItem {
-  id: string;
-  title: string;
-  type: "profile" | "pfp" | "banner" | "pair";
-  image_url?: string;
-  pfp_url?: string;
-  banner_url?: string;
-  download_count: number;
-  category: string;
-  tags: string[];
-  created_at: string;
-  updated_at: string;
-  trend_score: number;
-  growth_rate: number;
-}
-
-interface AnalyticsData {
-  overview: {
-    totalUsers: number;
-    totalContent: number;
-    totalDownloads: number;
-    totalReports: number;
-    newUsersThisWeek: number;
-    newContentThisWeek: number;
-    reportsThisWeek: number;
-    avgResponseTime: number;
-  };
-  contentStats: {
-    profileCount: number;
-    bannerCount: number;
-    pairCount: number;
-    categoriesBreakdown: Array<{ category: string; count: number }>;
-    uploadTrends: Array<{ date: string; count: number }>;
-    topTags: Array<{ tag: string; count: number }>;
-    trendingItems: TrendingItem[];
-  };
-  userStats: {
-    registrationTrends: Array<{ date: string; count: number }>;
-    activeUsers: number;
-    topUploaders: Array<{
-      username: string;
-      uploadCount: number;
-      downloadCount: number;
-    }>;
-  };
-  moderationStats: {
-    reportsResolved: number;
-    reportsPending: number;
-    actionsThisMonth: number;
-    topReportReasons: Array<{ reason: string; count: number }>;
-    moderatorActivity: Array<{ moderator: string; actions: number }>;
-  };
-}
-
-interface UserAccount {
-  id: string;
-  username: string;
-  display_name: string;
-  avatar_url?: string;
-  created_at: string;
-  last_active: string;
-  role: "user" | "staff" | "admin";
-  status: "active" | "restricted" | "terminated";
-  upload_count: number;
-  download_count: number;
-}
-
-interface SystemSetting {
-  id?: string;
-  key: string;
-  value: string;
-  description: string;
-  type: "boolean" | "string" | "number" | "json";
-  category: string;
-  created_at?: string;
-  updated_at?: string;
-}
-
-interface ModerationRule {
-  id: string;
-  name: string;
-  description: string;
-  type:
-    | "content_filter"
-    | "spam_detection"
-    | "user_behavior"
-    | "keyword_filter"
-    | "ai_moderation";
-  enabled: boolean;
-  severity: "low" | "medium" | "high" | "critical";
-  action:
-    | "flag"
-    | "hide"
-    | "remove"
-    | "warn_user"
-    | "restrict_user"
-    | "ban_user";
-  conditions: {
-    keywords?: string[];
-    patterns?: string[];
-    thresholds?: Record<string, number>;
-    categories?: string[];
-    aiEnabled?: boolean;
-    confidenceThreshold?: number;
-  };
-  created_at: string;
-  updated_at: string;
-  created_by: string;
-}
-
-interface AutoModerationScan {
-  id: string;
-  content_id: string;
-  content_type: "profile" | "banner" | "comment" | "message";
-  scan_type:
-    | "ai_content"
-    | "spam_detection"
-    | "keyword_filter"
-    | "image_analysis"
-    | "openai_moderation";
-  status: "pending" | "completed" | "failed";
-  confidence_score: number;
-  flags: string[];
-  action_taken: string | null;
-  rule_id?: string;
-  ai_result?: ModerationResult;
-  created_at: string;
-  completed_at: string | null;
-}
-
-interface SpamPattern {
-  id: string;
-  pattern: string;
-  type: "regex" | "keyword" | "domain" | "behavior";
-  description: string;
-  severity: number;
-  enabled: boolean;
-  created_at: string;
-  updated_at?: string;
-}
-
-const guildId = "1386840977188061194";
-
 const ModerationPanel = () => {
   const { userProfile, loading } = useAuth();
   const [announcement, setAnnouncement] = useState<string | null>(null);
@@ -295,7 +87,7 @@ const ModerationPanel = () => {
   const [logs, setLogs] = useState<Log[]>([]);
   const [fetchingLogs, setFetchingLogs] = useState(false);
   const [usersMap, setUsersMap] = useState<Record<string, UserSummary>>({});
-  const { cases, loading: loadingCases } = useModCases(guildId);
+  const { cases, loading: loadingCases } = useModCases(MODERATION_GUILD_ID);
   // Appeals
   const [appeals, setAppeals] = React.useState<Appeal[]>([]);
   const { user: currentMod, loading: modLoading } = useAuth();
@@ -2991,7 +2783,7 @@ const ModerationPanel = () => {
                                       contentType: item.type,
                                     })
                                   }
-                                  className="bg-black/50 backdrop-blur-sm hover:bg-black/70 p-2 rounded-lg transition-colors"
+                                  className="bg-slate-900/80 hover:bg-slate-800 p-2 rounded-lg transition-colors"
                                   title="Report Content"
                                 >
                                   <AlertTriangle className="h-4 w-4 text-red-400" />
@@ -4548,8 +4340,8 @@ const ModerationPanel = () => {
 
         {/* Action Modal */}
         {actionModal.open && (
-          <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center">
-            <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full">
+          <div className="fixed inset-0 modal-backdrop-light flex items-center justify-center">
+            <div className="modal-popup-shell p-8 max-w-md w-full">
               <h2 className="text-2xl font-semibold mb-4">
                 {actionModal.action === "warn"
                   ? "Warn User"
@@ -4594,8 +4386,8 @@ const ModerationPanel = () => {
 
         {/* Edit Content Modal */}
         {editModal.open && (
-          <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center">
-            <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full">
+          <div className="fixed inset-0 modal-backdrop-light flex items-center justify-center">
+            <div className="modal-popup-shell p-8 max-w-md w-full">
               <h2 className="text-2xl font-semibold mb-4">Edit Content</h2>
               <div className="space-y-4">
                 <div>
@@ -4684,8 +4476,8 @@ const ModerationPanel = () => {
 
         {/* New Rule Modal */}
         {ruleModal.open && (
-          <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center">
-            <div className="bg-gray-800 rounded-lg p-8 max-w-2xl w-full">
+          <div className="fixed inset-0 modal-backdrop-light flex items-center justify-center">
+            <div className="modal-popup-shell p-8 max-w-2xl w-full">
               <h2 className="text-2xl font-semibold mb-4">
                 {ruleModal.isEditing
                   ? "Edit Moderation Rule"

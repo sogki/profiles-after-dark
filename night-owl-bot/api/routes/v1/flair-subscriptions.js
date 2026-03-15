@@ -2,6 +2,8 @@ import express from 'express';
 import Stripe from 'stripe';
 import { getSupabase } from '../../../utils/supabase.js';
 import { loadConfig } from '../../../utils/config.js';
+import { sendDiscordEventLog } from '../../../utils/discordAdmin.js';
+import { syncPremiumRoleForUserLinks } from '../../../utils/premiumRoleSync.js';
 
 const router = express.Router();
 
@@ -361,6 +363,33 @@ export async function handleFlairStripeWebhook(req, res) {
             stripe_subscription_id: subscription.id,
           },
         });
+
+        // Keep Discord premium role in sync with latest billing state.
+        try {
+          await syncPremiumRoleForUserLinks({
+            db,
+            webUserId: userId,
+            source: 'stripe-checkout-completed',
+          });
+        } catch (error) {
+          console.error('Failed to sync premium role on checkout completion:', error);
+        }
+
+        try {
+          await sendDiscordEventLog({
+            eventType: 'flair_subscription',
+            title: 'Flair Premium Activated',
+            description: 'A user successfully completed Flair Premium checkout.',
+            fields: [
+              { name: 'User ID', value: userId, inline: true },
+              { name: 'Subscription ID', value: subscription.id, inline: true },
+              { name: 'Status', value: subscription.status, inline: true },
+            ],
+            visibility: 'admin',
+          });
+        } catch (error) {
+          console.error('Failed to log checkout completion event to Discord:', error);
+        }
       }
     }
 
@@ -394,6 +423,16 @@ export async function handleFlairStripeWebhook(req, res) {
           currentPeriodEnd: toIsoFromUnix(subscription.current_period_end),
           cancelAtPeriodEnd: subscription.cancel_at_period_end,
         });
+
+        try {
+          await syncPremiumRoleForUserLinks({
+            db,
+            webUserId: userId,
+            source: `stripe-${event.type}`,
+          });
+        } catch (error) {
+          console.error('Failed to sync premium role from Stripe event:', error);
+        }
 
         const status = normalizeSubscriptionStatus(subscription.status);
         const currentPeriodEndIso = toIsoFromUnix(subscription.current_period_end);
@@ -431,6 +470,22 @@ export async function handleFlairStripeWebhook(req, res) {
           if (daysUntilRenewal > 0 && daysUntilRenewal <= 7) {
             await createUniqueRenewalReminder(db, userId, currentPeriodEndIso);
           }
+        }
+
+        try {
+          await sendDiscordEventLog({
+            eventType: 'flair_subscription',
+            title: 'Flair Subscription Updated',
+            description: `Stripe subscription event received: ${event.type}`,
+            fields: [
+              { name: 'User ID', value: userId, inline: true },
+              { name: 'Subscription ID', value: subscription.id, inline: true },
+              { name: 'Status', value: status, inline: true },
+            ],
+            visibility: 'admin',
+          });
+        } catch (error) {
+          console.error('Failed to log Stripe subscription update to Discord:', error);
         }
       }
     }

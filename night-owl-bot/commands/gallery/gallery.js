@@ -474,17 +474,21 @@ export async function handleGalleryInteraction(interaction) {
         // For other actions, we update the original message, so deferUpdate
         if (!interaction.deferred && !interaction.replied) {
             if (action === 'view') {
-                await interaction.deferReply({ ephemeral: true }).catch(err => {
+                try {
+                    await interaction.deferReply({ ephemeral: true });
+                } catch (err) {
                     console.error('Error deferring reply for view:', err);
-                });
+                }
             } else {
-                await interaction.deferUpdate().catch(err => {
+                try {
+                    await interaction.deferUpdate();
+                } catch (err) {
                     console.error('Error deferring update:', err);
                     // If deferUpdate fails (e.g., ephemeral message), try deferReply
                     if (!interaction.replied) {
                         await interaction.deferReply({ ephemeral: true }).catch(() => {});
                     }
-                });
+                }
             }
         }
 

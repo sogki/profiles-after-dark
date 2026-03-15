@@ -116,6 +116,15 @@ export async function loadConfig() {
           'BACKEND_URL',
           'WEB_URL',
           'STAFF_LOG_CHANNEL_ID',
+          'PREMIUM_ROLE_ID',
+          'FLAIR_PREMIUM_ROLE_ID',
+          'DISCORD_LOG_CHANNEL_SUBMISSIONS',
+          'DISCORD_LOG_CHANNEL_CONTENT_REVIEW',
+          'DISCORD_LOG_CHANNEL_FLAIR',
+          'DISCORD_LOG_CHANNEL_ACCOUNT_LINKING',
+          'DISCORD_LOG_CHANNEL_ADMIN',
+          'AUTO_DEPLOY_COMMANDS',
+          'EXPORT_LINK_SECRET',
           'STRIPE_PUBLISHABLE_KEY',
           'STRIPE_SECRET_KEY',
           'STRIPE_WEBHOOK_SECRET',
@@ -177,6 +186,15 @@ export async function loadConfig() {
     'BACKEND_URL',
     'WEB_URL',
     'STAFF_LOG_CHANNEL_ID',
+    'PREMIUM_ROLE_ID',
+    'FLAIR_PREMIUM_ROLE_ID',
+    'DISCORD_LOG_CHANNEL_SUBMISSIONS',
+    'DISCORD_LOG_CHANNEL_CONTENT_REVIEW',
+    'DISCORD_LOG_CHANNEL_FLAIR',
+    'DISCORD_LOG_CHANNEL_ACCOUNT_LINKING',
+    'DISCORD_LOG_CHANNEL_ADMIN',
+    'AUTO_DEPLOY_COMMANDS',
+    'EXPORT_LINK_SECRET',
     'STRIPE_PUBLISHABLE_KEY',
     'STRIPE_SECRET_KEY',
     'STRIPE_WEBHOOK_SECRET',
@@ -349,6 +367,60 @@ export async function initializeConfigFromEnv() {
       description: 'Discord channel ID for staff logs',
       category: 'discord',
       isSecret: false
+    },
+    {
+      key: 'PREMIUM_ROLE_ID',
+      description: 'Discord role ID granted to Flair Premium subscribers',
+      category: 'discord',
+      isSecret: false
+    },
+    {
+      key: 'FLAIR_PREMIUM_ROLE_ID',
+      description: 'Legacy alias for PREMIUM_ROLE_ID',
+      category: 'discord',
+      isSecret: false
+    },
+    {
+      key: 'DISCORD_LOG_CHANNEL_SUBMISSIONS',
+      description: 'Discord channel ID for content submission logs',
+      category: 'discord',
+      isSecret: false
+    },
+    {
+      key: 'DISCORD_LOG_CHANNEL_CONTENT_REVIEW',
+      description: 'Discord channel ID for content review logs',
+      category: 'discord',
+      isSecret: false
+    },
+    {
+      key: 'DISCORD_LOG_CHANNEL_FLAIR',
+      description: 'Discord channel ID for flair subscription logs',
+      category: 'discord',
+      isSecret: false
+    },
+    {
+      key: 'DISCORD_LOG_CHANNEL_ACCOUNT_LINKING',
+      description: 'Discord channel ID for account-linking logs',
+      category: 'discord',
+      isSecret: false
+    },
+    {
+      key: 'DISCORD_LOG_CHANNEL_ADMIN',
+      description: 'Discord channel ID for admin-only bot logs',
+      category: 'discord',
+      isSecret: false
+    },
+    {
+      key: 'AUTO_DEPLOY_COMMANDS',
+      description: 'Automatically deploy slash commands when bot starts',
+      category: 'discord',
+      isSecret: false
+    },
+    {
+      key: 'EXPORT_LINK_SECRET',
+      description: 'Secret key used to sign temporary export download links',
+      category: 'external',
+      isSecret: true
     },
     {
       key: 'STRIPE_PUBLISHABLE_KEY',

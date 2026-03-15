@@ -221,6 +221,7 @@ import DeveloperView from './views/DeveloperView';
 import SettingsView from './views/SettingsView';
 import SubscriptionsManagementView from './views/SubscriptionsManagementView';
 import RolesManagementView from './views/RolesManagementView';
+import DiscordBotView from './views/DiscordBotView';
 import DashboardView from './enhanced/DashboardView';
 import ReportsView from './enhanced/ReportsView';
 import ModerationSidebar from './enhanced/ModerationSidebar';
@@ -284,7 +285,7 @@ export default function EnhancedModerationPage() {
       // Don't change activeView, just ensure we're showing the report detail
     } else if (searchParams.get('view')) {
       const view = searchParams.get('view') as any;
-      if (['dashboard', 'reports', 'content', 'logs', 'analytics', 'users', 'subscriptions', 'roles', 'automation', 'announcements', 'settings', 'appeals', 'messaging', 'notifications', 'feedback', 'support-tickets', 'developer'].includes(view)) {
+      if (['dashboard', 'reports', 'content', 'logs', 'analytics', 'discord-bot', 'users', 'subscriptions', 'roles', 'automation', 'announcements', 'settings', 'appeals', 'messaging', 'notifications', 'feedback', 'support-tickets', 'developer'].includes(view)) {
         setActiveView(view);
       }
     }
@@ -730,6 +731,10 @@ export default function EnhancedModerationPage() {
                 {/* Analytics & Monitoring View */}
                 {activeView === 'analytics' && (
                   <AnalyticsMonitoringView />
+                )}
+
+                {activeView === 'discord-bot' && (
+                  <DiscordBotView />
                 )}
 
                 {activeView === 'settings' && (

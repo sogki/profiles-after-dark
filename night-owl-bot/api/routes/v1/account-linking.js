@@ -1,6 +1,8 @@
 import express from 'express';
 import { getSupabase } from '../../../utils/supabase.js';
 import { createAccountLinkingNotification } from '../../../utils/notifications.js';
+import { syncPremiumRoleForDiscordUser } from '../../../utils/premiumRoleSync.js';
+import { sendDiscordEventLog } from '../../../utils/discordAdmin.js';
 import crypto from 'crypto';
 
 const router = express.Router();
@@ -242,12 +244,43 @@ router.post('/validate', async (req, res) => {
     try {
       await createAccountLinkingNotification(
         linkingCode.user_id,
-        discordId,
+        discord_id,
         username
       );
     } catch (notifErr) {
       console.error('Error creating notification:', notifErr);
       // Continue even if notification fails
+    }
+
+    // Sync premium Discord role immediately after account linking.
+    try {
+      await syncPremiumRoleForDiscordUser({
+        db,
+        webUserId: linkingCode.user_id,
+        discordId: discord_id,
+        guildId: guild_id,
+        source: 'account-linking',
+      });
+    } catch (roleErr) {
+      console.error('Error syncing premium role after link:', roleErr);
+    }
+
+    // Staff/admin log for account linking activity.
+    try {
+      await sendDiscordEventLog({
+        eventType: 'account_linking',
+        title: 'Discord Account Linked',
+        description: `A user linked their Discord account to Profiles After Dark.`,
+        fields: [
+          { name: 'Website User ID', value: linkingCode.user_id, inline: true },
+          { name: 'Discord ID', value: discord_id, inline: true },
+          { name: 'Discord Username', value: username, inline: true },
+          { name: 'Guild ID', value: guild_id, inline: true },
+        ],
+        visibility: 'staff',
+      });
+    } catch (logErr) {
+      console.error('Error logging account-linking event:', logErr);
     }
 
     res.json({
@@ -330,6 +363,68 @@ router.get('/status', async (req, res) => {
   } catch (error) {
     console.error('Error getting linking status:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * @route   POST /api/v1/account-linking/unlink
+ * @desc    Unlink Discord account(s) for authenticated user
+ * @access  Private
+ */
+router.post('/unlink', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required.',
+      });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const db = await getSupabase();
+
+    const { data: { user }, error: authError } = await db.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid or expired token.',
+      });
+    }
+
+    const { error: unlinkError } = await db
+      .from('discord_users')
+      .delete()
+      .eq('web_user_id', user.id);
+
+    if (unlinkError) {
+      console.error('Error unlinking Discord account:', unlinkError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to unlink Discord account.',
+      });
+    }
+
+    // Mark active linking codes as used to avoid stale code reuse after unlink.
+    await db
+      .from('account_linking_codes')
+      .update({
+        used: true,
+        used_at: new Date().toISOString(),
+      })
+      .eq('user_id', user.id)
+      .eq('used', false)
+      .gt('expires_at', new Date().toISOString());
+
+    return res.json({
+      success: true,
+      data: {
+        message: 'Discord account unlinked successfully.',
+      },
+    });
+  } catch (error) {
+    console.error('Error unlinking Discord account:', error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 

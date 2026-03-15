@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { supabase } from "../../lib/supabase"
-import { Loader2, Download, Database, HardDrive, Image, FileImage, Smile, Monitor, Upload } from "lucide-react"
+import { Loader2, Download, Database, HardDrive, Image, FileImage, Smile, Monitor, Upload, Link2 } from "lucide-react"
+import { requestUserDataExport } from "../../lib/discordBotApi"
 import toast from "react-hot-toast"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 
@@ -22,12 +23,33 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
   const [storageUsage, setStorageUsage] = useState<StorageUsage | null>(null)
   const [loadingStorage, setLoadingStorage] = useState(false)
   const [backupFile, setBackupFile] = useState<File | null>(null)
+  const [isDiscordLinked, setIsDiscordLinked] = useState(false)
+  const [linkedDiscordUsername, setLinkedDiscordUsername] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
       fetchStorageUsage()
+      fetchDiscordLinkStatus()
     }
   }, [user])
+
+  const fetchDiscordLinkStatus = async () => {
+    if (!user) return
+    try {
+      const { data } = await supabase
+        .from("discord_users")
+        .select("discord_id, username")
+        .eq("web_user_id", user.id)
+        .limit(1)
+      const link = data?.[0]
+      setIsDiscordLinked(!!link?.discord_id)
+      setLinkedDiscordUsername(link?.username || null)
+    } catch (error) {
+      console.warn("Failed to load Discord link status:", error)
+      setIsDiscordLinked(false)
+      setLinkedDiscordUsername(null)
+    }
+  }
 
   const fetchStorageUsage = async () => {
     if (!user) return
@@ -95,7 +117,8 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
         followsData,
         followersData,
         notificationsData,
-        downloadsData
+        downloadsData,
+        collectionsData,
       ] = await Promise.all([
         // User profile
         supabase
@@ -154,8 +177,17 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
         supabase
           .from("downloads")
           .select("*")
-          .eq("user_id", user.id)
+          .eq("user_id", user.id),
+        // Collections
+        supabase
+          .from("flair_emote_collections")
+          .select("*")
+          .eq("user_id", user.id),
       ])
+
+      const allProfiles = profilesData?.data || []
+      const profilePictures = allProfiles.filter((item) => item?.type === "profile")
+      const banners = allProfiles.filter((item) => item?.type === "banner")
 
       const backupData = {
         version: "2.0",
@@ -170,11 +202,14 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
         },
         profile: profileData?.data || {},
         content: {
-          profiles: profilesData?.data || [],
+          profilePictures,
+          banners,
+          profiles: allProfiles,
           profilePairs: profilePairsData?.data || [],
           emotes: emotesData?.data || [],
           wallpapers: wallpapersData?.data || [],
           emojiCombos: emojiCombosData?.data || [],
+          collections: collectionsData?.data || [],
           // Legacy field retained for backward compatibility with older backup readers.
           singleUploads: [],
         },
@@ -192,10 +227,12 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
                        (profilePairsData?.data?.length || 0) +
                        (emotesData?.data?.length || 0) +
                        (wallpapersData?.data?.length || 0) +
-                       (emojiCombosData?.data?.length || 0),
+                       (emojiCombosData?.data?.length || 0) +
+                       (collectionsData?.data?.length || 0),
           totalFavorites: favoritesData?.data?.length || 0,
           totalFollows: followsData?.data?.length || 0,
           totalFollowers: followersData?.data?.length || 0,
+          totalCollections: collectionsData?.data?.length || 0,
         }
       }
 
@@ -300,30 +337,16 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
     if (!user) return
     setLoading(true)
     try {
-      // Fetch all user data
-      const [profileData, favoritesData, uploadsData] = await Promise.all([
-        supabase.from("user_profiles").select("*").eq("user_id", user.id).single(),
-        supabase.from("favorites").select("*").eq("user_id", user.id),
-        supabase.from("profiles").select("*").eq("user_id", user.id),
-      ])
-
-      const exportData = {
-        exportDate: new Date().toISOString(),
-        profile: profileData.data,
-        favorites: favoritesData.data || [],
-        uploads: uploadsData.data || [],
-        settings: {
-          theme: localStorage.getItem("theme"),
-          privacy: localStorage.getItem("privacy_settings"),
-        },
-      }
+      const response = await requestUserDataExport("download")
+      const exportData = response.data?.export_data
+      const fileName = response.data?.file_name || `profile-data-export-${new Date().toISOString().split("T")[0]}.json`
 
       // Create and download JSON file
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" })
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `profile-data-export-${new Date().toISOString().split("T")[0]}.json`
+      a.download = fileName
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -332,6 +355,21 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
       toast.success("Data exported successfully!")
     } catch (error) {
       toast.error("Failed to export data")
+      console.error("Export error:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const exportDataToDiscord = async () => {
+    if (!user) return
+    setLoading(true)
+    try {
+      await requestUserDataExport("discord_dm")
+      toast.success("Export link sent to your Discord DMs.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to send export to Discord")
+      console.error("Discord export error:", error)
     } finally {
       setLoading(false)
     }
@@ -348,16 +386,32 @@ export default function DataSettings({ user, loading, setLoading }: DataSettings
 
         <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700/30">
           <p className="text-slate-300 mb-4">
-            Download a copy of all your data including profile information, settings, and activity history.
+            Export all your account data including profile pictures, banners, collections, uploads, social data, and activity history.
           </p>
-          <button
-            onClick={exportData}
-            disabled={loading}
-            className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 shadow-lg shadow-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-medium text-white transition-colors"
-          >
-            {loading ? <Loader2 className="h-5 w-5 animate-spin text-white" /> : <Download className="h-5 w-5 text-white" />}
-            Export My Data
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={exportData}
+              disabled={loading}
+              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 shadow-lg shadow-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-medium text-white transition-colors"
+            >
+              {loading ? <Loader2 className="h-5 w-5 animate-spin text-white" /> : <Download className="h-5 w-5 text-white" />}
+              Download Export
+            </button>
+
+            <button
+              onClick={exportDataToDiscord}
+              disabled={loading || !isDiscordLinked}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-medium text-white transition-colors"
+            >
+              <Link2 className="h-5 w-5" />
+              Send Link to Discord DM
+            </button>
+          </div>
+          <p className="text-xs text-slate-400 mt-3">
+            {isDiscordLinked
+              ? `Linked as ${linkedDiscordUsername || "Discord user"} - DM export links expire after 24 hours.`
+              : "Link your Discord account in Account Settings to enable DM export delivery."}
+          </p>
         </div>
       </div>
 

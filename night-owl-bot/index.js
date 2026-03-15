@@ -164,10 +164,14 @@ async function loadCommands() {
       console.log(`🆔 Bot ID: ${client.user.id}`);
       console.log(`📊 Connected to ${client.guilds.cache.size} server(s)`);
 
-      // Deploy commands on startup if GUILD_ID is set
-      if (config.GUILD_ID) {
+      // Auto-deploy commands on startup unless explicitly disabled.
+      const autoDeployCommands = String(config.AUTO_DEPLOY_COMMANDS || 'true').toLowerCase() !== 'false';
+      if (autoDeployCommands) {
         try {
-          console.log(`🔄 Deploying commands to guild: ${config.GUILD_ID}...`);
+          const deployTarget = config.GUILD_ID
+            ? `guild ${config.GUILD_ID}`
+            : 'global (this can take up to 1 hour to propagate)';
+          console.log(`🔄 Auto-deploying commands to ${deployTarget}...`);
           const { REST, Routes } = await import('discord.js');
           const rest = new REST({ version: '10' }).setToken(config.DISCORD_TOKEN);
           
@@ -179,19 +183,26 @@ async function loadCommands() {
           }
 
           if (commands.length > 0) {
-            const data = await rest.put(
-              Routes.applicationGuildCommands(config.CLIENT_ID, config.GUILD_ID),
-              { body: commands }
+            const data = config.GUILD_ID
+              ? await rest.put(
+                  Routes.applicationGuildCommands(config.CLIENT_ID, config.GUILD_ID),
+                  { body: commands }
+                )
+              : await rest.put(
+                  Routes.applicationCommands(config.CLIENT_ID),
+                  { body: commands }
+                );
+
+            console.log(
+              `✅ Successfully deployed ${data.length} ${config.GUILD_ID ? 'guild' : 'global'} command(s).`
             );
-            console.log(`✅ Successfully deployed ${data.length} guild command(s).`);
           }
         } catch (error) {
           console.error('❌ Failed to deploy commands on startup:', error.message);
           console.error('💡 You may need to manually run: npm run deploy');
         }
       } else {
-        console.log('⚠️  GUILD_ID not set - commands will need to be deployed globally');
-        console.log('💡 Run: npm run deploy (this may take up to 1 hour for global commands)');
+        console.log('⚠️  AUTO_DEPLOY_COMMANDS is disabled - skipping startup deploy.');
       }
 
       client.user.setPresence({

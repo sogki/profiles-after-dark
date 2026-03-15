@@ -36,6 +36,7 @@ export default function AccountSettings({
   const [linkingCode, setLinkingCode] = useState<string | null>(null)
   const [codeExpiresAt, setCodeExpiresAt] = useState<string | null>(null)
   const [isGeneratingCode, setIsGeneratingCode] = useState(false)
+  const [isUnlinking, setIsUnlinking] = useState(false)
   const [isLinked, setIsLinked] = useState(false)
   const [discordAccount, setDiscordAccount] = useState<any>(null)
   const [copied, setCopied] = useState(false)
@@ -184,6 +185,46 @@ export default function AccountSettings({
       toast.error('Failed to generate linking code. Please try again.')
     } finally {
       setIsGeneratingCode(false)
+    }
+  }
+
+  const unlinkDiscordAccount = async () => {
+    if (!user) return
+    setIsUnlinking(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        toast.error('Session expired. Please log in again.')
+        return
+      }
+
+      const config = await getConfig()
+      const API_URL = config.API_URL || config.VITE_API_URL || 'http://localhost:3000'
+      const apiBaseUrl = API_URL.replace('/api/v1', '').replace('/api', '')
+
+      const response = await fetch(`${apiBaseUrl}/api/v1/account-linking/unlink`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to unlink Discord account.')
+      }
+
+      setIsLinked(false)
+      setDiscordAccount(null)
+      setLinkingCode(null)
+      setCodeExpiresAt(null)
+      toast.success('Discord account unlinked successfully.')
+    } catch (error: any) {
+      console.error('Error unlinking Discord account:', error)
+      toast.error(error?.message || 'Failed to unlink Discord account.')
+    } finally {
+      setIsUnlinking(false)
     }
   }
 
@@ -453,6 +494,15 @@ export default function AccountSettings({
                     className="w-12 h-12 rounded-full"
                   />
                 )}
+              </div>
+              <div className="mt-4">
+                <button
+                  onClick={unlinkDiscordAccount}
+                  disabled={isUnlinking}
+                  className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/50 text-red-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isUnlinking ? 'Unlinking...' : 'Unlink'}
+                </button>
               </div>
             </div>
           ) : (

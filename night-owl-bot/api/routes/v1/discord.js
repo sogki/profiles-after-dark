@@ -43,7 +43,7 @@ router.post('/users', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing required fields: discord_id, username, guild_id' });
     }
 
-    const { data, error } = await db
+    let { data, error } = await db
       .from('discord_users')
       .upsert({
         discord_id,
@@ -56,6 +56,25 @@ router.post('/users', async (req, res) => {
       }, { onConflict: 'discord_id,guild_id' })
       .select()
       .single();
+
+    // Backward compatibility for legacy UNIQUE(discord_id) schema.
+    if (error?.code === '23505' && String(error?.message || '').includes('discord_users_discord_id_key')) {
+      const legacyResult = await db
+        .from('discord_users')
+        .upsert({
+          discord_id,
+          web_user_id,
+          username,
+          discriminator,
+          avatar_url,
+          guild_id,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'discord_id' })
+        .select()
+        .single();
+      data = legacyResult.data;
+      error = legacyResult.error;
+    }
 
     if (error) throw error;
 

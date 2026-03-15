@@ -211,7 +211,7 @@ router.post('/validate', async (req, res) => {
     }
 
     // Link Discord account to website account
-    const { data: discordUser, error: linkError } = await db
+    let { data: discordUser, error: linkError } = await db
       .from('discord_users')
       .upsert({
         discord_id,
@@ -224,6 +224,25 @@ router.post('/validate', async (req, res) => {
       }, { onConflict: 'discord_id,guild_id' })
       .select()
       .single();
+
+    // Backward compatibility for legacy UNIQUE(discord_id) schema.
+    if (linkError?.code === '23505' && String(linkError?.message || '').includes('discord_users_discord_id_key')) {
+      const legacyResult = await db
+        .from('discord_users')
+        .upsert({
+          discord_id,
+          web_user_id: linkingCode.user_id,
+          username,
+          discriminator,
+          avatar_url,
+          guild_id,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'discord_id' })
+        .select()
+        .single();
+      discordUser = legacyResult.data;
+      linkError = legacyResult.error;
+    }
 
     if (linkError) {
       console.error('Error linking accounts:', linkError);

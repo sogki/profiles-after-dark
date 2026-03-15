@@ -58,7 +58,7 @@ export async function syncDiscordUser(discordId, userData) {
         const db = await getSupabase();
         const { guild_id, username, discriminator, avatar_url, web_user_id } = userData;
 
-        const { data, error } = await db
+        let { data, error } = await db
             .from('discord_users')
             .upsert({
                 discord_id: discordId,
@@ -72,6 +72,26 @@ export async function syncDiscordUser(discordId, userData) {
             }, { onConflict: 'discord_id,guild_id' })
             .select()
             .single();
+
+        // Backward compatibility: some DBs still have legacy UNIQUE(discord_id) constraint.
+        if (error?.code === '23505' && String(error?.message || '').includes('discord_users_discord_id_key')) {
+            const legacyResult = await db
+                .from('discord_users')
+                .upsert({
+                    discord_id: discordId,
+                    guild_id,
+                    username,
+                    discriminator,
+                    avatar_url,
+                    web_user_id,
+                    updated_at: new Date().toISOString(),
+                    joined_at: userData.joined_at || new Date().toISOString()
+                }, { onConflict: 'discord_id' })
+                .select()
+                .single();
+            data = legacyResult.data;
+            error = legacyResult.error;
+        }
 
         if (error) {
             console.error('Error syncing Discord user:', error);

@@ -31,6 +31,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { sendDiscordBotLogEvent } from '../../../lib/discordBotApi';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../context/authContext';
 import type { ContentItem, ContentType } from './types';
@@ -306,6 +307,21 @@ export default function ContentManagementView() {
             contentId
           );
         }
+
+        if (contentItem && action !== 'delete') {
+          await sendDiscordBotLogEvent({
+            eventType: 'content_review',
+            title: `Content ${action === 'approve' ? 'Approved' : 'Rejected'}`,
+            description: `A staff member ${action === 'approve' ? 'approved' : 'rejected'} a ${getContentTypeLabel(contentType).toLowerCase()} submission.`,
+            fields: [
+              { name: 'Content ID', value: contentId, inline: true },
+              { name: 'Content Type', value: getContentTypeLabel(contentType), inline: true },
+              { name: 'Title', value: getContentTitle(contentItem), inline: false },
+              { name: 'Uploader ID', value: contentItem.user_id, inline: true },
+            ],
+            visibility: 'staff',
+          }).catch(() => undefined);
+        }
         
         toast.success(`Content ${action === 'approve' ? 'approved' : 'rejected'} successfully`);
       }
@@ -386,10 +402,30 @@ export default function ContentManagementView() {
             );
           }
         });
+
+        const discordLogPromises = selectedItems.map(async (itemId) => {
+          const item = content.find(c => c.id === itemId);
+          if (!item) return;
+          await sendDiscordBotLogEvent({
+            eventType: 'content_review',
+            title: `Content ${action === 'approve' ? 'Approved' : 'Rejected'}`,
+            description: `Bulk moderation ${action} action was performed.`,
+            fields: [
+              { name: 'Content ID', value: itemId, inline: true },
+              { name: 'Content Type', value: getContentTypeLabel(item.contentType), inline: true },
+              { name: 'Title', value: getContentTitle(item), inline: false },
+              { name: 'Uploader ID', value: item.user_id, inline: true },
+            ],
+            visibility: 'staff',
+          }).catch(() => undefined);
+        });
         
         // Send all notifications in parallel (don't wait for them to complete)
         Promise.all(notificationPromises).catch(err => {
           console.error('Error sending bulk notifications:', err);
+        });
+        Promise.all(discordLogPromises).catch(err => {
+          console.error('Error sending bulk Discord logs:', err);
         });
       }
 

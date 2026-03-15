@@ -16,6 +16,12 @@ export const data = new SlashCommandBuilder()
 
 export const category = 'General';
 
+function normalizeApiBaseUrl(rawUrl) {
+    const fallback = 'http://localhost:3000';
+    const base = (rawUrl || fallback).trim().replace(/\/+$/, '');
+    return base.endsWith('/api/v1') ? base.slice(0, -7) : base;
+}
+
 export async function execute(interaction) {
     // Defer reply immediately (ephemeral)
     await interaction.deferReply({ ephemeral: true });
@@ -23,7 +29,9 @@ export async function execute(interaction) {
     try {
         const code = interaction.options.getString('code');
         const config = await loadConfig();
-        const API_URL = config?.API_URL || config?.BACKEND_URL || process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:3000';
+        const API_URL = normalizeApiBaseUrl(
+            config?.API_URL || config?.BACKEND_URL || process.env.API_URL || process.env.BACKEND_URL
+        );
 
         // Get Discord user info
         const discordId = interaction.user.id;

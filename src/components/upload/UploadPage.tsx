@@ -15,6 +15,7 @@ import { toast } from "react-hot-toast"
 import { motion } from "framer-motion"
 import { assertCanCreateCollection, getCollectionQuota } from "@/lib/collectionLimits"
 import { getUserCollectionContentOptions } from "@/lib/collectionContent"
+import { sendDiscordBotLogEvent } from "../../lib/discordBotApi"
 
 type UploadMode = "single" | "profilePair" | "emojiCombo" | "emote" | "wallpaper" | "collection"
 
@@ -245,6 +246,18 @@ export default function UploadPage() {
 
       if (insertError) throw new Error(insertError.message)
 
+      await sendDiscordBotLogEvent({
+        eventType: "content_submission",
+        title: "New Content Submission",
+        description: `${singleForm.type === "profile" ? "Profile" : "Banner"} submission created and awaiting review.`,
+        fields: [
+          { name: "Title", value: singleForm.title, inline: true },
+          { name: "Type", value: singleForm.type, inline: true },
+          { name: "User ID", value: user.id, inline: true },
+        ],
+        visibility: "staff",
+      }).catch(() => undefined)
+
       toast.success("Upload successful!")
       setSuccess(true)
       resetForm("single")
@@ -310,6 +323,18 @@ export default function UploadPage() {
 
       if (insertError) throw new Error(insertError.message)
 
+      await sendDiscordBotLogEvent({
+        eventType: "content_submission",
+        title: "New Profile Pair Submission",
+        description: "A profile pair submission is awaiting moderation review.",
+        fields: [
+          { name: "Title", value: pairForm.title, inline: true },
+          { name: "User ID", value: user.id, inline: true },
+          { name: "Category", value: pairForm.category, inline: true },
+        ],
+        visibility: "staff",
+      }).catch(() => undefined)
+
       toast.success("Profile pair uploaded successfully!")
       setSuccess(true)
       resetForm("profilePair")
@@ -357,6 +382,18 @@ export default function UploadPage() {
       ])
 
       if (insertError) throw new Error(insertError.message)
+
+      await sendDiscordBotLogEvent({
+        eventType: "content_submission",
+        title: "New Emoji Combo Submission",
+        description: "A new emoji combo was submitted for review.",
+        fields: [
+          { name: "Name", value: emojiForm.name, inline: true },
+          { name: "User ID", value: user.id, inline: true },
+          { name: "Preview", value: emojiForm.combo_text.slice(0, 80) || "-", inline: false },
+        ],
+        visibility: "staff",
+      }).catch(() => undefined)
 
       toast.success("Emoji combo uploaded successfully!")
       setSuccess(true)
@@ -412,6 +449,18 @@ export default function UploadPage() {
 
       if (insertError) throw new Error(insertError.message)
 
+      await sendDiscordBotLogEvent({
+        eventType: "content_submission",
+        title: "New Emote Submission",
+        description: "A new emote was submitted and is pending moderation.",
+        fields: [
+          { name: "Title", value: emoteForm.title, inline: true },
+          { name: "Category", value: emoteForm.category, inline: true },
+          { name: "User ID", value: user.id, inline: true },
+        ],
+        visibility: "staff",
+      }).catch(() => undefined)
+
       toast.success("Emote uploaded successfully!")
       setSuccess(true)
       resetForm("emote")
@@ -466,6 +515,18 @@ export default function UploadPage() {
       ])
 
       if (insertError) throw new Error(insertError.message)
+
+      await sendDiscordBotLogEvent({
+        eventType: "content_submission",
+        title: "New Wallpaper Submission",
+        description: "A new wallpaper was submitted and is pending moderation.",
+        fields: [
+          { name: "Title", value: wallpaperForm.title, inline: true },
+          { name: "Category", value: wallpaperForm.category, inline: true },
+          { name: "User ID", value: user.id, inline: true },
+        ],
+        visibility: "staff",
+      }).catch(() => undefined)
 
       toast.success("Wallpaper uploaded successfully!")
       setSuccess(true)

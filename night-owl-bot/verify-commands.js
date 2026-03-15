@@ -1,5 +1,6 @@
 import { REST, Routes } from 'discord.js';
 import dotenv from 'dotenv';
+import { loadConfig } from './utils/config.js';
 
 dotenv.config();
 
@@ -8,31 +9,33 @@ dotenv.config();
  */
 async function verifyCommands() {
   try {
-    if (!process.env.DISCORD_TOKEN) {
+    const config = await loadConfig();
+
+    if (!config.DISCORD_TOKEN) {
       console.error('❌ DISCORD_TOKEN is not set');
       process.exit(1);
     }
 
-    if (!process.env.CLIENT_ID) {
+    if (!config.CLIENT_ID) {
       console.error('❌ CLIENT_ID is not set');
       process.exit(1);
     }
 
-    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+    const rest = new REST({ version: '10' }).setToken(config.DISCORD_TOKEN);
 
     console.log('🔍 Verifying registered commands...');
 
     let commands;
-    if (process.env.GUILD_ID) {
-      console.log(`Checking guild commands for guild: ${process.env.GUILD_ID}`);
+    if (config.GUILD_ID) {
+      console.log(`Checking guild commands for guild: ${config.GUILD_ID}`);
       commands = await rest.get(
-        Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID)
+        Routes.applicationGuildCommands(config.CLIENT_ID, config.GUILD_ID)
       );
       console.log(`✅ Found ${commands.length} guild command(s):\n`);
     } else {
       console.log('Checking global commands...');
       commands = await rest.get(
-        Routes.applicationCommands(process.env.CLIENT_ID)
+        Routes.applicationCommands(config.CLIENT_ID)
       );
       console.log(`✅ Found ${commands.length} global command(s):\n`);
     }

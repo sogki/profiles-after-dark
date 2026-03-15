@@ -1,4 +1,4 @@
-import { BarChart3, CreditCard, FileText, Flag, Menu, UserCog, Users } from "lucide-react";
+import { BarChart3, Bot, CreditCard, FileText, Flag, Menu, UserCog, Users } from "lucide-react";
 import type { ModerationView } from "./types";
 
 interface ModerationMobileHeaderProps {
@@ -35,6 +35,7 @@ export default function ModerationMobileHeader({
             { id: "reports", icon: Flag, label: "Reports" },
             { id: "content", icon: FileText, label: "Content" },
             { id: "users", icon: Users, label: "Users" },
+            { id: "discord-bot", icon: Bot, label: "Discord" },
             { id: "subscriptions", icon: CreditCard, label: "Subs", show: canManageSubscriptions },
             { id: "roles", icon: UserCog, label: "Roles", show: isAdmin },
           ]

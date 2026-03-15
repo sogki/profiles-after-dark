@@ -224,6 +224,7 @@ export default function ModerationSidebar({
               <div className="ml-2 space-y-1 mt-1">
                 {[
                   { id: "automation", label: "AI Moderation", icon: Bot },
+                  { id: "discord-bot", label: "Discord Bot", icon: Bot },
                   { id: "analytics", label: "Analytics & Monitoring", icon: TrendingUp },
                   { id: "developer", label: "Developer Tools", icon: Code },
                   { id: "settings", label: "Settings", icon: Settings },

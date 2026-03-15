@@ -4,6 +4,7 @@ export type ModerationView =
   | "content"
   | "logs"
   | "analytics"
+  | "discord-bot"
   | "users"
   | "subscriptions"
   | "roles"

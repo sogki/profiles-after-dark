@@ -135,6 +135,7 @@ The `Procfile` defines two processes:
 - `/unmute` - Unmute a user
 - `/unban` - Unban a user
 - `/modlogs` - Manage moderation logs channel
+- `/setup` - Bootstrap a server structure aligned with Profiles After Dark content types
 
 ### Gallery Commands
 - `/profile <id>` - View a specific profile picture

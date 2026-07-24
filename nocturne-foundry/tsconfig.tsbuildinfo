@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/layout/foundrybackground.tsx","./src/components/layout/foundryfooter.tsx","./src/components/layout/foundryheader.tsx","./src/data/foundrycontent.ts","./src/pages/discordbotdashboardpage.tsx","./src/pages/landingpage.tsx"],"version":"5.9.3"}

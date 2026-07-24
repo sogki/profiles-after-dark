@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .env
 night-owl-bot/.env
+
+# Local database dumps may contain PII / secrets
+supabase/archive/

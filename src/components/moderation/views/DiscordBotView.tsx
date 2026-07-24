@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bot, Link2, Users, Crown, RefreshCw, Save } from 'lucide-react';
+import { Bot, Link2, Users, Crown, RefreshCw, Save, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../context/authContext';
 import {
@@ -7,6 +7,7 @@ import {
   getDiscordGuildChannels,
   getDiscordBotLoggingSettings,
   updateDiscordBotLoggingSettings,
+  getDiscordSetupLink,
 } from '../../../lib/discordBotApi';
 
 interface DashboardUser {
@@ -60,6 +61,7 @@ export default function DiscordBotView() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [channels, setChannels] = useState<Array<{ id: string; name: string }>>([]);
   const [filter, setFilter] = useState<'all' | 'linked' | 'unlinked'>('all');
+  const [setupLink, setSetupLink] = useState('');
 
   const roles = useMemo(
     () =>
@@ -89,11 +91,13 @@ export default function DiscordBotView() {
           .filter((channel): channel is { id: string; name: string } =>
             Boolean(channel && typeof channel.id === 'string' && typeof channel.name === 'string')
           )
-          .map((channel) => ({
-            id: channel.id,
-            name: channel.name,
-          }))
+          .map((channel) => ({ id: channel.id, name: channel.name }))
       );
+
+      if (isAdmin) {
+        const linkResponse = await getDiscordSetupLink();
+        setSetupLink(linkResponse.data?.url || '');
+      }
     } catch (error) {
       console.error('Failed to load Discord bot data:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to load Discord bot data');
@@ -133,9 +137,9 @@ export default function DiscordBotView() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex h-64 items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-purple-500" />
           <p className="text-slate-400">Loading Discord Bot dashboard...</p>
         </div>
       </div>
@@ -144,61 +148,82 @@ export default function DiscordBotView() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-slate-800/75 rounded-xl border border-slate-700/50 p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="rounded-xl border border-slate-700/50 bg-slate-800/75 p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Bot className="w-6 h-6 text-purple-400" />
+            <h2 className="flex items-center gap-2 text-2xl font-bold text-white">
+              <Bot className="h-6 w-6 text-purple-400" />
               Discord Bot
             </h2>
-            <p className="text-slate-400 mt-1">Guild stats, linking coverage, flair premium status, and log routing.</p>
+            <p className="mt-1 text-slate-400">Guild stats, linking coverage, flair premium status, and log routing.</p>
           </div>
           <button
             onClick={loadData}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2 text-white transition-colors hover:bg-slate-600"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="h-4 w-4" />
             Refresh
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="bg-slate-800/60 rounded-xl border border-slate-700/50 p-4">
-          <p className="text-slate-400 text-sm">Guild Members</p>
-          <p className="text-2xl font-bold text-white mt-1">{dashboard?.guild.member_count || 0}</p>
+      {isAdmin && (
+        <div className="rounded-xl border border-slate-700/50 bg-slate-800/60 p-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Discord Setup Dashboard</h3>
+              <p className="mt-1 text-sm text-slate-400">
+                Setup presets, rules embed builder, and role creation now live in the dedicated Dev portal dashboard.
+              </p>
+            </div>
+            <button
+              onClick={() => setupLink && window.open(setupLink, '_blank', 'noopener,noreferrer')}
+              disabled={!setupLink}
+              className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Open Setup Dashboard
+            </button>
+          </div>
         </div>
-        <div className="bg-slate-800/60 rounded-xl border border-slate-700/50 p-4">
-          <p className="text-slate-400 text-sm">Linked Accounts</p>
-          <p className="text-2xl font-bold text-white mt-1">{dashboard?.stats.linked_users || 0}</p>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-xl border border-slate-700/50 bg-slate-800/60 p-4">
+          <p className="text-sm text-slate-400">Guild Members</p>
+          <p className="mt-1 text-2xl font-bold text-white">{dashboard?.guild.member_count || 0}</p>
         </div>
-        <div className="bg-slate-800/60 rounded-xl border border-slate-700/50 p-4">
-          <p className="text-slate-400 text-sm">Unlinked Accounts</p>
-          <p className="text-2xl font-bold text-white mt-1">{dashboard?.stats.unlinked_users || 0}</p>
+        <div className="rounded-xl border border-slate-700/50 bg-slate-800/60 p-4">
+          <p className="text-sm text-slate-400">Linked Accounts</p>
+          <p className="mt-1 text-2xl font-bold text-white">{dashboard?.stats.linked_users || 0}</p>
         </div>
-        <div className="bg-slate-800/60 rounded-xl border border-slate-700/50 p-4">
-          <p className="text-slate-400 text-sm">Flair Premium Users</p>
-          <p className="text-2xl font-bold text-white mt-1">{dashboard?.stats.premium_subscribers || 0}</p>
+        <div className="rounded-xl border border-slate-700/50 bg-slate-800/60 p-4">
+          <p className="text-sm text-slate-400">Unlinked Accounts</p>
+          <p className="mt-1 text-2xl font-bold text-white">{dashboard?.stats.unlinked_users || 0}</p>
+        </div>
+        <div className="rounded-xl border border-slate-700/50 bg-slate-800/60 p-4">
+          <p className="text-sm text-slate-400">Flair Premium Users</p>
+          <p className="mt-1 text-2xl font-bold text-white">{dashboard?.stats.premium_subscribers || 0}</p>
         </div>
       </div>
 
-      <div className="bg-slate-800/60 rounded-xl border border-slate-700/50 p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="rounded-xl border border-slate-700/50 bg-slate-800/60 p-6">
+        <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Logging Settings</h3>
           <button
             onClick={handleSave}
             disabled={!isAdmin || saving}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Save className="w-4 h-4" />
+            <Save className="h-4 w-4" />
             Save
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {LOGGING_KEYS.map((key) => (
             <label key={key} className="block">
-              <span className="block text-sm text-slate-300 mb-1">{LOGGING_LABELS[key]}</span>
+              <span className="mb-1 block text-sm text-slate-300">{LOGGING_LABELS[key]}</span>
               <select
                 value={settings[key] || ''}
                 disabled={!isAdmin}
@@ -217,8 +242,8 @@ export default function DiscordBotView() {
         </div>
       </div>
 
-      <div className="bg-slate-800/60 rounded-xl border border-slate-700/50 p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+      <div className="rounded-xl border border-slate-700/50 bg-slate-800/60 p-6">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h3 className="text-lg font-semibold text-white">User Link Status</h3>
           <div className="flex gap-2">
             {[
@@ -229,10 +254,8 @@ export default function DiscordBotView() {
               <button
                 key={option.id}
                 onClick={() => setFilter(option.id as typeof filter)}
-                className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                  filter === option.id
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-slate-700/70 text-slate-300 hover:bg-slate-700'
+                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  filter === option.id ? 'bg-purple-600 text-white' : 'bg-slate-700/70 text-slate-300 hover:bg-slate-700'
                 }`}
               >
                 {option.label}
@@ -241,38 +264,38 @@ export default function DiscordBotView() {
           </div>
         </div>
 
-        <div className="space-y-2 max-h-[520px] overflow-y-auto">
+        <div className="max-h-[520px] space-y-2 overflow-y-auto">
           {filteredUsers.map((user) => (
             <div
               key={user.user_id}
-              className="bg-slate-900/60 border border-slate-700/60 rounded-lg px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2"
+              className="flex flex-col gap-2 rounded-lg border border-slate-700/60 bg-slate-900/60 px-4 py-3 md:flex-row md:items-center md:justify-between"
             >
               <div>
-                <p className="text-white font-medium">{user.display_name || user.username || 'Unknown user'}</p>
+                <p className="font-medium text-white">{user.display_name || user.username || 'Unknown user'}</p>
                 <p className="text-xs text-slate-400">{user.user_id}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span
-                  className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded ${
+                  className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs ${
                     user.linked ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-600/40 text-slate-300'
                   }`}
                 >
-                  <Link2 className="w-3.5 h-3.5" />
+                  <Link2 className="h-3.5 w-3.5" />
                   {user.linked ? 'Linked' : 'Not linked'}
                 </span>
                 <span
-                  className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded ${
+                  className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs ${
                     user.flair_subscription_tier === 'premium'
                       ? 'bg-purple-500/20 text-purple-300'
                       : 'bg-slate-600/40 text-slate-300'
                   }`}
                 >
-                  <Crown className="w-3.5 h-3.5" />
+                  <Crown className="h-3.5 w-3.5" />
                   {user.flair_subscription_tier}
                 </span>
                 {user.discord_username && (
-                  <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-slate-700/60 text-slate-200">
-                    <Users className="w-3.5 h-3.5" />
+                  <span className="inline-flex items-center gap-1 rounded bg-slate-700/60 px-2 py-1 text-xs text-slate-200">
+                    <Users className="h-3.5 w-3.5" />
                     {user.discord_username}
                   </span>
                 )}
@@ -280,9 +303,7 @@ export default function DiscordBotView() {
             </div>
           ))}
 
-          {filteredUsers.length === 0 && (
-            <p className="text-slate-400 text-sm">No users found for this filter.</p>
-          )}
+          {filteredUsers.length === 0 && <p className="text-sm text-slate-400">No users found for this filter.</p>}
         </div>
       </div>
     </div>

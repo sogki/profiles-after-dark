@@ -113,6 +113,7 @@ export async function loadConfig() {
           'SUPABASE_URL',
           'SUPABASE_SERVICE_ROLE_KEY',
           'API_URL',
+          'DEV_WEB_URL',
           'BACKEND_URL',
           'WEB_URL',
           'STAFF_LOG_CHANNEL_ID',
@@ -123,6 +124,7 @@ export async function loadConfig() {
           'DISCORD_LOG_CHANNEL_FLAIR',
           'DISCORD_LOG_CHANNEL_ACCOUNT_LINKING',
           'DISCORD_LOG_CHANNEL_ADMIN',
+          'DISCORD_SETUP_LINK_SECRET',
           'AUTO_DEPLOY_COMMANDS',
           'EXPORT_LINK_SECRET',
           'STRIPE_PUBLISHABLE_KEY',
@@ -183,6 +185,7 @@ export async function loadConfig() {
     'SUPABASE_URL',
     'SUPABASE_SERVICE_ROLE_KEY',
     'API_URL',
+    'DEV_WEB_URL',
     'BACKEND_URL',
     'WEB_URL',
     'STAFF_LOG_CHANNEL_ID',
@@ -193,6 +196,7 @@ export async function loadConfig() {
     'DISCORD_LOG_CHANNEL_FLAIR',
     'DISCORD_LOG_CHANNEL_ACCOUNT_LINKING',
     'DISCORD_LOG_CHANNEL_ADMIN',
+    'DISCORD_SETUP_LINK_SECRET',
     'AUTO_DEPLOY_COMMANDS',
     'EXPORT_LINK_SECRET',
     'STRIPE_PUBLISHABLE_KEY',
@@ -345,6 +349,12 @@ export async function initializeConfigFromEnv() {
       isSecret: false
     },
     {
+      key: 'DEV_WEB_URL',
+      description: 'Development web portal URL (e.g., https://dev.profilesafterdark.com)',
+      category: 'api',
+      isSecret: false
+    },
+    {
       key: 'BACKEND_URL',
       description: 'Backend URL (alias for API_URL)',
       category: 'api',
@@ -409,6 +419,12 @@ export async function initializeConfigFromEnv() {
       description: 'Discord channel ID for admin-only bot logs',
       category: 'discord',
       isSecret: false
+    },
+    {
+      key: 'DISCORD_SETUP_LINK_SECRET',
+      description: 'Secret used to sign Discord setup dashboard links',
+      category: 'discord',
+      isSecret: true
     },
     {
       key: 'AUTO_DEPLOY_COMMANDS',

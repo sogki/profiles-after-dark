@@ -72,6 +72,46 @@ export async function getDiscordGuildChannels() {
   return fetchApi('/discord-bot/channels');
 }
 
+export async function getDiscordSetupPresets() {
+  return fetchApi('/discord-bot/setup/presets');
+}
+
+export async function getDiscordSetupLink() {
+  return fetchApi('/discord-bot/setup-link');
+}
+
+export async function applyDiscordSetupPreset(presetId: string) {
+  return fetchApi('/discord-bot/setup/apply-preset', {
+    method: 'POST',
+    body: JSON.stringify({ preset_id: presetId }),
+  });
+}
+
+export async function createDiscordSetupRoles(roles: Array<{
+  name: string;
+  color?: string;
+  hoist?: boolean;
+  mentionable?: boolean;
+}>) {
+  return fetchApi('/discord-bot/setup/roles', {
+    method: 'POST',
+    body: JSON.stringify({ roles }),
+  });
+}
+
+export async function postDiscordRulesEmbed(payload: {
+  channel_id: string;
+  title?: string;
+  description?: string;
+  rules?: string[];
+  color?: string;
+}) {
+  return fetchApi('/discord-bot/setup/rules-embed', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function requestUserDataExport(delivery: 'download' | 'discord_dm') {
   return fetchApi('/discord-bot/user-data-export', {
     method: 'POST',
